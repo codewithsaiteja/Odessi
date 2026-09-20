@@ -1,69 +1,75 @@
-import Image from "next/image";
+import AnnouncementBar from "@/components/layout/AnnouncementBar";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
+import Hero from "@/components/sections/Hero";
+import FeaturedCollections from "@/components/sections/FeaturedCollections";
+import BestSellers from "@/components/sections/BestSellers";
+import BrandStory from "@/components/sections/BrandStory";
+import ShopByCategory from "@/components/sections/ShopByCategory";
+import NewDrop from "@/components/sections/NewDrop";
+import CustomSection from "@/components/sections/CustomSection";
+import InstagramGrid from "@/components/sections/InstagramGrid";
+import Newsletter from "@/components/sections/Newsletter";
+import { LetsGrowTogether } from "@/components/home/LetsGrowTogether";
+import { LimitedDropSection } from "@/components/home/LimitedDropSection";
+import { WhatsAppCTA } from "@/components/common/WhatsAppCTA";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <>
+      {/* ── Fixed top bar ── */}
+      <div className="fixed top-0 left-0 right-0 z-50">
+        <AnnouncementBar />
+      </div>
+
+      {/* ── Navbar — sits below announcement bar ── */}
+      <Navbar />
+
+      {/* ── Main content ── */}
+      <main id="main-content">
+        {/* 1. Hero — full screen cinematic */}
+        <Hero />
+
+        {/* 2. Featured Collections */}
+        <FeaturedCollections />
+
+        {/* 3. Best Sellers */}
+        <BestSellers />
+
+        {/* 4. Limited Drops */}
+        <div className="max-w-7xl mx-auto px-4">
+          <LimitedDropSection />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* 5. Brand Story */}
+        <BrandStory />
+
+        {/* 6. Shop by Category */}
+        <ShopByCategory />
+
+        {/* 7. New Drop — editorial split */}
+        <NewDrop />
+
+        {/* 8. Custom / Personalisation */}
+        <CustomSection />
+
+        {/* 9. Let's Grow Together (Partner CTA) */}
+        <div className="max-w-7xl mx-auto px-4">
+          <LetsGrowTogether />
         </div>
+
+        {/* 10. Instagram */}
+        <InstagramGrid />
+
+        {/* 11. Newsletter */}
+        <Newsletter />
       </main>
-    </div>
+
+      {/* ── Subtle Floating WhatsApp Concierge ── */}
+      <WhatsAppCTA />
+
+      {/* ── Footer ── */}
+      <Footer />
+    </>
   );
 }

@@ -1,0 +1,20 @@
+{
+    # Global options block
+    email your-admin-email@odessi.shop # Replace with a real email for Let's Encrypt recovery
+}
+
+odessi.shop, www.odessi.shop {
+    # Compress responses
+    encode gzip zstd
+
+    # Reverse proxy to the Next.js standalone container
+    reverse_proxy frontend:3000
+}
+
+api.odessi.shop {
+    # Compress responses
+    encode gzip zstd
+
+    # Reverse proxy to the Spring Boot backend container
+    reverse_proxy backend:8080
+}

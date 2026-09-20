@@ -1,0 +1,10 @@
+UPDATE products SET name = 'ODESSI CORE - OVERSIZED TEE' WHERE slug = 'odessi-core-oversized-tee';
+UPDATE products SET name = 'ODESSI ARCHIVE - GRAPHIC TEE' WHERE slug = 'odessi-archive-graphic-tee';
+UPDATE products SET name = 'ODESSI SIGNATURE - OVERSIZED TEE' WHERE slug = 'odessi-signature-oversized-tee';
+UPDATE products SET name = 'ODESSI HERO - OVERSIZED TEE' WHERE slug = 'odessi-hero-oversized-tee';
+UPDATE products SET name = 'ODESSI EMBLEM - HEAVYWEIGHT TEE' WHERE slug = 'odessi-emblem-heavyweight-tee';
+UPDATE products SET name = 'ODESSI CORE - OVERSIZED HOODIE' WHERE slug = 'odessi-core-oversized-hoodie';
+UPDATE products SET name = 'ODESSI ARCHIVE - HEAVYWEIGHT HOODIE' WHERE slug = 'odessi-archive-heavyweight-hoodie';
+UPDATE products SET name = 'ODESSI HERO - STATEMENT HOODIE' WHERE slug = 'odessi-hero-statement-hoodie';
+UPDATE products SET name = 'ODESSI / 001 - SIGNATURE HOODIE' WHERE slug = 'odessi-001-signature-hoodie';
+UPDATE products SET name = 'ODESSI DAILY - ESSENTIAL TEE' WHERE slug = 'odessi-daily-essential-tee';

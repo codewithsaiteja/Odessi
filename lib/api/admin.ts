@@ -1,0 +1,377 @@
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete, apiPostFormData, ApiError } from "./client";
+import { products as staticProducts } from "@/data/products";
+
+export interface AdminDashboardStats {
+  totalOrders: number;
+  totalRevenue: number;
+  pendingPaymentCount: number;
+  confirmedCount: number;
+  totalCustomers: number;
+  totalProducts: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  recentOrders: any[];
+  lowStockProducts: any[];
+  recentCustomers: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    enabled: boolean;
+    emailVerified: boolean;
+    orderCount: number;
+    createdAt: string;
+  }[];
+}
+
+export interface AdminProductRequest {
+  name: string;
+  slug?: string;
+  description: string;
+  shortDescription?: string;
+  price: number;
+  compareAtPrice?: number | null;
+  currency?: string;
+  categoryId?: number | null;
+  collectionId?: number | null;
+  material?: string;
+  fit?: string;
+  careInstructions?: string;
+  featured: boolean;
+  bestseller: boolean;
+  newArrival: boolean;
+  active: boolean;
+  variants?: any[];
+}
+
+export interface AdminVariantRequest {
+  id?: number;
+  sku: string;
+  size: string;
+  color: string;
+  colorHex?: string;
+  price: number;
+  stockQuantity: number;
+  active: boolean;
+}
+
+export interface InventoryAdjustmentRequest {
+  variantId: number;
+  quantityChange: number;
+  reason: string;
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  number: number;
+  size: number;
+}
+
+// ── Admin Dashboard ──────────────────────────────────────────────
+export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
+  try {
+    return await apiGet<AdminDashboardStats>("/api/admin/dashboard/stats");
+  } catch (err: unknown) {
+    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
+      return {
+        totalOrders: 18,
+        totalRevenue: 34500,
+        pendingPaymentCount: 2,
+        confirmedCount: 14,
+        totalCustomers: 26,
+        totalProducts: staticProducts.length,
+        lowStockCount: 3,
+        outOfStockCount: 1,
+        recentOrders: [],
+        lowStockProducts: [],
+        recentCustomers: [
+          {
+            id: 1,
+            firstName: "Sai",
+            lastName: "Teja",
+            email: "sai@odessi.shop",
+            enabled: true,
+            emailVerified: true,
+            orderCount: 4,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      };
+    }
+    throw err;
+  }
+}
+
+// ── Admin Products ───────────────────────────────────────────────
+export async function getAdminProducts(page = 0, size = 20, search?: string): Promise<PageResponse<any>> {
+  try {
+    const query = new URLSearchParams({ page: String(page), size: String(size) });
+    if (search) query.append("search", search);
+    return await apiGet<PageResponse<any>>(`/api/admin/products?${query.toString()}`);
+  } catch (err: unknown) {
+    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
+      const filtered = staticProducts.map((p, idx) => ({
+        id: idx + 1,
+        name: p.name,
+        slug: p.slug,
+        description: p.description,
+        price: p.price,
+        compareAtPrice: p.compareAtPrice,
+        currency: p.currency,
+        categoryName: (p.category || "tees").toUpperCase(),
+        featured: p.featured || false,
+        active: p.available !== false,
+        variants: p.sizes?.map((s, vIdx) => ({
+          id: vIdx + 1,
+          sku: `${p.slug}-${s.label}`,
+          size: s.label,
+          color: p.colors?.[0]?.name || "Black",
+          price: p.price,
+          stockQuantity: s.available ? 25 : 0,
+          active: true,
+        })),
+      }));
+
+      return {
+        content: filtered,
+        totalPages: 1,
+        totalElements: filtered.length,
+        number: page,
+        size: size,
+      };
+    }
+    throw err;
+  }
+}
+
+export async function getAdminProductById(id: number): Promise<any> {
+  try {
+    return await apiGet<any>(`/api/admin/products/${id}`);
+  } catch (err: unknown) {
+    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
+      const p = staticProducts[0];
+      return {
+        id,
+        name: p.name,
+        slug: p.slug,
+        description: p.description,
+        price: p.price,
+        currency: p.currency,
+        categoryName: "TEES",
+        featured: true,
+        active: true,
+        variants: [],
+      };
+    }
+    throw err;
+  }
+}
+
+export async function createAdminProduct(data: AdminProductRequest): Promise<any> {
+  return apiPost<any>("/api/admin/products", data);
+}
+
+export async function updateAdminProduct(id: number, data: AdminProductRequest): Promise<any> {
+  return apiPut<any>(`/api/admin/products/${id}`, data);
+}
+
+export async function toggleAdminProductActive(id: number): Promise<any> {
+  return apiPatch<any>(`/api/admin/products/${id}/status`);
+}
+
+export async function toggleAdminProductFeatured(id: number): Promise<any> {
+  return apiPatch<any>(`/api/admin/products/${id}/featured`);
+}
+
+export async function addAdminVariant(productId: number, data: AdminVariantRequest): Promise<any> {
+  return apiPost<any>(`/api/admin/products/${productId}/variants`, data);
+}
+
+export async function updateAdminVariant(productId: number, variantId: number, data: AdminVariantRequest): Promise<any> {
+  return apiPut<any>(`/api/admin/products/${productId}/variants/${variantId}`, data);
+}
+
+// ── Admin Inventory ──────────────────────────────────────────────
+export async function getAdminInventory(page = 0, size = 20): Promise<PageResponse<any>> {
+  try {
+    return await apiGet<PageResponse<any>>(`/api/admin/inventory?page=${page}&size=${size}`);
+  } catch (err: unknown) {
+    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
+      return { content: [], totalPages: 1, totalElements: 0, number: page, size };
+    }
+    throw err;
+  }
+}
+
+export async function adjustAdminInventory(data: InventoryAdjustmentRequest): Promise<any> {
+  return apiPost<any>("/api/admin/inventory/adjust", data);
+}
+
+export async function getAdminInventoryLogs(page = 0, size = 20, variantId?: number): Promise<PageResponse<any>> {
+  try {
+    const query = new URLSearchParams({ page: String(page), size: String(size) });
+    if (variantId) query.append("variantId", String(variantId));
+    return await apiGet<PageResponse<any>>(`/api/admin/inventory/logs?${query.toString()}`);
+  } catch (err: unknown) {
+    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
+      return { content: [], totalPages: 1, totalElements: 0, number: page, size };
+    }
+    throw err;
+  }
+}
+
+// ── Admin Orders ─────────────────────────────────────────────────
+export async function getAdminOrders(page = 0, size = 20, status?: string): Promise<PageResponse<any>> {
+  try {
+    const query = new URLSearchParams({ page: String(page), size: String(size) });
+    if (status) query.append("status", status);
+    return await apiGet<PageResponse<any>>(`/api/admin/orders?${query.toString()}`);
+  } catch (err: unknown) {
+    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
+      return { content: [], totalPages: 1, totalElements: 0, number: page, size };
+    }
+    throw err;
+  }
+}
+
+export async function getAdminOrderById(id: number): Promise<any> {
+  return apiGet<any>(`/api/admin/orders/${id}`);
+}
+
+export async function updateAdminOrderStatus(id: number, status: string): Promise<any> {
+  return apiPatch<any>(`/api/admin/orders/${id}/status`, { status });
+}
+
+// ── Admin Users ──────────────────────────────────────────────────
+export async function getAdminUsers(page = 0, size = 20): Promise<PageResponse<any>> {
+  try {
+    return await apiGet<PageResponse<any>>(`/api/admin/users?page=${page}&size=${size}`);
+  } catch (err: unknown) {
+    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
+      return { content: [], totalPages: 1, totalElements: 0, number: page, size };
+    }
+    throw err;
+  }
+}
+
+export async function getAdminUserById(id: number): Promise<any> {
+  return apiGet<any>(`/api/admin/users/${id}`);
+}
+
+export async function toggleAdminUserEnabled(id: number): Promise<any> {
+  return apiPatch<any>(`/api/admin/users/${id}/toggle-enabled`);
+}
+
+// ── Admin Categories & Collections ──────────────────────────────
+export async function getAdminCategories(): Promise<any[]> {
+  try {
+    return await apiGet<any[]>("/api/admin/categories");
+  } catch (err: unknown) {
+    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
+      return [
+        { id: 1, name: "Tees", slug: "tees", description: "Oversized Tees", active: true },
+        { id: 2, name: "Hoodies", slug: "hoodies", description: "French Terry Hoodies", active: true },
+      ];
+    }
+    throw err;
+  }
+}
+
+export async function createAdminCategory(data: any): Promise<any> {
+  return apiPost<any>("/api/admin/categories", data);
+}
+
+export async function updateAdminCategory(id: number, data: any): Promise<any> {
+  return apiPut<any>(`/api/admin/categories/${id}`, data);
+}
+
+export async function toggleAdminCategoryActive(id: number): Promise<any> {
+  return apiPatch<any>(`/api/admin/categories/${id}/status`);
+}
+
+export async function getAdminCollections(): Promise<any[]> {
+  try {
+    return await apiGet<any[]>("/api/admin/collections");
+  } catch (err: unknown) {
+    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
+      return [
+        { id: 1, name: "Dark Verse", slug: "dark-verse", description: "Anti-hero collection", active: true, featured: true },
+      ];
+    }
+    throw err;
+  }
+}
+
+export async function createAdminCollection(data: any): Promise<any> {
+  return apiPost<any>("/api/admin/collections", data);
+}
+
+export async function updateAdminCollection(id: number, data: any): Promise<any> {
+  return apiPut<any>(`/api/admin/collections/${id}`, data);
+}
+
+export async function toggleAdminCollectionActive(id: number): Promise<any> {
+  return apiPatch<any>(`/api/admin/collections/${id}/status`);
+}
+
+// ── Admin Audit Logs ─────────────────────────────────────────────
+export async function getAdminAuditLogs(page = 0, size = 20): Promise<PageResponse<any>> {
+  try {
+    return await apiGet<PageResponse<any>>(`/api/admin/audit-logs?page=${page}&size=${size}`);
+  } catch (err: unknown) {
+    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
+      return { content: [], totalPages: 1, totalElements: 0, number: page, size };
+    }
+    throw err;
+  }
+}
+
+// ── Admin Product Media ──────────────────────────────────────────
+export async function uploadAdminProductImage(
+  productId: number,
+  file: File,
+  altText?: string,
+  isPrimary?: boolean
+): Promise<any> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (altText) formData.append("altText", altText);
+  if (isPrimary !== undefined) formData.append("isPrimary", String(isPrimary));
+
+  return apiPostFormData<any>(`/api/admin/products/${productId}/images`, formData);
+}
+
+export async function deleteAdminProductImage(
+  productId: number,
+  imageId: number
+): Promise<void> {
+  return apiDelete(`/api/admin/products/${productId}/images/${imageId}`);
+}
+
+export async function setAdminPrimaryProductImage(
+  productId: number,
+  imageId: number
+): Promise<any> {
+  return apiPut<any>(`/api/admin/products/${productId}/images/${imageId}/primary`);
+}
+
+export async function reorderAdminProductImages(
+  productId: number,
+  imageIds: number[]
+): Promise<any> {
+  return apiPut<any>(`/api/admin/products/${productId}/images/reorder`, imageIds);
+}
+
+// ── Admin Referrals ─────────────────────────────────────────────
+export async function getAdminReferrals(page = 0, size = 20): Promise<PageResponse<any>> {
+  try {
+    return await apiGet<PageResponse<any>>(`/api/admin/referrals?page=${page}&size=${size}`);
+  } catch (err: unknown) {
+    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
+      return { content: [], totalPages: 1, totalElements: 0, number: page, size };
+    }
+    throw err;
+  }
+}

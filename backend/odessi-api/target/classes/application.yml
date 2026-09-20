@@ -1,0 +1,157 @@
+# ══════════════════════════════════════════════════════════════
+# ODESSI.TFI — Application Configuration
+#
+# Sensitive values are read from environment variables.
+# See .env.example for required variables.
+# ══════════════════════════════════════════════════════════════
+
+spring:
+  application:
+    name: odessi-api
+
+  # ── DataSource ────────────────────────────────────────────
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/odessi}
+    username: ${DB_USERNAME:odessi_user}
+    password: ${DB_PASSWORD:odessi_password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 300000
+      pool-name: OdessiHikariPool
+
+  # ── JPA / Hibernate ──────────────────────────────────────
+  jpa:
+    # database-platform: org.hibernate.dialect.PostgreSQLDialect  # commented out — Spring Boot 3 auto-detects dialect
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+      # validate = Hibernate checks schema against entities but does NOT create/alter tables.
+      # Flyway owns all DDL. Use 'create-drop' only for test profile.
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+
+  # ── Flyway ───────────────────────────────────────────────
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    out-of-order: false
+    validate-on-migrate: true
+
+  # ── Jackson ──────────────────────────────────────────────
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: false
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: non_null
+    time-zone: UTC
+
+# ── Server ────────────────────────────────────────────────
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+# ── Actuator ─────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+# ── App custom properties ─────────────────────────────────
+app:
+  cors:
+    allowed-origins: ${FRONTEND_URL:http://localhost:3000}
+  pagination:
+    default-page-size: 20
+    max-page-size: 100
+  seed:
+    enabled: ${SEED_DATA_ENABLED:true}
+  auth:
+    jwt-secret: ${JWT_SECRET:bXlTdXBlclNlY3JldEtleUZvck9kZXNzaVRmaUF1dGhlbnRpY2F0aW9u}
+    jwt-access-expiration: ${JWT_ACCESS_EXPIRATION:900000}
+    jwt-refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+    cookie-secure: ${AUTH_COOKIE_SECURE:false}
+    cookie-same-site: ${AUTH_COOKIE_SAME_SITE:Lax}
+    require-email-verification: ${AUTH_REQUIRE_EMAIL_VERIFICATION:false}
+  razorpay:
+    key-id: ${RAZORPAY_KEY_ID:rzp_test_dummykeyid123}
+    key-secret: ${RAZORPAY_KEY_SECRET:dummysecretkey1234567890}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:dummywebhooksecret1234567890}
+  checkout:
+    reservation-expiration-minutes: ${RESERVATION_EXPIRATION_MINUTES:15}
+    scheduled-cleanup-cron: ${SCHEDULED_CLEANUP_CRON:0 */5 * * * *}
+  # ── Rate Limiting ─────────────────────────────────────────────────────────
+  # Phase 8: In-memory rate limiter. For multi-instance production clusters,
+  # replace with a distributed implementation (e.g., Redis Lua scripts).
+  rate-limit:
+    unauth-max-requests: ${RATE_LIMIT_UNAUTH_MAX:10}      # per IP+endpoint per window
+    unauth-window-seconds: ${RATE_LIMIT_UNAUTH_WINDOW:60}  # 10 req / 60 s for auth endpoints
+    auth-max-requests: ${RATE_LIMIT_AUTH_MAX:30}           # per userId+endpoint per window
+    auth-window-seconds: ${RATE_LIMIT_AUTH_WINDOW:60}      # 30 req / 60 s for authenticated paths
+
+# ── Logging ──────────────────────────────────────────────
+logging:
+  level:
+    root: INFO
+    com.odessi.api: INFO
+    org.springframework.web: INFO
+    org.hibernate.SQL: INFO
+    org.flywaydb: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# ── OpenAPI / Swagger ─────────────────────────────────────
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+  show-actuator: false
+
+---
+# ══════════════════════════════════════════════════════════════
+# TEST PROFILE — Uses H2 in-memory; Flyway disabled for unit tests
+# (Integration tests use Testcontainers with real PostgreSQL)
+# ══════════════════════════════════════════════════════════════
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:h2:mem:odessi_test;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+  seed:
+    enabled: false

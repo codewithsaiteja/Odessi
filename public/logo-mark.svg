@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="currentColor">
+  <!-- Odessi Compass Emblem Vector -->
+  <g transform="translate(100, 100)">
+    <!-- Outer Horizontal Points -->
+    <path d="M-95,0 Q-65,-4 -45,-12 Q-65,4 -95,0 Z" />
+    <path d="M95,0 Q65,-4 45,-12 Q65,4 95,0 Z" />
+    
+    <!-- Outer Circular Crescent Ring -->
+    <path d="M -50,-20 C -65,-2 -65,30 -45,50 C -25,70 10,75 35,60 C 25,68 -5,72 -30,55 C -50,40 -52,15 -42,-10 Z" />
+    <path d="M 45,-25 C 65,-5 65,30 45,50 C 35,60 15,68 0,65 C 20,62 45,45 45,20 C 45,-2 30,-20 10,-28 Z" />
+
+    <!-- Central Vertical Pillar with Gothic Serif Tip -->
+    <path d="M-8,-85 L10,-85 C14,-75 14,-65 8,-50 L8,60 C12,70 16,80 6,90 L-10,90 C-4,80 0,70 0,60 L0,-50 C-6,-65 -6,-75 -8,-85 Z" />
+
+    <!-- Interlocking Diagonal Swoosh -->
+    <path d="M-40,-5 C-10,-35 25,-25 50,-5 C25,-15 -10,-20 -30,5 Z" />
+    <path d="M-25,10 C5,35 40,40 65,65 C40,50 10,40 -15,20 Z" />
+  </g>
+</svg>

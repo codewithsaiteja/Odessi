@@ -1,0 +1,27 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+app:
+  # In production, the frontend is served from odessi.shop
+  cors:
+    allowed-origins: ${FRONTEND_URL:https://odessi.shop}
+  
+  # Ensure cookies are secure and use SameSite=Lax (since API and Frontend are subdomains of odessi.shop)
+  auth:
+    cookie-secure: true
+    cookie-same-site: Lax
+
+logging:
+  level:
+    root: INFO
+    com.odessi.api: INFO
+    org.springframework.web: INFO
+    # Less noisy SQL logging for production
+    org.hibernate.SQL: WARN
+    org.flywaydb: INFO
+  
+  # Write logs to a file in the container so they can be persisted or rotated
+  file:
+    name: /tmp/app.log
