@@ -32,9 +32,15 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!/.env*.example
 
 # vercel
 .vercel
+
+# sentry
+# SENTRY_AUTH_TOKEN must NEVER be committed — add it only in Vercel/CI environment variables.
+# The .sentryclirc file may contain auth tokens; never commit it.
+.sentryclirc
 
 # typescript
 *.tsbuildinfo

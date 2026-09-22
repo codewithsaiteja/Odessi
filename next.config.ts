@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -112,4 +113,36 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // ── Sentry Organization & Project ──────────────────────────────────────────
+  org: "odessi",
+  project: "javascript-nextjs",
+
+  // ── Source Map Upload ──────────────────────────────────────────────────────
+  // Uploads source maps to Sentry during `next build` so stack traces in the
+  // Sentry dashboard resolve to original TypeScript source lines.
+  //
+  // Requires SENTRY_AUTH_TOKEN to be set in the Vercel environment (build time).
+  // The auth token is NEVER committed to Git — it is a build-time secret only.
+  //
+  // Generate a token at: https://odessi.sentry.io/settings/auth-tokens/
+  // Set it in Vercel: Settings → Environment Variables → SENTRY_AUTH_TOKEN
+  //
+  // If SENTRY_AUTH_TOKEN is absent, the build still succeeds but source maps
+  // will NOT be uploaded (stack traces will show minified code in Sentry).
+  silent: !process.env.CI,
+
+  // Upload a larger set of source maps — includes client-side chunks.
+  widenClientFileUpload: true,
+
+  // ── Tunneling ──────────────────────────────────────────────────────────────
+  // Route Sentry events through a Next.js API route to avoid ad-blocker
+  // interference. Events are tunneled via /monitoring on the frontend.
+  tunnelRoute: "/monitoring",
+
+  // ── Build Optimizations (Turbopack-compatible) ─────────────────────────────
+  // Note: webpack-specific options (autoInstrumentServerFunctions,
+  // autoInstrumentMiddleware, disableLogger) are NOT compatible with Turbopack.
+  // Turbopack instrumentation is handled via instrumentation.ts automatically.
+});
+
