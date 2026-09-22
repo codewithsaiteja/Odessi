@@ -58,12 +58,23 @@ public class GlobalExceptionHandler {
             .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, ex.getErrorCode() != null ? ex.getErrorCode() : "BAD_REQUEST", ex.getMessage(), request.getRequestURI()));
     }
 
-    // ── Business rule violation (422) ─────────────────────────────
+    // ── Business rule violation (422 / 401 for authentication) ────
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusiness(
             BusinessException ex, HttpServletRequest request) {
         log.warn("Business rule violation: {} — {}", ex.getErrorCode(), ex.getMessage());
+
+        // Map authentication credential and refresh token failures to 401 Unauthorized
+        if ("INVALID_CREDENTIALS".equals(ex.getErrorCode())
+                || "INVALID_REFRESH_TOKEN".equals(ex.getErrorCode())
+                || "REFRESH_TOKEN_EXPIRED".equals(ex.getErrorCode())
+                || "REFRESH_TOKEN_REUSE".equals(ex.getErrorCode())) {
+            return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse.of(HttpStatus.UNAUTHORIZED, ex.getErrorCode(), ex.getMessage(), request.getRequestURI()));
+        }
+
         return ResponseEntity
             .status(HttpStatus.UNPROCESSABLE_ENTITY)
             .body(ErrorResponse.of(HttpStatus.UNPROCESSABLE_ENTITY, ex.getErrorCode(), ex.getMessage(), request.getRequestURI()));

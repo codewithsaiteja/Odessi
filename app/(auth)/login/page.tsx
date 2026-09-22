@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { apiGet } from "@/lib/api/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import AuthShell from "@/components/auth/AuthShell";
@@ -19,7 +20,7 @@ function humanizeError(raw: string): string {
     return "Your account has been disabled. Please contact support.";
   }
   if (lower.includes("network") || lower.includes("connect")) {
-    return "Unable to connect to backend server. You can use 1-Click Demo Login below.";
+    return "Unable to connect to backend server. Please check your connection or try again later.";
   }
   return raw || "Authentication failed. Please check your credentials.";
 }
@@ -49,9 +50,9 @@ function LoginContent() {
   // Check backend server availability on mount
   useEffect(() => {
     let isMounted = true;
-    fetch("http://localhost:8080/api/auth/me", { credentials: "include" })
+    apiGet<{ status: string }>("/api/health")
       .then((res) => {
-        if (isMounted) setBackendLive(res.status !== 0);
+        if (isMounted) setBackendLive(res?.status === "UP" || Boolean(res));
       })
       .catch(() => {
         if (isMounted) setBackendLive(false);
@@ -108,7 +109,7 @@ function LoginContent() {
                 }`}
               >
                 <Server size={10} />
-                {backendLive ? "PostgreSQL Live" : "Demo Mode Active"}
+                {backendLive ? "Service Online" : "Offline"}
               </span>
             )}
           </div>

@@ -230,28 +230,28 @@ class SecurityAuthenticationTest {
         }
 
         @Test
-        @DisplayName("POST /api/auth/refresh — 422 on refresh token reuse (replay attack detected)")
-        void refresh_reuseAttack_returns422_andInvalidatesAllSessions() throws Exception {
+        @DisplayName("POST /api/auth/refresh — 401 on refresh token reuse (replay attack detected)")
+        void refresh_reuseAttack_returns401_andInvalidatesAllSessions() throws Exception {
             given(authService.verifyAndRotateRefreshToken(anyString()))
                     .willThrow(new BusinessException("REFRESH_TOKEN_REUSE",
                             "Security violation: refresh token reuse detected. All sessions have been invalidated."));
 
             mockMvc.perform(post("/api/auth/refresh")
                     .cookie(new Cookie("refresh_token", "stolen-old-token")))
-                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.error").value("REFRESH_TOKEN_REUSE"));
         }
 
         @Test
-        @DisplayName("POST /api/auth/refresh — 422 on expired refresh token")
-        void refresh_expiredToken_returns422() throws Exception {
+        @DisplayName("POST /api/auth/refresh — 401 on expired refresh token")
+        void refresh_expiredToken_returns401() throws Exception {
             given(authService.verifyAndRotateRefreshToken(anyString()))
                     .willThrow(new BusinessException("REFRESH_TOKEN_EXPIRED",
                             "Refresh token has expired. Please log in again."));
 
             mockMvc.perform(post("/api/auth/refresh")
                     .cookie(new Cookie("refresh_token", "expired-token")))
-                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.error").value("REFRESH_TOKEN_EXPIRED"));
         }
     }

@@ -16,6 +16,7 @@ import com.odessi.api.security.CustomUserDetailsService;
 import com.odessi.api.security.JwtAuthenticationFilter;
 import com.odessi.api.security.JwtService;
 import com.odessi.api.service.AuthService;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -163,7 +164,7 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/auth/login — 422 on wrong credentials")
+    @DisplayName("POST /api/auth/login — 401 on wrong credentials")
     void login_wrongPassword() throws Exception {
         LoginRequest request = new LoginRequest();
         request.setEmail("test@odessi.com");
@@ -175,8 +176,85 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("INVALID_CREDENTIALS"))
                 .andExpect(jsonPath("$.message").value("Invalid email or password"));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/login — 422 when email not verified")
+    void login_emailNotVerified_returns422() throws Exception {
+        LoginRequest request = new LoginRequest();
+        request.setEmail("unverified@odessi.com");
+        request.setPassword("Passw0rd!");
+
+        given(authService.authenticate(any()))
+                .willThrow(new BusinessException("EMAIL_NOT_VERIFIED", "Please verify your email address before logging in"));
+
+        mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error").value("EMAIL_NOT_VERIFIED"))
+                .andExpect(jsonPath("$.message").value("Please verify your email address before logging in"));
+    }
+
+    // ── Refresh Token ──────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("POST /api/auth/refresh — 401 when no refresh token cookie present")
+    void refresh_noCookie_returns401() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/refresh — 401 on invalid refresh token")
+    void refresh_invalidToken_returns401() throws Exception {
+        given(authService.verifyAndRotateRefreshToken("invalid-token"))
+                .willThrow(new BusinessException("INVALID_REFRESH_TOKEN", "Refresh token is invalid"));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                .cookie(new Cookie("refresh_token", "invalid-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("INVALID_REFRESH_TOKEN"))
+                .andExpect(jsonPath("$.message").value("Refresh token is invalid"));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/refresh — 401 on expired refresh token")
+    void refresh_expiredToken_returns401() throws Exception {
+        given(authService.verifyAndRotateRefreshToken("expired-token"))
+                .willThrow(new BusinessException("REFRESH_TOKEN_EXPIRED", "Refresh token has expired. Please log in again."));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                .cookie(new Cookie("refresh_token", "expired-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("REFRESH_TOKEN_EXPIRED"))
+                .andExpect(jsonPath("$.message").value("Refresh token has expired. Please log in again."));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/refresh — 200 rotates tokens and sets cookies on success")
+    void refresh_success_setsCookies() throws Exception {
+        RefreshToken oldToken = new RefreshToken();
+        oldToken.setTokenHash("old-token");
+        oldToken.setUser(testUser);
+        oldToken.setExpiresAt(Instant.now().plusSeconds(604800));
+
+        RefreshToken newToken = new RefreshToken();
+        newToken.setTokenHash("new-token");
+        newToken.setUser(testUser);
+        newToken.setExpiresAt(Instant.now().plusSeconds(604800));
+
+        given(authService.verifyAndRotateRefreshToken("valid-token")).willReturn(oldToken);
+        given(jwtService.generateToken(any(CustomUserDetails.class))).willReturn("new.access.token");
+        given(authService.createRefreshToken(testUser)).willReturn(newToken);
+
+        mockMvc.perform(post("/api/auth/refresh")
+                .cookie(new Cookie("refresh_token", "valid-token")))
+                .andExpect(status().isOk())
+                .andExpect(header().exists("Set-Cookie"));
     }
 
     // ── CSRF: public auth endpoints are exempt ─────────────────────────────────
