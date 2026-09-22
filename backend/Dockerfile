@@ -3,43 +3,44 @@
 # ══════════════════════════════════════════════════════════════
 
 # Build stage
-FROM maven:3.9.6-openjdk-21-slim AS build
+FROM maven:3.9.11-eclipse-temurin-21-alpine AS build
 WORKDIR /app
 
-# Copy Maven configuration
+# Copy Maven configuration and download dependencies (cache layer)
 COPY odessi-api/pom.xml .
+RUN mvn dependency:go-offline -B
+
 COPY odessi-api/src ./src
 
 # Build the application
-RUN mvn clean package -DskipTests
+RUN mvn clean package -DskipTests -B
 
 # Runtime stage
-FROM openjdk:21-jre-slim AS runtime
+FROM eclipse-temurin:21-jre-alpine AS runtime
 
 # Install curl for health checks
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl
 
-# Create app user
-RUN groupadd -r odessi && useradd -r -g odessi odessi
+# Create app user and prepare upload directories
+RUN addgroup -S odessi && adduser -S odessi -G odessi && \
+    mkdir -p /app/uploads/products /app/uploads/social && \
+    chown -R odessi:odessi /app
 
 # Set working directory
 WORKDIR /app
 
 # Copy the built jar file
-COPY --from=build /app/target/*.jar app.jar
-
-# Change ownership
-RUN chown odessi:odessi app.jar
+COPY --from=build --chown=odessi:odessi /app/target/*.jar app.jar
 
 # Switch to non-root user
 USER odessi
 
-# Expose port
-EXPOSE 8080
+# Expose port (Render sets $PORT dynamically, default 10000)
+EXPOSE 10000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8080/actuator/health || exit 1
+  CMD curl -f http://localhost:${PORT:-10000}/actuator/health || exit 1
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Run the application binding to dynamic PORT and 0.0.0.0
+ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT:-10000} -Dserver.address=0.0.0.0 -jar app.jar"]

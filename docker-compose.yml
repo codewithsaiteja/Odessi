@@ -29,6 +29,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
+      PORT: 8080
       DB_URL: jdbc:postgresql://postgres:5432/odessi
       DB_USERNAME: odessi_user
       DB_PASSWORD: odessi_password

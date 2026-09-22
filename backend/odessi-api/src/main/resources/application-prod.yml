@@ -8,10 +8,10 @@ app:
   cors:
     allowed-origins: ${FRONTEND_URL:https://odessi.shop}
   
-  # Ensure cookies are secure and use SameSite=Lax (since API and Frontend are subdomains of odessi.shop)
+  # Ensure cookies are secure and use SameSite=None for cross-site cookie support (Vercel <-> Render)
   auth:
-    cookie-secure: true
-    cookie-same-site: Lax
+    cookie-secure: ${AUTH_COOKIE_SECURE:true}
+    cookie-same-site: ${AUTH_COOKIE_SAME_SITE:None}
 
 logging:
   level:

@@ -29,6 +29,7 @@ services:
     env_file:
       - .env.production
     environment:
+      - PORT=8080
       - SPRING_PROFILES_ACTIVE=prod
       - DB_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-odessi}
       - DB_USERNAME=${DB_USERNAME}

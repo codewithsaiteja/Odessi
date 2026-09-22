@@ -66,7 +66,8 @@ spring:
 
 # ── Server ────────────────────────────────────────────────
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${PORT:${SERVER_PORT:10000}}
+  address: 0.0.0.0
   servlet:
     context-path: /
   error:
@@ -210,6 +211,10 @@ spring:
     show-sql: false
   flyway:
     enabled: true
+  seed:
+    enabled: ${SEED_DATA_ENABLED:false}
+
+app:
   seed:
     enabled: ${SEED_DATA_ENABLED:false}
 
