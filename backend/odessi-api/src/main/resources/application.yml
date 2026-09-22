@@ -125,16 +125,18 @@ app:
     connection-string: ${AZURE_STORAGE_CONNECTION_STRING:}
     container-name: ${AZURE_STORAGE_CONTAINER_NAME:media}
 
-# ── Sentry ───────────────────────────────────────────────────
+# ── Sentry (Backend Error Monitoring — odessi-backend) ──────
 sentry:
   dsn: ${SENTRY_DSN:}
-  environment: ${SPRING_PROFILES_ACTIVE:development}
-  enable-tracing: false
-  traces-sample-rate: 0.0
-  # logs-integration disabled — requires Logback appender; enable via sentry-logback dep if needed
-  logging:
-    minimum-event-level: error
-    minimum-breadcrumb-level: warn
+  environment: ${SENTRY_ENVIRONMENT:development}
+  release: ${SENTRY_RELEASE:odessi-backend@0.1.0}
+  send-default-pii: false
+  # Evaluate Sentry exception resolver before ControllerAdvice so Sentry captures server errors
+  exception-resolver-order: -2147483647
+  traces-sample-rate: ${SENTRY_TRACES_SAMPLE_RATE:0.0}
+  stacktrace:
+    app-packages:
+      - com.odessi.api
 
 
 # ── Logging ──────────────────────────────────────────────
@@ -215,6 +217,9 @@ spring:
   seed:
     enabled: false
 
+sentry:
+  dsn: ""
+
 ---
 # ══════════════════════════════════════════════════════════════
 # PRODUCTION PROFILE — PostgreSQL with enhanced security
@@ -235,6 +240,11 @@ spring:
 app:
   seed:
     enabled: ${SEED_DATA_ENABLED:false}
+
+# Explicitly ensure production events report as 'production' in Sentry
+sentry:
+  environment: ${SENTRY_ENVIRONMENT:production}
+  traces-sample-rate: ${SENTRY_TRACES_SAMPLE_RATE:0.1}
 
 # Enhanced security for production
 server:

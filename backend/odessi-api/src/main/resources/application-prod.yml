@@ -25,3 +25,9 @@ logging:
   # Write logs to a file in the container so they can be persisted or rotated
   file:
     name: /tmp/app.log
+
+# Sentry production environment configuration
+sentry:
+  environment: ${SENTRY_ENVIRONMENT:production}
+  traces-sample-rate: ${SENTRY_TRACES_SAMPLE_RATE:0.1}
+
