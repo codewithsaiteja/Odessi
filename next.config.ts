@@ -30,6 +30,17 @@ const nextConfig: NextConfig = {
         port: "8080",
         pathname: "/**",
       },
+      // Production Spring Boot backend uploaded media (Render)
+      {
+        protocol: "https",
+        hostname: "odessi-backend.onrender.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.onrender.com",
+        pathname: "/**",
+      },
     ],
     formats: ["image/avif", "image/webp"],
     qualities: [75, 85, 90],

@@ -14,16 +14,6 @@ export function PincodeDeliveryEstimator({ className = "" }: PincodeDeliveryEsti
   const [deliveryDate, setDeliveryDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("odessi_saved_pincode");
-      if (saved && /^\d{6}$/.test(saved)) {
-        setPincode(saved);
-        calculateDelivery(saved);
-      }
-    }
-  }, []);
-
   const calculateDelivery = (pin: string) => {
     const isMetro = /^(11|40|50|56|60|70)/.test(pin);
     const daysToAdd = isMetro ? 3 : 5;
@@ -45,6 +35,16 @@ export function PincodeDeliveryEstimator({ className = "" }: PincodeDeliveryEsti
     setDeliveryDate(formatted);
     setError(null);
   };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("odessi_saved_pincode");
+      if (saved && /^\d{6}$/.test(saved)) {
+        setPincode(saved);
+        calculateDelivery(saved);
+      }
+    }
+  }, []);
 
   const handleCheck = (e: React.FormEvent) => {
     e.preventDefault();
