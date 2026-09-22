@@ -1,0 +1,71 @@
+# ══════════════════════════════════════════════════════════════
+# Docker Compose for Full-Stack Deployment
+# ══════════════════════════════════════════════════════════════
+
+version: '3.8'
+
+services:
+  # ── Database ────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: odessi
+      POSTGRES_USER: odessi_user
+      POSTGRES_PASSWORD: odessi_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odessi_user -d odessi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend API ─────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/odessi
+      DB_USERNAME: odessi_user
+      DB_PASSWORD: odessi_password
+      SPRING_PROFILES_ACTIVE: prod
+      JWT_SECRET: your-super-secure-jwt-secret-key-here-change-this-in-production
+      FRONTEND_URL: http://localhost:3000
+      RAZORPAY_KEY_ID: your_razorpay_key_id
+      RAZORPAY_KEY_SECRET: your_razorpay_key_secret
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Frontend ────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    driver: bridge

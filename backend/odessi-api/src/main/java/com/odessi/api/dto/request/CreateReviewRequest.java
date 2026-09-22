@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 public record CreateReviewRequest(
-    @NotNull(message = "Order ID is required")
     Long orderId,
 
     @NotNull(message = "Rating score is required")
@@ -17,5 +16,11 @@ public record CreateReviewRequest(
     String title,
 
     @NotBlank(message = "Review comment is required")
-    String comment
-) {}
+    String comment,
+
+    Boolean recommended
+) {
+    public CreateReviewRequest(Long orderId, Integer rating, String title, String comment) {
+        this(orderId, rating, title, comment, true);
+    }
+}

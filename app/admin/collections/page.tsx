@@ -7,9 +7,11 @@ import {
   updateAdminCollection,
   toggleAdminCollectionActive,
 } from "@/lib/api/admin";
+import { useToast } from "@/components/ui/Toast";
 import { Bookmark, Plus, Edit } from "lucide-react";
 
 export default function AdminCollectionsPage() {
+  const toast = useToast();
   const [collections, setCollections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -29,8 +31,8 @@ export default function AdminCollectionsPage() {
       setLoading(true);
       const data = await getAdminCollections();
       setCollections(data);
-    } catch (err) {
-      console.error("Failed to load collections", err);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to load collections");
     } finally {
       setLoading(false);
     }
@@ -45,22 +47,25 @@ export default function AdminCollectionsPage() {
     try {
       if (editingCollection) {
         await updateAdminCollection(editingCollection.id, form);
+        toast.success("Collection updated");
       } else {
         await createAdminCollection(form);
+        toast.success("Collection created");
       }
       setModalOpen(false);
       fetchCollections();
     } catch (err: any) {
-      alert(err?.message || "Failed to save collection");
+      toast.error(err?.message || "Failed to save collection");
     }
   };
 
   const handleToggleActive = async (id: number) => {
     try {
       await toggleAdminCollectionActive(id);
+      toast.success("Collection active status updated");
       fetchCollections();
-    } catch (err) {
-      alert("Failed to toggle collection status");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to toggle collection status");
     }
   };
 

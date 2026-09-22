@@ -5,12 +5,12 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import AuthShell from "@/components/auth/AuthShell";
-import { Eye, EyeOff, AlertCircle, ArrowRight, ShieldCheck, UserCheck, Sparkles, Server } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, ArrowRight, Server, Lock, Mail } from "lucide-react";
 
 function humanizeError(raw: string): string {
   const lower = raw.toLowerCase();
   if (lower.includes("credentials") || lower.includes("invalid") || lower.includes("password") || lower.includes("unauthorized") || lower.includes("401")) {
-    return "Invalid email address or password.";
+    return "Invalid email address or password. Please try again.";
   }
   if (lower.includes("verify") || lower.includes("unverified")) {
     return "Please verify your email address before signing in.";
@@ -21,7 +21,7 @@ function humanizeError(raw: string): string {
   if (lower.includes("network") || lower.includes("connect")) {
     return "Unable to connect to backend server. You can use 1-Click Demo Login below.";
   }
-  return raw || "Authentication failed. Please try again.";
+  return raw || "Authentication failed. Please check your credentials.";
 }
 
 function getSafeRedirect(url: string | null, userRole?: string): string {
@@ -87,195 +87,162 @@ function LoginContent() {
     }
   };
 
-  const handleQuickLogin = async (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setError(null);
-    setLoading(true);
-
-    try {
-      const loggedInUser = await login({ email: demoEmail, password: demoPass });
-      const redirect = getSafeRedirect(searchParams.get("redirect"), loggedInUser?.role);
-      router.push(redirect);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to sign in";
-      setError(humanizeError(msg));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (authLoading) return null;
 
   return (
     <AuthShell>
-      {/* Editorial Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <span className="text-[10px] tracking-[0.25em] text-[#B89A5A] uppercase font-mono font-semibold">
-            AUTHENTICATION
-          </span>
-          {backendLive !== null && (
-            <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium border ${
-                backendLive
-                  ? "bg-emerald-950/40 text-emerald-400 border-emerald-800/60"
-                  : "bg-amber-950/40 text-amber-400 border-amber-800/60"
-              }`}
-            >
-              <Server size={10} />
-              {backendLive ? "PostgreSQL Backend Live" : "Demo Mode Active"}
+      {/* High-Contrast Luxury Glass-Card Wrapper */}
+      <div className="bg-[#141414] border border-[#262626] rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6">
+        {/* Header */}
+        <div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-[10px] tracking-[0.25em] text-[#B89A5A] uppercase font-mono font-bold">
+              AUTHENTICATION
             </span>
-          )}
-        </div>
+            {backendLive !== null && (
+              <span
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                  backendLive
+                    ? "bg-emerald-950/70 text-emerald-300 border-emerald-800/80"
+                    : "bg-amber-950/70 text-amber-300 border-amber-800/80"
+                }`}
+              >
+                <Server size={10} />
+                {backendLive ? "PostgreSQL Live" : "Demo Mode Active"}
+              </span>
+            )}
+          </div>
 
-        <h1 className="type-h1 text-[#080808] font-serif text-3xl sm:text-4xl mb-2">
-          SIGN IN TO ODESSI
-        </h1>
-        <p className="text-xs sm:text-sm text-[#7A7A7A] leading-relaxed">
-          Access your orders, saved wishlist items, and luxury collection profile.
-        </p>
-      </div>
-
-      {/* Error Alert */}
-      {error && (
-        <div
-          className="bg-red-50 text-red-800 border border-red-200 px-4 py-3.5 rounded-xl text-xs font-medium flex items-center gap-2.5 mb-6 animate-fade-in shadow-xs"
-          role="alert"
-          aria-live="polite"
-        >
-          <AlertCircle size={16} className="text-red-600 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* 1-Click Quick Login Options */}
-      <div className="mb-6 p-4 bg-[#F7F5F0] border border-[#E8E8E8] rounded-xl">
-        <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-[#080808] font-bold mb-3">
-          <Sparkles size={12} className="text-[#B89A5A]" />
-          <span>Quick 1-Click Test Sign-In</span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => handleQuickLogin("admin@odessi.shop", "admin123")}
-            disabled={loading}
-            className="flex items-center justify-center gap-2 p-2.5 bg-white border border-[#E8E8E8] hover:border-[#B89A5A] hover:bg-[#080808] hover:text-white rounded-lg text-xs font-semibold text-[#080808] transition-all group shadow-2xs"
+          <h1
+            style={{ color: "#F3F0E8" }}
+            className="text-3xl sm:text-4xl font-serif font-bold text-[#F3F0E8] mb-2 tracking-tight"
           >
-            <ShieldCheck size={14} className="text-amber-500 group-hover:text-amber-400" />
-            <span>Admin Demo</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleQuickLogin("customer@odessi.shop", "customer123")}
-            disabled={loading}
-            className="flex items-center justify-center gap-2 p-2.5 bg-white border border-[#E8E8E8] hover:border-[#080808] hover:bg-[#080808] hover:text-white rounded-lg text-xs font-semibold text-[#080808] transition-all group shadow-2xs"
-          >
-            <UserCheck size={14} className="text-blue-500 group-hover:text-blue-400" />
-            <span>Customer Demo</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Login Form */}
-      <form onSubmit={handleSubmit} noValidate className="space-y-5">
-        {/* Email Input */}
-        <div>
-          <label
-            htmlFor="login-email"
-            className="block text-xs font-semibold uppercase tracking-wider text-[#080808] mb-2"
-          >
-            Email Address
-          </label>
-          <input
-            id="login-email"
-            type="email"
-            name="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3.5 bg-white border border-[#E8E8E8] rounded-xl text-sm text-[#080808] placeholder:text-[#A0A0A0] focus:outline-none focus:border-[#B89A5A] focus:ring-1 focus:ring-[#B89A5A] transition-all disabled:opacity-50"
-            placeholder="e.g. customer@odessi.shop"
-            disabled={loading}
-          />
+            SIGN IN TO ODESSI
+          </h1>
+          <p className="text-xs sm:text-sm text-[#A3A3A3] leading-relaxed font-medium">
+            Access your orders, saved wishlist items, and luxury collection profile.
+          </p>
         </div>
 
-        {/* Password Input */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
+        {/* Error Alert */}
+        {error && (
+          <div
+            className="bg-rose-950/60 text-rose-200 border border-rose-800/80 px-4 py-3.5 rounded-xl text-xs font-semibold flex items-center gap-2.5 shadow-xs"
+            role="alert"
+            aria-live="polite"
+          >
+            <AlertCircle size={16} className="text-rose-400 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Main Sign-In Form */}
+        <form onSubmit={handleSubmit} noValidate className="space-y-5">
+          {/* Email Input */}
+          <div>
+            <label
+              htmlFor="login-email"
+              className="block text-xs font-bold uppercase tracking-wider text-[#D4D4D4] mb-2"
+            >
+              Email Address
+            </label>
+            <div className="relative">
+              <input
+                id="login-email"
+                type="email"
+                name="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{ color: "#ffffff", backgroundColor: "#1A1A1A" }}
+                className="w-full px-4 py-3.5 pl-10 bg-[#1A1A1A] border border-[#333333] rounded-xl text-sm font-semibold text-white placeholder:text-[#737373] focus:outline-none focus:border-[#B89A5A] focus:ring-2 focus:ring-[#B89A5A]/30 transition-all disabled:opacity-50 shadow-inner"
+                placeholder="e.g. customer@odessi.shop"
+                disabled={loading}
+              />
+              <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#B89A5A] pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Password Input */}
+          <div>
             <label
               htmlFor="login-password"
-              className="block text-xs font-semibold uppercase tracking-wider text-[#080808]"
+              className="block text-xs font-bold uppercase tracking-wider text-[#D4D4D4] mb-2"
             >
               Password
             </label>
-            <Link
-              href="/forgot-password"
-              className="text-xs text-[#7A7A7A] hover:text-[#080808] underline underline-offset-4 transition-colors font-medium"
-            >
-              Forgot password?
-            </Link>
+            <div className="relative">
+              <input
+                id="login-password"
+                type={showPassword ? "text" : "password"}
+                name="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ color: "#ffffff", backgroundColor: "#1A1A1A" }}
+                className="w-full px-4 py-3.5 pl-10 pr-11 bg-[#1A1A1A] border border-[#333333] rounded-xl text-sm font-semibold text-white placeholder:text-[#737373] focus:outline-none focus:border-[#B89A5A] focus:ring-2 focus:ring-[#B89A5A]/30 transition-all disabled:opacity-50 shadow-inner"
+                placeholder="••••••••"
+                disabled={loading}
+              />
+              <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#B89A5A] pointer-events-none" />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-[#A3A3A3] hover:text-white transition-colors cursor-pointer"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            
+            {/* Forgot Password Link - Moved Below Password Input */}
+            <div className="text-right mt-3">
+              <Link
+                href="/forgot-password"
+                className="text-xs text-[#B89A5A] hover:text-[#d4af37] underline underline-offset-4 transition-colors font-semibold"
+              >
+                Forgot password?
+              </Link>
+            </div>
           </div>
-          <div className="relative">
-            <input
-              id="login-password"
-              type={showPassword ? "text" : "password"}
-              name="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3.5 pr-11 bg-white border border-[#E8E8E8] rounded-xl text-sm text-[#080808] placeholder:text-[#A0A0A0] focus:outline-none focus:border-[#B89A5A] focus:ring-1 focus:ring-[#B89A5A] transition-all disabled:opacity-50"
-              placeholder="••••••••"
-              disabled={loading}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-[#7A7A7A] hover:text-[#080808] transition-colors"
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-        </div>
 
-        {/* Submit Button */}
-        <button
-          id="login-submit"
-          type="submit"
-          disabled={loading || !email || !password}
-          className="w-full py-4 bg-[#080808] hover:bg-[#2C2C2C] active:bg-black text-white text-xs font-semibold tracking-[0.2em] uppercase rounded-xl transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2 group"
-          aria-busy={loading}
-        >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>SIGNING IN...</span>
-            </span>
-          ) : (
-            <>
-              <span>SIGN IN</span>
-              <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-            </>
-          )}
-        </button>
-      </form>
-
-      {/* Account Registration Link */}
-      <div className="mt-8 pt-6 border-t border-[#E8E8E8] text-center">
-        <p className="text-xs text-[#7A7A7A]">
-          Don&apos;t have an account yet?{" "}
-          <Link
-            href="/register"
-            className="text-[#080808] font-semibold hover:underline underline-offset-4 ml-1 transition-colors inline-flex items-center gap-1"
+          {/* Submit Button */}
+          <button
+            id="login-submit"
+            type="submit"
+            disabled={loading || !email || !password}
+            style={{ backgroundColor: "#B89A5A", color: "#080808" }}
+            className="w-full py-4 bg-[#B89A5A] hover:bg-[#d4af37] active:scale-[0.99] text-[#080808] text-xs font-bold tracking-[0.2em] uppercase rounded-xl transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#B89A5A]/10 flex items-center justify-center gap-2 group cursor-pointer font-sans"
+            aria-busy={loading}
           >
-            <span>CREATE AN ACCOUNT</span>
-          </Link>
-        </p>
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                <span>SIGNING IN...</span>
+              </span>
+            ) : (
+              <>
+                <span>SIGN IN TO ODESSI</span>
+                <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+              </>
+            )}
+          </button>
+        </form>
+
+        {/* Account Registration Link */}
+        <div className="pt-4 border-t border-[#262626] text-center">
+          <p className="text-xs text-[#A3A3A3] font-medium">
+            Don&apos;t have an account yet?{" "}
+            <Link
+              href="/register"
+              className="text-[#B89A5A] font-bold hover:text-[#d4af37] underline underline-offset-4 ml-1 transition-colors inline-flex items-center gap-1"
+            >
+              <span>CREATE AN ACCOUNT</span>
+            </Link>
+          </p>
+        </div>
       </div>
     </AuthShell>
   );

@@ -39,5 +39,6 @@ public record UpdateProductRequest(
     Boolean featured,
     Boolean bestseller,
     Boolean newArrival,
-    Boolean active
+    Boolean active,
+    com.odessi.api.entity.ProductStatus status
 ) {}

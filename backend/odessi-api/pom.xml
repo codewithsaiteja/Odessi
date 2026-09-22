@@ -175,11 +175,11 @@
       <scope>test</scope>
     </dependency>
 
-    <!-- H2 for lightweight unit tests that don't need a real DB -->
+    <!-- H2 for lightweight development and unit tests -->
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
-      <scope>test</scope>
+      <scope>runtime</scope>
     </dependency>
 
   </dependencies>

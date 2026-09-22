@@ -9,6 +9,7 @@ import Footer from "@/components/layout/Footer";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { formatPrice } from "@/lib/cart";
+import { FreeShippingMeter } from "@/components/cart/FreeShippingMeter";
 
 export default function CartPage() {
   const { cart, itemCount, subtotal, shipping, total, updateQuantity, removeFromCart } = useCart();
@@ -244,11 +245,7 @@ export default function CartPage() {
                       </span>
                     </div>
 
-                    {shipping > 0 && subtotal < 999 && (
-                      <p className="text-xs text-[var(--color-odessi-stone)] py-2 px-3 bg-white rounded-sm">
-                        💡 Add {formatPrice(999 - subtotal)} more for free shipping
-                      </p>
-                    )}
+                    <FreeShippingMeter subtotal={subtotal} threshold={999} />
 
                     <div className="flex items-center justify-between pt-4 border-t border-white">
                       <span className="type-body font-semibold text-[var(--color-odessi-black)]">

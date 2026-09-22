@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface EmailVerificationTokenRepository extends JpaRepository<EmailVerificationToken, Long> {
     Optional<EmailVerificationToken> findByTokenHash(String tokenHash);
+    Optional<EmailVerificationToken> findFirstByUserOrderByCreatedAtDesc(com.odessi.api.entity.User user);
+    void deleteByUser(com.odessi.api.entity.User user);
 }

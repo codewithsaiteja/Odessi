@@ -93,6 +93,10 @@ public class Product {
     @Column(name = "active", nullable = false)
     private boolean active = true;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private ProductStatus status = ProductStatus.PUBLISHED;
+
     // ── Limited Drop fields ───────────────────────────────────────
 
     @Column(name = "is_drop", nullable = false)
@@ -196,8 +200,21 @@ public class Product {
     public boolean isNewArrival() { return newArrival; }
     public void setNewArrival(boolean newArrival) { this.newArrival = newArrival; }
     
-    public boolean isActive() { return active; }
-    public void setActive(boolean active) { this.active = active; }
+    public boolean isActive() { return active && status == ProductStatus.PUBLISHED; }
+    public void setActive(boolean active) { 
+        this.active = active; 
+        if (active && (this.status == null || this.status != ProductStatus.PUBLISHED)) {
+            this.status = ProductStatus.PUBLISHED;
+        } else if (!active && this.status == ProductStatus.PUBLISHED) {
+            this.status = ProductStatus.ARCHIVED;
+        }
+    }
+
+    public ProductStatus getStatus() { return status != null ? status : (active ? ProductStatus.PUBLISHED : ProductStatus.ARCHIVED); }
+    public void setStatus(ProductStatus status) {
+        this.status = status != null ? status : ProductStatus.PUBLISHED;
+        this.active = (this.status == ProductStatus.PUBLISHED);
+    }
 
     public boolean isDrop() { return isDrop; }
     public void setDrop(boolean drop) { isDrop = drop; }

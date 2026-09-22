@@ -3,6 +3,7 @@ com\odessi\api\security\SecurityIdorAuthorizationTest$WishlistIdor.class
 com\odessi\api\service\OrderCheckoutFacadeTest.class
 com\odessi\api\service\WishlistServiceTest.class
 com\odessi\api\security\SecurityCsrfCorsTest$CorsTests.class
+com\odessi\api\service\NewsletterServiceTest.class
 com\odessi\api\security\SecurityIdorAuthorizationTest$AdminAuth.class
 com\odessi\api\security\SecurityCsrfCorsTest.class
 com\odessi\api\security\SecurityRazorpayTest$WebhookSecurity.class
@@ -15,9 +16,12 @@ com\odessi\api\service\AdminCategoryCollectionServiceTest.class
 com\odessi\api\service\AdminSecurityIntegrationTest.class
 com\odessi\api\service\GrowthFeaturesServiceTest.class
 com\odessi\api\controller\AuthControllerTest.class
+com\odessi\api\service\AdminDashboardServiceTest.class
 com\odessi\api\security\SecurityAuthenticationTest$LogoutTests.class
 com\odessi\api\service\InventoryServiceTest.class
+com\odessi\api\service\SocialPostServiceTest.class
 com\odessi\api\security\SecurityIdorAuthorizationTest$AddressIdor.class
+com\odessi\api\service\ReviewEligibilityTest.class
 com\odessi\api\security\SecurityRazorpayTest$PaymentSignature.class
 com\odessi\api\service\AdminInventoryServiceTest.class
 com\odessi\api\security\SecurityIdorAuthorizationTest.class

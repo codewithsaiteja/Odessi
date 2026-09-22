@@ -42,5 +42,17 @@ public record AdminProductRequest(
 
     boolean active,
 
+    String status,
+
     List<AdminVariantRequest> variants
-) {}
+) {
+    public AdminProductRequest(
+        String name, String slug, String description, String shortDescription,
+        BigDecimal price, BigDecimal compareAtPrice, String currency,
+        Long categoryId, Long collectionId, String material, String fit,
+        String careInstructions, boolean featured, boolean bestseller,
+        boolean newArrival, boolean active, List<AdminVariantRequest> variants
+    ) {
+        this(name, slug, description, shortDescription, price, compareAtPrice, currency, categoryId, collectionId, material, fit, careInstructions, featured, bestseller, newArrival, active, active ? "PUBLISHED" : "ARCHIVED", variants);
+    }
+}

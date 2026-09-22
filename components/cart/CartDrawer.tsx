@@ -7,6 +7,7 @@ import { X, Minus, Plus, ShoppingBag } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { formatPrice } from "@/lib/cart";
+import { FreeShippingMeter } from "./FreeShippingMeter";
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -224,6 +225,9 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         {/* Footer */}
         {cart.length > 0 && (
           <div className="border-t border-[var(--color-odessi-smoke)] px-6 py-6 space-y-4">
+            {/* Free Shipping Meter */}
+            <FreeShippingMeter subtotal={subtotal} threshold={999} />
+
             {/* Subtotal */}
             <div className="flex items-center justify-between text-sm">
               <span className="text-[var(--color-odessi-stone)]">Subtotal</span>
@@ -239,13 +243,6 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                 {shipping === 0 ? "FREE" : formatPrice(shipping)}
               </span>
             </div>
-
-            {/* Free Shipping Message */}
-            {shipping > 0 && (
-              <p className="text-xs text-[var(--color-odessi-stone)]">
-                Add {formatPrice(999 - subtotal)} more for free shipping
-              </p>
-            )}
 
             {/* Total */}
             <div className="flex items-center justify-between pt-4 border-t border-[var(--color-odessi-smoke)]">

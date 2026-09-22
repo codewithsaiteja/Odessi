@@ -3,9 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { growthApi } from "@/lib/api";
 import { Product } from "@/types";
+import { useToast } from "@/components/ui/Toast";
 import { Timer, Lock, CheckCircle, Save } from "lucide-react";
 
 export default function AdminDropsPage() {
+  const toast = useToast();
   const [drops, setDrops] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -25,8 +27,8 @@ export default function AdminDropsPage() {
     try {
       const res = await growthApi.getDrops({ page: 0, size: 50 });
       setDrops(res.content || []);
-    } catch (err) {
-      console.error("Failed to load drop configurations", err);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to load drop configurations");
     } finally {
       setLoading(false);
     }
@@ -64,10 +66,10 @@ export default function AdminDropsPage() {
 
       setDrops((prev) => prev.map((item) => (item.id === selectedProduct.id ? updated : item)));
       setSelectedProduct(null);
-      alert("Drop configuration saved successfully!");
+      toast.success("Drop configuration saved successfully!");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to configure drop";
-      alert(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }

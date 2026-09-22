@@ -14,6 +14,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/admin/reviews")
 @Tag(name = "Admin Reviews", description = "Review moderation queue and approval status management")
@@ -44,5 +46,33 @@ public class AdminReviewController {
             @RequestParam ReviewStatus status) {
         String adminEmail = userDetails != null ? userDetails.getUsername() : null;
         return ResponseEntity.ok(reviewService.moderateReview(id, status, adminEmail));
+    }
+
+    @PutMapping("/{id}/approve")
+    @Operation(summary = "Approve a customer review")
+    public ResponseEntity<ProductReviewResponse> approveReview(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long id) {
+        String adminEmail = userDetails != null ? userDetails.getUsername() : null;
+        return ResponseEntity.ok(reviewService.moderateReview(id, ReviewStatus.APPROVED, adminEmail));
+    }
+
+    @PutMapping("/{id}/reject")
+    @Operation(summary = "Reject a customer review")
+    public ResponseEntity<ProductReviewResponse> rejectReview(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long id) {
+        String adminEmail = userDetails != null ? userDetails.getUsername() : null;
+        return ResponseEntity.ok(reviewService.moderateReview(id, ReviewStatus.REJECTED, adminEmail));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Permanently delete a review (spam removal)")
+    public ResponseEntity<Map<String, String>> deleteReview(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long id) {
+        String adminEmail = userDetails != null ? userDetails.getUsername() : null;
+        reviewService.deleteReview(id, adminEmail);
+        return ResponseEntity.ok(Map.of("message", "Review deleted successfully"));
     }
 }

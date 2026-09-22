@@ -72,8 +72,10 @@ export interface BackInStockResponse {
 
 export interface ReferralResponse {
   code: string;
+  shareUrl?: string;
   totalReferrals: number;
   qualifiedReferrals: number;
+  createdAt?: string;
 }
 
 export interface LoyaltyAccountResponse {

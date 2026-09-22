@@ -1,11 +1,39 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import { getHomepageContent, HomepageSection } from "@/lib/api/content";
 
 export default function BrandStory() {
-  const { brandStory } = siteConfig;
-  const bodyParagraphs = brandStory.body.split("\n\n");
+  const { brandStory: defaultStory } = siteConfig;
+  const [storyData, setStoryData] = useState<HomepageSection | null>(null);
+
+  useEffect(() => {
+    getHomepageContent()
+      .then((sections) => {
+        const found = sections.find((s) => s.sectionKey === "BRAND_STORY");
+        if (found) {
+          setStoryData(found);
+        }
+      })
+      .catch(() => {
+        // Fallback gracefully
+      });
+  }, []);
+
+  if (storyData && !storyData.active) return null;
+
+  const eyebrow = storyData?.eyebrow || defaultStory.eyebrow;
+  const headline = storyData?.headline || defaultStory.headline;
+  const body = storyData?.body || defaultStory.body;
+  const bgImage = storyData?.mediaUrl || defaultStory.image;
+  const ctaLabel = storyData?.primaryCtaLabel || defaultStory.cta.label;
+  const ctaHref = storyData?.primaryCtaUrl || defaultStory.cta.href;
+
+  const bodyParagraphs = body.split("\n\n");
 
   return (
     <section
@@ -15,7 +43,7 @@ export default function BrandStory() {
       {/* Full-width image layer */}
       <div className="absolute inset-0">
         <Image
-          src={brandStory.image}
+          src={bgImage}
           alt="Odessi.tfi brand story"
           fill
           sizes="100vw"
@@ -38,7 +66,7 @@ export default function BrandStory() {
           <div className="max-w-2xl">
             {/* Eyebrow */}
             <p className="type-caption text-[var(--color-odessi-stone)] mb-5">
-              {brandStory.eyebrow}
+              {eyebrow}
             </p>
 
             {/* Rule */}
@@ -50,7 +78,7 @@ export default function BrandStory() {
               className="type-display text-white mb-10"
               style={{ lineHeight: 0.95 }}
             >
-              {brandStory.headline.split("\n").map((line, i) => (
+              {headline.split("\n").map((line, i) => (
                 <span key={i} className="block">
                   {line}
                 </span>
@@ -68,10 +96,10 @@ export default function BrandStory() {
 
             {/* CTA */}
             <Link
-              href={brandStory.cta.href}
+              href={ctaHref}
               className="btn-secondary inline-flex"
             >
-              {brandStory.cta.label}
+              {ctaLabel}
               <ArrowRight size={14} strokeWidth={2} className="ml-2" />
             </Link>
           </div>
@@ -84,7 +112,7 @@ export default function BrandStory() {
         className="absolute top-0 right-0 bottom-0 w-1/2 hidden xl:block"
       >
         <Image
-          src={brandStory.image}
+          src={bgImage}
           alt=""
           fill
           sizes="50vw"

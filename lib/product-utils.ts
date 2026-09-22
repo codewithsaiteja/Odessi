@@ -252,7 +252,7 @@ export function getRelatedProducts(product: Product, limit: number = 4): Product
 /* ── Media URL resolution helper ── */
 
 export function getMediaUrl(urlInput?: any): string {
-  const fallback = "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&q=80";
+  const fallback = "/placeholder-product.svg";
   if (urlInput === null || urlInput === undefined) return fallback;
 
   let urlStr = "";

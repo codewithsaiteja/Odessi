@@ -46,6 +46,7 @@ public record CreateProductRequest(
     boolean featured,
     boolean bestseller,
     boolean newArrival,
+    com.odessi.api.entity.ProductStatus status,
 
     @Valid
     List<CreateProductVariantRequest> variants

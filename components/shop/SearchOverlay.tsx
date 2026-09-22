@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Search, X, TrendingUp } from "lucide-react";
 import { searchProducts } from "@/lib/product-utils";
+import { getProducts } from "@/lib/api/products";
 import { formatPrice } from "@/lib/cart";
 import type { Product } from "@/types";
 
@@ -62,17 +63,40 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
     }
   }, [isOpen, onClose]);
 
-  // Perform search
+  // Perform live search with debounce
   useEffect(() => {
-    if (query.trim().length > 0) {
+    const trimmed = query.trim();
+    if (trimmed.length > 0) {
       setIsSearching(true);
-      const timer = setTimeout(() => {
-        const searchResults = searchProducts({ q: query });
-        setResults(searchResults.slice(0, 8)); // Limit to 8 results
-        setIsSearching(false);
-      }, 300); // Debounce
+      let isCancelled = false;
 
-      return () => clearTimeout(timer);
+      const timer = setTimeout(async () => {
+        try {
+          const res = await getProducts({ search: trimmed, pageSize: 8 });
+          if (!isCancelled) {
+            if (res && res.data && res.data.length > 0) {
+              setResults(res.data.slice(0, 8));
+            } else {
+              const localResults = searchProducts({ q: trimmed });
+              setResults(localResults.slice(0, 8));
+            }
+          }
+        } catch {
+          if (!isCancelled) {
+            const localResults = searchProducts({ q: trimmed });
+            setResults(localResults.slice(0, 8));
+          }
+        } finally {
+          if (!isCancelled) {
+            setIsSearching(false);
+          }
+        }
+      }, 250);
+
+      return () => {
+        isCancelled = true;
+        clearTimeout(timer);
+      };
     } else {
       setResults([]);
       setIsSearching(false);
@@ -80,16 +104,17 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
   }, [query]);
 
   const handleSearch = (searchQuery: string) => {
-    if (searchQuery.trim()) {
+    const trimmed = searchQuery.trim();
+    if (trimmed) {
       // Save to recent searches
-      const updated = [searchQuery, ...recentSearches.filter(s => s !== searchQuery)].slice(0, 5);
+      const updated = [trimmed, ...recentSearches.filter(s => s !== trimmed)].slice(0, 5);
       setRecentSearches(updated);
       if (typeof window !== "undefined") {
         localStorage.setItem("odessi_recent_searches", JSON.stringify(updated));
       }
 
       // Navigate to shop with search query
-      router.push(`/shop?q=${encodeURIComponent(searchQuery)}`);
+      router.push(`/shop?search=${encodeURIComponent(trimmed)}`);
       onClose();
     }
   };

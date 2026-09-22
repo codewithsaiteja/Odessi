@@ -3,6 +3,7 @@ package com.odessi.api.controller;
 import com.odessi.api.dto.request.CreateReviewRequest;
 import com.odessi.api.dto.response.ProductRatingSummaryResponse;
 import com.odessi.api.dto.response.ProductReviewResponse;
+import com.odessi.api.dto.response.ReviewEligibilityResponse;
 import com.odessi.api.security.CustomUserDetails;
 import com.odessi.api.service.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,6 +38,15 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.createReview(userDetails.getId(), productId, request));
     }
 
+    @GetMapping("/eligibility")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Check if authenticated user is eligible to review this product")
+    public ResponseEntity<ReviewEligibilityResponse> checkEligibility(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long productId) {
+        return ResponseEntity.ok(reviewService.checkEligibility(userDetails.getId(), productId));
+    }
+
     @GetMapping
     @Operation(summary = "Get approved reviews for product")
     public ResponseEntity<Page<ProductReviewResponse>> getApprovedReviews(
@@ -48,7 +58,7 @@ public class ReviewController {
     }
 
     @GetMapping("/summary")
-    @Operation(summary = "Get rating score average and count summary")
+    @Operation(summary = "Get rating score average, count, and 1-5 distribution summary")
     public ResponseEntity<ProductRatingSummaryResponse> getRatingSummary(@PathVariable Long productId) {
         return ResponseEntity.ok(reviewService.getRatingSummary(productId));
     }

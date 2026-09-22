@@ -1,6 +1,28 @@
 import { apiGet, apiPost, apiPut, apiPatch, apiDelete, apiPostFormData, ApiError } from "./client";
 import { products as staticProducts } from "@/data/products";
 
+export interface DashboardOrderSummary {
+  id: number;
+  orderNumber: string;
+  userId: number | null;
+  customerName: string;
+  customerEmail: string | null;
+  totalAmount: number;
+  currency: string;
+  status: string;
+  paymentStatus: string;
+  createdAt: string;
+}
+
+export interface LowStockVariantSummary {
+  variantId: number;
+  productName: string;
+  sku: string;
+  size: string;
+  color: string;
+  stockQuantity: number;
+}
+
 export interface AdminDashboardStats {
   totalOrders: number;
   totalRevenue: number;
@@ -10,8 +32,8 @@ export interface AdminDashboardStats {
   totalProducts: number;
   lowStockCount: number;
   outOfStockCount: number;
-  recentOrders: any[];
-  lowStockProducts: any[];
+  recentOrders: DashboardOrderSummary[];
+  lowStockProducts: LowStockVariantSummary[];
   recentCustomers: {
     id: number;
     firstName: string;
@@ -23,6 +45,7 @@ export interface AdminDashboardStats {
     createdAt: string;
   }[];
 }
+
 
 export interface AdminProductRequest {
   name: string;
@@ -41,6 +64,7 @@ export interface AdminProductRequest {
   bestseller: boolean;
   newArrival: boolean;
   active: boolean;
+  status?: string;
   variants?: any[];
 }
 
@@ -70,45 +94,28 @@ export interface PageResponse<T> {
 }
 
 // ── Admin Dashboard ──────────────────────────────────────────────
-export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
-  try {
-    return await apiGet<AdminDashboardStats>("/api/admin/dashboard/stats");
-  } catch (err: unknown) {
-    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
-      return {
-        totalOrders: 18,
-        totalRevenue: 34500,
-        pendingPaymentCount: 2,
-        confirmedCount: 14,
-        totalCustomers: 26,
-        totalProducts: staticProducts.length,
-        lowStockCount: 3,
-        outOfStockCount: 1,
-        recentOrders: [],
-        lowStockProducts: [],
-        recentCustomers: [
-          {
-            id: 1,
-            firstName: "Sai",
-            lastName: "Teja",
-            email: "sai@odessi.shop",
-            enabled: true,
-            emailVerified: true,
-            orderCount: 4,
-            createdAt: new Date().toISOString(),
-          },
-        ],
-      };
-    }
-    throw err;
-  }
+/**
+ * Fetch dashboard KPIs for the given time range.
+ *
+ * @param range one of: TODAY | 7_DAYS | 30_DAYS | 90_DAYS | ALL
+ *              Unknown values are treated as ALL by the backend.
+ */
+export async function getAdminDashboardStats(range: string = "ALL"): Promise<AdminDashboardStats> {
+  return apiGet<AdminDashboardStats>(`/api/admin/dashboard/stats?range=${encodeURIComponent(range)}`);
 }
 
+
 // ── Admin Products ───────────────────────────────────────────────
-export async function getAdminProducts(page = 0, size = 20, search?: string): Promise<PageResponse<any>> {
+export async function getAdminProducts(
+  page = 0,
+  size = 20,
+  search?: string,
+  status?: string
+): Promise<PageResponse<any>> {
   try {
     const query = new URLSearchParams({ page: String(page), size: String(size) });
     if (search) query.append("search", search);
+    if (status && status !== "ALL") query.append("status", status);
     return await apiGet<PageResponse<any>>(`/api/admin/products?${query.toString()}`);
   } catch (err: unknown) {
     if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
@@ -123,6 +130,7 @@ export async function getAdminProducts(page = 0, size = 20, search?: string): Pr
         categoryName: (p.category || "tees").toUpperCase(),
         featured: p.featured || false,
         active: p.available !== false,
+        status: p.available !== false ? "PUBLISHED" : "ARCHIVED",
         variants: p.sizes?.map((s, vIdx) => ({
           id: vIdx + 1,
           sku: `${p.slug}-${s.label}`,
@@ -162,6 +170,7 @@ export async function getAdminProductById(id: number): Promise<any> {
         categoryName: "TEES",
         featured: true,
         active: true,
+        status: "PUBLISHED",
         variants: [],
       };
     }
@@ -185,12 +194,42 @@ export async function toggleAdminProductFeatured(id: number): Promise<any> {
   return apiPatch<any>(`/api/admin/products/${id}/featured`);
 }
 
+export async function duplicateAdminProduct(id: number): Promise<any> {
+  return apiPost<any>(`/api/admin/products/${id}/duplicate`);
+}
+
+export async function deleteAdminProduct(id: number): Promise<{ message: string; archived?: boolean }> {
+  return apiDelete<{ message: string; archived?: boolean }>(`/api/admin/products/${id}`);
+}
+
+export async function bulkAdminProductAction(
+  dataOrIds: { productIds: number[]; action: string; collectionId?: number } | number[],
+  actionStr?: string
+): Promise<any[]> {
+  const payload = Array.isArray(dataOrIds)
+    ? { productIds: dataOrIds, action: actionStr || "PUBLISH" }
+    : dataOrIds;
+  return apiPost<any[]>("/api/admin/products/bulk", payload);
+}
+
+export async function getAdminProductActivity(id: number): Promise<any[]> {
+  try {
+    return await apiGet<any[]>(`/api/admin/products/${id}/activity`);
+  } catch {
+    return [];
+  }
+}
+
 export async function addAdminVariant(productId: number, data: AdminVariantRequest): Promise<any> {
   return apiPost<any>(`/api/admin/products/${productId}/variants`, data);
 }
 
 export async function updateAdminVariant(productId: number, variantId: number, data: AdminVariantRequest): Promise<any> {
   return apiPut<any>(`/api/admin/products/${productId}/variants/${variantId}`, data);
+}
+
+export async function deleteAdminVariant(productId: number, variantId: number): Promise<any> {
+  return apiDelete<any>(`/api/admin/products/${productId}/variants/${variantId}`);
 }
 
 // ── Admin Inventory ──────────────────────────────────────────────

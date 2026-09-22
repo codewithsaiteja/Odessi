@@ -240,4 +240,46 @@ public class OrderServiceImpl implements OrderService {
             couponService.releaseCouponUsage(orderId);
         }
     }
+
+    @Override
+    @Transactional
+    public OrderResponse cancelOrder(String orderNumber, Long userId) {
+        Order order = orderRepository.findByOrderNumberAndUserId(orderNumber, userId)
+                .orElseThrow(() -> ResourceNotFoundException.order(orderNumber));
+
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            return orderMapper.toResponse(order);
+        }
+
+        if (order.getStatus() == OrderStatus.SHIPPED || order.getStatus() == OrderStatus.DELIVERED) {
+            throw new BadRequestException("ORDER_NOT_CANCELLABLE", "Order cannot be cancelled as it has already been shipped or delivered.");
+        }
+
+        if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.PENDING_PAYMENT && order.getStatus() != OrderStatus.CONFIRMED) {
+            throw new BadRequestException("ORDER_NOT_CANCELLABLE", "Order cannot be cancelled in its current state.");
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
+        if (order.getPaymentStatus() == PaymentStatus.CAPTURED || order.getPaymentStatus() == PaymentStatus.PAID) {
+            order.setPaymentStatus(PaymentStatus.REFUNDED);
+        } else {
+            order.setPaymentStatus(PaymentStatus.FAILED);
+        }
+        orderRepository.save(order);
+
+        Payment payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
+        if (payment != null) {
+            if (payment.getStatus() == PaymentStatus.CAPTURED || payment.getStatus() == PaymentStatus.PAID) {
+                payment.setStatus(PaymentStatus.REFUNDED);
+            } else {
+                payment.setStatus(PaymentStatus.FAILED);
+            }
+            paymentRepository.save(payment);
+        }
+
+        inventoryService.releaseReservations(order.getId());
+        couponService.releaseCouponUsage(order.getId());
+
+        return orderMapper.toResponse(order);
+    }
 }

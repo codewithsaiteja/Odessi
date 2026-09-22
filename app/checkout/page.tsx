@@ -57,7 +57,7 @@ export default function CheckoutPage() {
   const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
   const [discountAmount, setDiscountAmount] = useState<number>(0);
 
-  const shippingAmount = subtotal >= 1999 || cart.length === 0 ? 0 : 150;
+  const shippingAmount = subtotal >= 999 || cart.length === 0 ? 0 : 99;
   const totalAmount = Math.max(0, subtotal - discountAmount + shippingAmount);
 
   const handleApplyCoupon = async (code: string) => {

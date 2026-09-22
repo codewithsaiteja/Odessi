@@ -68,9 +68,9 @@ public class ProductController {
     }
 
     /**
-     * GET /api/products/{slug}
+     * GET /api/products/{slug} or /api/products/slug/{slug}
      */
-    @GetMapping("/{slug}")
+    @GetMapping(value = {"/{slug}", "/slug/{slug}"})
     @Operation(summary = "Get product by slug", description = "Returns full product details including all variants")
     public ResponseEntity<ApiResponse<ProductResponse>> getProduct(
             @PathVariable String slug) {

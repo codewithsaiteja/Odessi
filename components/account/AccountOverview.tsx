@@ -1,22 +1,28 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { User } from "@/lib/auth/AuthContext";
 import { Order } from "@/lib/api/orders";
 import { Address } from "@/lib/api/addresses";
 import { WishlistItem } from "@/types";
-import { UserReviewResponse } from "@/lib/api/user";
+import { resendVerificationEmail } from "@/lib/api/user";
+import { useToast } from "@/components/ui/Toast";
 import {
   ShoppingBag,
   MapPin,
   Heart,
-  Star,
   CheckCircle2,
   AlertCircle,
   ArrowRight,
   User as UserIcon,
   ShieldCheck,
+  HelpCircle,
+  Gift,
+  Send,
+  Copy,
+  Check,
+  Sparkles,
 } from "lucide-react";
 
 interface AccountOverviewProps {
@@ -24,7 +30,6 @@ interface AccountOverviewProps {
   orders: Order[];
   addresses: Address[];
   wishlistItems: WishlistItem[];
-  reviews: UserReviewResponse[];
   onNavigateTab: (tab: string) => void;
   onSelectOrder: (order: Order) => void;
 }
@@ -34,10 +39,33 @@ export default function AccountOverview({
   orders,
   addresses,
   wishlistItems,
-  reviews,
   onNavigateTab,
   onSelectOrder,
 }: AccountOverviewProps) {
+  const [resending, setResending] = useState(false);
+  const [resendStatus, setResendStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const { showToast } = useToast();
+
+  const userReferralCode = user?.id ? `ODESSI-REF-U${user.id}` : `ODESSI-REF-LUXE200`;
+
+  const copyReferralCode = () => {
+    navigator.clipboard.writeText(userReferralCode);
+    setCopiedCode(true);
+    showToast("Referral code copied to clipboard!", "success");
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const copyReferralLink = () => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://odessi.tfi";
+    const link = `${origin}/register?ref=${userReferralCode}`;
+    navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    showToast("Referral link copied to clipboard!", "success");
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
   const memberSince = user.createdAt
     ? new Date(user.createdAt).toLocaleDateString("en-IN", {
         month: "long",
@@ -47,6 +75,19 @@ export default function AccountOverview({
 
   const defaultAddress = addresses.find((a) => a.isDefault) || addresses[0];
   const recentOrders = orders.slice(0, 3);
+
+  const handleResendVerification = async () => {
+    try {
+      setResending(true);
+      setResendStatus(null);
+      const res = await resendVerificationEmail();
+      setResendStatus({ type: "success", msg: res?.message || "Verification email dispatched to your inbox." });
+    } catch (err: any) {
+      setResendStatus({ type: "error", msg: err?.message || "Failed to resend verification email." });
+    } finally {
+      setResending(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -73,21 +114,43 @@ export default function AccountOverview({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 self-stretch md:self-auto">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 self-stretch md:self-auto">
           {user.emailVerified ? (
-            <span className="flex items-center gap-1.5 bg-emerald-950/80 text-emerald-400 border border-emerald-800 text-xs font-semibold px-3 py-1.5 rounded-full">
+            <span className="flex items-center gap-1.5 bg-emerald-950/80 text-emerald-400 border border-emerald-800 text-xs font-semibold px-3.5 py-1.5 rounded-full">
               <CheckCircle2 size={14} /> Verified Account
             </span>
           ) : (
-            <span className="flex items-center gap-1.5 bg-amber-950/80 text-amber-400 border border-amber-800 text-xs font-semibold px-3 py-1.5 rounded-full">
-              <AlertCircle size={14} /> Unverified Email
-            </span>
+            <div className="flex flex-col items-start gap-2">
+              <span className="flex items-center gap-1.5 bg-amber-950/80 text-amber-400 border border-amber-800 text-xs font-semibold px-3.5 py-1.5 rounded-full">
+                <AlertCircle size={14} /> Email Verification Required
+              </span>
+              <button
+                onClick={handleResendVerification}
+                disabled={resending}
+                className="text-[11px] text-amber-400 hover:underline font-medium flex items-center gap-1 disabled:opacity-50"
+              >
+                <Send size={11} /> {resending ? "Sending..." : "Resend Verification Email"}
+              </button>
+            </div>
           )}
         </div>
       </div>
 
+      {resendStatus && (
+        <div
+          className={`p-4 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+            resendStatus.type === "success"
+              ? "bg-emerald-950/80 text-emerald-300 border-emerald-800"
+              : "bg-rose-950/80 text-rose-300 border-rose-800"
+          }`}
+        >
+          {resendStatus.type === "success" ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+          <span>{resendStatus.msg}</span>
+        </div>
+      )}
+
       {/* Quick Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <button
           onClick={() => onNavigateTab("orders")}
           className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 hover:border-amber-400/50 hover:bg-neutral-850 transition-all text-left group"
@@ -131,18 +194,54 @@ export default function AccountOverview({
         </button>
 
         <button
-          onClick={() => onNavigateTab("reviews")}
-          className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 hover:border-amber-400/50 hover:bg-neutral-850 transition-all text-left group"
+          onClick={() => onNavigateTab("referrals")}
+          className="bg-neutral-900 border border-amber-500/30 rounded-2xl p-5 hover:border-amber-400 hover:bg-neutral-850 transition-all text-left group relative overflow-hidden"
         >
           <div className="flex justify-between items-center mb-3">
-            <div className="p-2.5 rounded-xl bg-emerald-400/10 text-emerald-400 group-hover:scale-110 transition-transform">
-              <Star size={20} />
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-300 group-hover:scale-110 transition-transform">
+              <Gift size={20} />
             </div>
-            <ArrowRight size={16} className="text-neutral-600 group-hover:text-emerald-400 transition-colors" />
+            <ArrowRight size={16} className="text-neutral-500 group-hover:text-amber-400 transition-colors" />
           </div>
-          <p className="text-3xl font-bold font-heading text-white">{reviews.length}</p>
-          <p className="text-neutral-400 text-xs font-medium uppercase tracking-wider mt-1">Submitted Reviews</p>
+          <p className="text-2xl font-bold font-heading text-amber-400">₹200 Bonus</p>
+          <p className="text-neutral-300 text-xs font-medium uppercase tracking-wider mt-1">Refer & Earn</p>
         </button>
+      </div>
+
+      {/* Prominent Referral Code Card */}
+      <div className="bg-gradient-to-r from-amber-950/60 via-neutral-900 to-amber-950/40 border border-amber-500/30 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-md">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold">
+              YOUR EXCLUSIVE REFERRAL CODE
+            </span>
+          </div>
+          <div className="text-2xl sm:text-3xl font-serif font-bold font-mono text-white tracking-widest">
+            {userReferralCode}
+          </div>
+          <p className="text-xs text-neutral-300">
+            Share with friends & give them <strong>₹200 bonus</strong> on their first order. You get <strong>₹200 credit</strong> when delivered!
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <button
+            onClick={copyReferralCode}
+            className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
+          >
+            {copiedCode ? <Check size={14} className="text-neutral-950" /> : <Copy size={14} />}
+            <span>{copiedCode ? "COPIED CODE!" : "COPY CODE"}</span>
+          </button>
+
+          <button
+            onClick={copyReferralLink}
+            className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl border border-neutral-700 transition-all shadow-sm active:scale-95 cursor-pointer"
+          >
+            {copiedLink ? <Check size={14} className="text-emerald-400" /> : <Gift size={14} className="text-amber-400" />}
+            <span>{copiedLink ? "LINK COPIED!" : "COPY LINK"}</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Grid: Recent Orders & Saved Address */}
@@ -264,21 +363,29 @@ export default function AccountOverview({
             )}
           </div>
 
-          {/* Quick Account Security */}
+          {/* Quick Account Security & Support */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-3">
             <h3 className="text-base font-bold font-heading text-white flex items-center gap-2">
               <ShieldCheck size={18} className="text-amber-400" />
-              Account Security
+              Security & Assistance
             </h3>
             <p className="text-neutral-400 text-xs">
-              Manage your password and active security sessions.
+              Manage your credentials, active login sessions, or contact concierge support.
             </p>
-            <button
-              onClick={() => onNavigateTab("security")}
-              className="w-full bg-neutral-800 hover:bg-neutral-750 text-white font-medium py-2.5 rounded-xl text-xs transition-colors text-center block"
-            >
-              Update Password & Security Settings
-            </button>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                onClick={() => onNavigateTab("security")}
+                className="bg-neutral-800 hover:bg-neutral-750 text-white font-medium py-2 rounded-xl text-xs transition-colors text-center"
+              >
+                Security Settings
+              </button>
+              <button
+                onClick={() => onNavigateTab("support")}
+                className="bg-neutral-800 hover:bg-neutral-750 text-white font-medium py-2 rounded-xl text-xs transition-colors text-center flex items-center justify-center gap-1"
+              >
+                <HelpCircle size={14} /> Help Support
+              </button>
+            </div>
           </div>
         </div>
       </div>

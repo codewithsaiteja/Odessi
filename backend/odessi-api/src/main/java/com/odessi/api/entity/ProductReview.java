@@ -47,6 +47,9 @@ public class ProductReview {
     @Column(name = "verified_purchase", nullable = false)
     private boolean verifiedPurchase = true;
 
+    @Column(name = "recommended")
+    private Boolean recommended = true;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -73,8 +76,11 @@ public class ProductReview {
     public void setStatus(ReviewStatus status) { this.status = status; }
     public boolean isVerifiedPurchase() { return verifiedPurchase; }
     public void setVerifiedPurchase(boolean verifiedPurchase) { this.verifiedPurchase = verifiedPurchase; }
+    public Boolean getRecommended() { return recommended; }
+    public void setRecommended(Boolean recommended) { this.recommended = recommended; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }
+

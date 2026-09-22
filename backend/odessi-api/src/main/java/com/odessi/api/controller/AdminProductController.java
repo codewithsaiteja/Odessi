@@ -45,10 +45,11 @@ public class AdminProductController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Long collectionId,
             @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return ResponseEntity.ok(adminService.getProducts(search, categoryId, collectionId, active, pageRequest));
+        return ResponseEntity.ok(adminService.getProducts(search, categoryId, collectionId, active, status, pageRequest));
     }
 
     @GetMapping("/{id}")
@@ -90,6 +91,38 @@ public class AdminProductController {
         return ResponseEntity.ok(adminService.toggleProductFeatured(getAdminUser(userDetails), id));
     }
 
+    @PostMapping("/{id}/duplicate")
+    @Operation(summary = "Duplicate product metadata and variant matrix")
+    public ResponseEntity<ProductResponse> duplicateProduct(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long id) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(adminService.duplicateProduct(getAdminUser(userDetails), id));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Safe delete or archive product")
+    public ResponseEntity<java.util.Map<String, String>> deleteProduct(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long id) {
+        String resultMessage = adminService.deleteProduct(getAdminUser(userDetails), id);
+        return ResponseEntity.ok(java.util.Map.of("message", resultMessage));
+    }
+
+    @PostMapping("/bulk")
+    @Operation(summary = "Bulk actions for catalog products")
+    public ResponseEntity<java.util.List<ProductResponse>> bulkAction(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody com.odessi.api.dto.admin.AdminBulkProductRequest request) {
+        return ResponseEntity.ok(adminService.bulkProductAction(getAdminUser(userDetails), request));
+    }
+
+    @GetMapping("/{id}/activity")
+    @Operation(summary = "Get product activity audit log history")
+    public ResponseEntity<java.util.List<com.odessi.api.dto.admin.AdminAuditLogResponse>> getProductActivity(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(adminService.getProductActivity(id));
+    }
+
     @PostMapping("/{productId}/variants")
     @Operation(summary = "Add a new variant to product")
     public ResponseEntity<ProductResponse> addVariant(
@@ -107,6 +140,15 @@ public class AdminProductController {
             @PathVariable Long variantId,
             @Valid @RequestBody AdminVariantRequest request) {
         return ResponseEntity.ok(adminService.updateVariant(getAdminUser(userDetails), productId, variantId, request));
+    }
+
+    @DeleteMapping("/{productId}/variants/{variantId}")
+    @Operation(summary = "Delete an existing variant")
+    public ResponseEntity<ProductResponse> deleteVariant(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long productId,
+            @PathVariable Long variantId) {
+        return ResponseEntity.ok(adminService.deleteVariant(getAdminUser(userDetails), productId, variantId));
     }
 
     @PostMapping(value = "/{productId}/images", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)

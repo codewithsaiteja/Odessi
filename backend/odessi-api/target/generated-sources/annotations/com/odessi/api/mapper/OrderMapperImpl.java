@@ -6,6 +6,7 @@ import com.odessi.api.entity.Order;
 import com.odessi.api.entity.OrderItem;
 import com.odessi.api.entity.OrderStatus;
 import com.odessi.api.entity.PaymentStatus;
+import com.odessi.api.entity.Product;
 import com.odessi.api.entity.ProductVariant;
 import com.odessi.api.entity.User;
 import java.math.BigDecimal;
@@ -17,8 +18,8 @@ import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    date = "2026-09-20T00:05:50+0530",
-    comments = "version: 1.5.5.Final, compiler: Eclipse JDT (IDE) 3.46.100.v20260826-1225, environment: Java 21.0.12.1 (Eclipse Adoptium)"
+    date = "2026-09-22T00:05:32+0530",
+    comments = "version: 1.5.5.Final, compiler: javac, environment: Java 25.0.2 (Oracle Corporation)"
 )
 @Component
 public class OrderMapperImpl implements OrderMapper {
@@ -30,6 +31,8 @@ public class OrderMapperImpl implements OrderMapper {
         }
 
         Long variantId = null;
+        Long productId = null;
+        String productSlug = null;
         Long id = null;
         String productNameSnapshot = null;
         String skuSnapshot = null;
@@ -40,6 +43,8 @@ public class OrderMapperImpl implements OrderMapper {
         BigDecimal totalPrice = null;
 
         variantId = itemProductVariantId( item );
+        productId = itemProductVariantProductId( item );
+        productSlug = itemProductVariantProductSlug( item );
         id = item.getId();
         productNameSnapshot = item.getProductNameSnapshot();
         skuSnapshot = item.getSkuSnapshot();
@@ -49,7 +54,7 @@ public class OrderMapperImpl implements OrderMapper {
         quantity = item.getQuantity();
         totalPrice = item.getTotalPrice();
 
-        OrderItemResponse orderItemResponse = new OrderItemResponse( id, variantId, productNameSnapshot, skuSnapshot, sizeSnapshot, colorSnapshot, unitPrice, quantity, totalPrice );
+        OrderItemResponse orderItemResponse = new OrderItemResponse( id, variantId, productId, productSlug, productNameSnapshot, skuSnapshot, sizeSnapshot, colorSnapshot, unitPrice, quantity, totalPrice );
 
         return orderItemResponse;
     }
@@ -110,6 +115,44 @@ public class OrderMapperImpl implements OrderMapper {
             return null;
         }
         return id;
+    }
+
+    private Long itemProductVariantProductId(OrderItem orderItem) {
+        if ( orderItem == null ) {
+            return null;
+        }
+        ProductVariant productVariant = orderItem.getProductVariant();
+        if ( productVariant == null ) {
+            return null;
+        }
+        Product product = productVariant.getProduct();
+        if ( product == null ) {
+            return null;
+        }
+        Long id = product.getId();
+        if ( id == null ) {
+            return null;
+        }
+        return id;
+    }
+
+    private String itemProductVariantProductSlug(OrderItem orderItem) {
+        if ( orderItem == null ) {
+            return null;
+        }
+        ProductVariant productVariant = orderItem.getProductVariant();
+        if ( productVariant == null ) {
+            return null;
+        }
+        Product product = productVariant.getProduct();
+        if ( product == null ) {
+            return null;
+        }
+        String slug = product.getSlug();
+        if ( slug == null ) {
+            return null;
+        }
+        return slug;
     }
 
     private Long orderUserId(Order order) {

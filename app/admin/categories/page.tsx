@@ -7,9 +7,11 @@ import {
   updateAdminCategory,
   toggleAdminCategoryActive,
 } from "@/lib/api/admin";
+import { useToast } from "@/components/ui/Toast";
 import { FolderTree, Plus, Edit, RefreshCw } from "lucide-react";
 
 export default function AdminCategoriesPage() {
+  const toast = useToast();
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -28,8 +30,8 @@ export default function AdminCategoriesPage() {
       setLoading(true);
       const data = await getAdminCategories();
       setCategories(data);
-    } catch (err) {
-      console.error("Failed to load categories", err);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to load categories");
     } finally {
       setLoading(false);
     }
@@ -44,22 +46,25 @@ export default function AdminCategoriesPage() {
     try {
       if (editingCategory) {
         await updateAdminCategory(editingCategory.id, form);
+        toast.success("Category updated");
       } else {
         await createAdminCategory(form);
+        toast.success("Category created");
       }
       setModalOpen(false);
       fetchCategories();
     } catch (err: any) {
-      alert(err?.message || "Failed to save category");
+      toast.error(err?.message || "Failed to save category");
     }
   };
 
   const handleToggleActive = async (id: number) => {
     try {
       await toggleAdminCategoryActive(id);
+      toast.success("Category active status updated");
       fetchCategories();
-    } catch (err) {
-      alert("Failed to toggle category active status");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to toggle category active status");
     }
   };
 

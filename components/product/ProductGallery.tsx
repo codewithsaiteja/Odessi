@@ -3,22 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { ChevronLeft, ChevronRight, X, Maximize2, Box, Layers, Image as ImageIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Maximize2, Layers, Image as ImageIcon } from "lucide-react";
 import type { Product3DAsset, Product360Sequence } from "@/types";
 
-const Product3DViewer = dynamic(() => import("@/components/3d/Product3DViewer"), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full aspect-[3/4] bg-[#0d0d0d] flex items-center justify-center text-white text-sm">
-      <div className="flex items-center gap-2">
-        <Box size={18} className="animate-spin text-[var(--color-odessi-gold)]" />
-        <span>Loading 3D Studio...</span>
-      </div>
-    </div>
-  ),
-});
-
-const Interactive360Viewer = dynamic(() => import("@/components/3d/Interactive360Viewer"), {
+const Interactive360Viewer = dynamic(() => import("@/components/product/Interactive360Viewer"), {
   ssr: false,
   loading: () => (
     <div className="w-full aspect-[3/4] bg-[#0d0d0d] flex items-center justify-center text-white text-sm">
@@ -43,18 +31,16 @@ export default function ProductGallery({
   images, 
   productName, 
   className = "",
-  selectedColorHex = "#1a1a1a",
-  model3D,
   images360,
 }: ProductGalleryProps) {
-  const [viewMode, setViewMode] = useState<"2d" | "3d" | "360">("2d");
+  const [viewMode, setViewMode] = useState<"2d" | "360">("2d");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [failedImages, setFailedImages] = useState<Record<number, boolean>>({});
 
-  const fallbackImage = "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&q=80";
+  const fallbackImage = "/placeholder-product.svg";
 
   const getImageSrc = (index: number) => {
     if (failedImages[index]) return fallbackImage;
@@ -128,50 +114,31 @@ export default function ProductGallery({
     };
   }, [isFullscreen]);
 
-  const has3DModel = Boolean(model3D?.has3DModel && model3D?.modelUrl);
   const hasSpin360 = Boolean(images360?.images && images360.images.length > 1);
 
   return (
     <>
       <div className={className}>
-        {/* Experience Selector Tabs (2D / 3D / 360 Spin) */}
-        <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1">
-          {/* PHOTOS (2D) */}
-          <button
-            type="button"
-            onClick={() => setViewMode("2d")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all ${
-              viewMode === "2d"
-                ? "bg-[var(--color-odessi-black)] text-white shadow-sm"
-                : "bg-white border border-[var(--color-odessi-smoke)] text-[var(--color-odessi-stone)] hover:text-black"
-            }`}
-            aria-pressed={viewMode === "2d"}
-            aria-label="View 2D photos gallery"
-          >
-            <ImageIcon size={13} />
-            PHOTOS (2D)
-          </button>
-
-          {/* VIEW IN 3D */}
-          {has3DModel && (
+        {/* Experience Selector Tabs (Shown only if 360 Spin sequence exists) */}
+        {hasSpin360 && (
+          <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1">
+            {/* PHOTOS (2D) */}
             <button
               type="button"
-              onClick={() => setViewMode("3d")}
+              onClick={() => setViewMode("2d")}
               className={`px-3 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all ${
-                viewMode === "3d"
+                viewMode === "2d"
                   ? "bg-[var(--color-odessi-black)] text-white shadow-sm"
                   : "bg-white border border-[var(--color-odessi-smoke)] text-[var(--color-odessi-stone)] hover:text-black"
               }`}
-              aria-pressed={viewMode === "3d"}
-              aria-label="View 3D interactive model"
+              aria-pressed={viewMode === "2d"}
+              aria-label="View 2D photos gallery"
             >
-              <Box size={13} className="text-[var(--color-odessi-gold)]" />
-              VIEW IN 3D
+              <ImageIcon size={13} />
+              PHOTOS (2D)
             </button>
-          )}
 
-          {/* 360° SPIN */}
-          {hasSpin360 && (
+            {/* 360° SPIN */}
             <button
               type="button"
               onClick={() => setViewMode("360")}
@@ -186,34 +153,12 @@ export default function ProductGallery({
               <Layers size={13} className="text-[var(--color-odessi-gold)]" />
               360° SPIN
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Display Area */}
         <div className="relative">
-          {viewMode === "3d" ? (
-            has3DModel ? (
-              <Product3DViewer
-                modelUrl={model3D?.modelUrl}
-                posterUrl={model3D?.posterUrl || getImageSrc(0)}
-                colorHex={selectedColorHex}
-                productName={productName}
-                onFallbackToPhotos={() => setViewMode("2d")}
-              />
-            ) : (
-              <div className="w-full aspect-[3/4] bg-[#0d0d0d] rounded-sm flex flex-col items-center justify-center p-6 text-center text-white">
-                <p className="text-sm font-semibold mb-2">3D View Unavailable</p>
-                <p className="text-xs text-slate-400 mb-4">No 3D model asset attached to this piece.</p>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("2d")}
-                  className="px-4 py-2 bg-white text-black text-xs font-semibold uppercase rounded-full hover:bg-slate-200 transition"
-                >
-                  Back to Photos
-                </button>
-              </div>
-            )
-          ) : viewMode === "360" ? (
+          {viewMode === "360" ? (
             hasSpin360 ? (
               <Interactive360Viewer
                 images={images360!.images}

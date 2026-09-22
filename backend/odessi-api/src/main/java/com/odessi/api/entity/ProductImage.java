@@ -101,6 +101,10 @@ public class ProductImage {
         return isPrimary;
     }
 
+    public boolean getIsPrimary() {
+        return isPrimary;
+    }
+
     public void setPrimary(boolean primary) {
         isPrimary = primary;
     }

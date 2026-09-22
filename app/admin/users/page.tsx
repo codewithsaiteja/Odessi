@@ -3,9 +3,11 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { getAdminUsers, toggleAdminUserEnabled } from "@/lib/api/admin";
+import { useToast } from "@/components/ui/Toast";
 import { Users, Eye, RefreshCw } from "lucide-react";
 
 export default function AdminUsersPage() {
+  const toast = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -15,8 +17,8 @@ export default function AdminUsersPage() {
       setLoading(true);
       const res = await getAdminUsers(page, 20);
       setUsers(res.content || []);
-    } catch (err) {
-      console.error("Failed to load users", err);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to load users");
     } finally {
       setLoading(false);
     }
@@ -30,9 +32,10 @@ export default function AdminUsersPage() {
     if (!confirm("Are you sure you want to toggle this customer account status?")) return;
     try {
       await toggleAdminUserEnabled(id);
+      toast.success("Account status updated");
       fetchUsers();
     } catch (err: any) {
-      alert(err?.message || "Failed to update account status");
+      toast.error(err?.message || "Failed to update account status");
     }
   };
 

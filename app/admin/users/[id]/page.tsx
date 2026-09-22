@@ -4,11 +4,13 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getAdminUserById, toggleAdminUserEnabled } from "@/lib/api/admin";
+import { useToast } from "@/components/ui/Toast";
 import { ArrowLeft, User, AlertCircle, CheckCircle2 } from "lucide-react";
 
 export default function AdminUserDetailPage() {
   const params = useParams();
   const id = Number(params?.id);
+  const toast = useToast();
 
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -34,9 +36,10 @@ export default function AdminUserDetailPage() {
     if (!confirm("Are you sure you want to toggle this customer account status?")) return;
     try {
       await toggleAdminUserEnabled(id);
+      toast.success("Account status updated");
       fetchCustomer();
     } catch (err: any) {
-      alert(err?.message || "Failed to update account status");
+      toast.error(err?.message || "Failed to update account status");
     }
   };
 

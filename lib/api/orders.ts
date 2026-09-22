@@ -3,6 +3,8 @@ import { apiGet, apiPost, buildQueryString } from "./client";
 export interface OrderItem {
   id: number;
   variantId?: number;
+  productId?: number;
+  productSlug?: string;
   productNameSnapshot: string;
   skuSnapshot: string;
   sizeSnapshot: string;
@@ -11,6 +13,7 @@ export interface OrderItem {
   quantity: number;
   totalPrice: number;
 }
+
 
 export interface Order {
   id: number;
@@ -26,6 +29,8 @@ export interface Order {
   status: "PENDING" | "PENDING_PAYMENT" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentStatus: "PENDING" | "AUTHORIZED" | "CAPTURED" | "PAID" | "FAILED" | "REFUNDED";
   shippingAddressSnapshot?: string;
+  shipmentTrackingNumber?: string;
+  carrierName?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -75,4 +80,8 @@ export async function getOrders(page = 0, size = 10): Promise<PagedOrdersRespons
 
 export async function getOrderByNumber(orderNumber: string): Promise<Order> {
   return apiGet<Order>(`/api/orders/${orderNumber}`);
+}
+
+export async function cancelOrder(orderNumber: string): Promise<Order> {
+  return apiPost<Order>(`/api/orders/${orderNumber}/cancel`);
 }

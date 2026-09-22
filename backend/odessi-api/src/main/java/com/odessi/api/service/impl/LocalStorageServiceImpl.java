@@ -27,15 +27,19 @@ public class LocalStorageServiceImpl implements MediaStorageService {
     );
 
     private final Path uploadDirectory;
+    private final Path socialUploadDirectory;
 
     public LocalStorageServiceImpl() {
         this.uploadDirectory = Paths.get("uploads", "products").toAbsolutePath().normalize();
+        this.socialUploadDirectory = Paths.get("uploads", "social").toAbsolutePath().normalize();
         try {
             Files.createDirectories(this.uploadDirectory);
+            Files.createDirectories(this.socialUploadDirectory);
         } catch (IOException e) {
-            log.error("Could not create upload directory: {}", this.uploadDirectory, e);
+            log.error("Could not create upload directories: {} or {}", this.uploadDirectory, this.socialUploadDirectory, e);
         }
     }
+
 
     @Override
     public String storeProductImage(MultipartFile file) {
@@ -110,6 +114,43 @@ public class LocalStorageServiceImpl implements MediaStorageService {
         } catch (IOException e) {
             log.error("Failed to store uploaded product video {}", fileName, e);
             throw new BadRequestException("STORAGE_ERROR", "Failed to store video file on server");
+        }
+    }
+
+    @Override
+    public String storeSocialImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("INVALID_FILE", "Upload file cannot be empty");
+        }
+
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new BadRequestException("FILE_TOO_LARGE", "Image size cannot exceed 5MB");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
+            throw new BadRequestException("INVALID_FILE_TYPE", "Only JPG, PNG, and WEBP images are allowed");
+        }
+
+        String originalName = file.getOriginalFilename();
+        String extension = ".jpg";
+        if (originalName != null && originalName.contains(".")) {
+            extension = originalName.substring(originalName.lastIndexOf(".")).toLowerCase();
+            if (!List.of(".jpg", ".jpeg", ".png", ".webp").contains(extension)) {
+                extension = ".jpg";
+            }
+        }
+
+        String fileName = "social-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8) + extension;
+        Path targetPath = this.socialUploadDirectory.resolve(fileName);
+
+        try {
+            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            log.info("Stored social image to {}", targetPath);
+            return "/uploads/social/" + fileName;
+        } catch (IOException e) {
+            log.error("Failed to store uploaded social image {}", fileName, e);
+            throw new BadRequestException("STORAGE_ERROR", "Failed to store social image on server");
         }
     }
 

@@ -1,13 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CheckCircle2, Copy, Check, Loader2 } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import { subscribeToNewsletter, NewsletterResponse } from "@/lib/api/newsletter";
 
 export default function Newsletter() {
   const { newsletter } = siteConfig;
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [loading, setLoading] = useState(false);
+  const [response, setResponse] = useState<NewsletterResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [touched, setTouched] = useState(false);
 
   const isValidEmail = (v: string) =>
@@ -15,12 +19,30 @@ export default function Newsletter() {
 
   const showError = touched && email.length > 0 && !isValidEmail(email);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched(true);
     if (!isValidEmail(email)) return;
-    // ⚠️ Backend integration pending — will connect to Spring Boot API
-    setStatus("success");
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await subscribeToNewsletter(email.trim());
+      setResponse(res);
+    } catch (err: any) {
+      setError(err?.message || "Failed to subscribe. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyCoupon = () => {
+    if (response?.couponCode) {
+      navigator.clipboard.writeText(response.couponCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
   };
 
   return (
@@ -64,13 +86,38 @@ export default function Newsletter() {
             {newsletter.body}
           </p>
 
-          {/* Form */}
-          {status === "success" ? (
-            <div className="border border-[var(--color-odessi-graphite)] px-8 py-6 max-w-md mx-auto">
-              <p className="type-h3 text-white mb-1">You&apos;re in.</p>
-              <p className="type-body-sm text-[var(--color-odessi-silver)]">
-                Welcome to the Odessi world. Check your inbox.
+          {/* Form / Success Feedback */}
+          {response ? (
+            <div className="border border-[var(--color-odessi-graphite)] bg-white/5 p-8 max-w-md mx-auto rounded-sm backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="flex items-center justify-center gap-2 mb-2 text-emerald-400">
+                <CheckCircle2 size={20} />
+                <p className="type-h3 text-white">You&apos;re on the list.</p>
+              </div>
+              <p className="type-body-sm text-[var(--color-odessi-silver)] mb-6">
+                {response.message}
               </p>
+
+              {/* Welcome Voucher Code Box */}
+              {response.couponCode && (
+                <div className="p-4 bg-black/60 border border-white/10 rounded-sm flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-mono tracking-widest uppercase text-[var(--color-odessi-stone)]">
+                      YOUR EXCLUSIVE VOUCHER
+                    </p>
+                    <p className="font-mono text-base font-bold text-amber-400 tracking-wider">
+                      {response.couponCode}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={copyCoupon}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded text-xs font-mono uppercase tracking-wider transition-colors"
+                  >
+                    {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                    <span>{copied ? "COPIED" : "COPY"}</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <form
@@ -103,26 +150,34 @@ export default function Newsletter() {
                 />
                 <button
                   type="submit"
+                  disabled={loading}
                   className="
                     btn-primary border-l border-[var(--color-odessi-graphite)] border-t-0 border-r-0 border-b-0
                     sm:border-t-0 sm:border-r-0 sm:border-b-0 sm:border-l
                     px-6 py-4 shrink-0
-                    flex items-center gap-2
+                    flex items-center justify-center gap-2
+                    disabled:opacity-60
                   "
                 >
-                  {newsletter.cta}
-                  <ArrowRight size={13} strokeWidth={2} />
+                  {loading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <>
+                      <span>{newsletter.cta}</span>
+                      <ArrowRight size={13} strokeWidth={2} />
+                    </>
+                  )}
                 </button>
               </div>
 
-              {/* Validation error */}
-              {showError && (
+              {/* Validation or API error */}
+              {(showError || error) && (
                 <p
                   id="email-error"
                   role="alert"
                   className="type-caption text-[var(--color-odessi-accent)] mt-2 text-left"
                 >
-                  Please enter a valid email address.
+                  {error || "Please enter a valid email address."}
                 </p>
               )}
             </form>

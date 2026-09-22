@@ -58,10 +58,13 @@ export interface Product {
   customizable?: boolean;
   available: boolean;
   stockStatus?: "in_stock" | "low_stock" | "out_of_stock" | "coming_soon";
+  rating?: number;
+  reviewCount?: number;
   model3D?: Product3DAsset;
   images360?: Product360Sequence;
   createdAt: string; // ISO date string
 }
+
 
 /* ── 3D & 360 Media Types ── */
 

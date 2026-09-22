@@ -1,6 +1,6 @@
-import { apiGet, apiPost, apiPatch, buildQueryString } from './client';
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete, buildQueryString } from "./client";
 
-export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type ReviewStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface ProductReview {
   id: number;
@@ -15,6 +15,7 @@ export interface ProductReview {
   comment: string;
   status: ReviewStatus;
   verifiedPurchase: boolean;
+  recommended?: boolean;
   createdAt: string;
 }
 
@@ -22,13 +23,34 @@ export interface ProductRatingSummary {
   productId: number;
   averageRating: number;
   totalReviews: number;
+  ratingDistribution: Record<number, number>;
+  recommendedPercentage?: number;
 }
 
 export interface CreateReviewRequest {
-  orderId: number;
+  orderId?: number;
   rating: number;
   title?: string;
   comment: string;
+  recommended?: boolean;
+}
+
+export interface ReviewEligibilityResponse {
+  eligible: boolean;
+  orderId: number | null;
+  orderNumber: string | null;
+  alreadyReviewed: boolean;
+  reason?: string;
+}
+
+export interface EligibleReviewItem {
+  productId: number;
+  productName: string;
+  productSlug: string;
+  primaryImageUrl?: string;
+  orderId: number;
+  orderNumber: string;
+  purchasedAt: string;
 }
 
 export interface PagedReviewsResponse {
@@ -49,6 +71,14 @@ export const getProductRatingSummary = async (productId: number): Promise<Produc
   return apiGet<ProductRatingSummary>(`/api/products/${productId}/reviews/summary`);
 };
 
+export const checkReviewEligibility = async (productId: number): Promise<ReviewEligibilityResponse> => {
+  return apiGet<ReviewEligibilityResponse>(`/api/products/${productId}/reviews/eligibility`);
+};
+
+export const getEligibleReviewProducts = async (): Promise<EligibleReviewItem[]> => {
+  return apiGet<EligibleReviewItem[]>("/api/reviews/eligible-products");
+};
+
 export const submitProductReview = async (productId: number, data: CreateReviewRequest): Promise<ProductReview> => {
   return apiPost<ProductReview>(`/api/products/${productId}/reviews`, data);
 };
@@ -60,4 +90,16 @@ export const getAdminReviews = async (status?: ReviewStatus, page = 0, size = 20
 
 export const moderateReview = async (id: number, status: ReviewStatus): Promise<ProductReview> => {
   return apiPatch<ProductReview>(`/api/admin/reviews/${id}/status?status=${status}`);
+};
+
+export const approveReview = async (id: number): Promise<ProductReview> => {
+  return apiPut<ProductReview>(`/api/admin/reviews/${id}/approve`);
+};
+
+export const rejectReview = async (id: number): Promise<ProductReview> => {
+  return apiPut<ProductReview>(`/api/admin/reviews/${id}/reject`);
+};
+
+export const deleteReview = async (id: number): Promise<{ message: string }> => {
+  return apiDelete<{ message: string }>(`/api/admin/reviews/${id}`);
 };

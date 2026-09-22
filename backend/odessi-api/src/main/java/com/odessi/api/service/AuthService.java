@@ -20,6 +20,8 @@ import com.odessi.api.repository.RefreshTokenRepository;
 import com.odessi.api.repository.UserRepository;
 import com.odessi.api.security.CustomUserDetails;
 import com.odessi.api.security.JwtService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,6 +35,8 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
@@ -40,6 +44,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EmailService emailService;
+    private final ReferralService referralService;
     private final AppProperties appProperties;
 
     public AuthService(
@@ -50,6 +55,7 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             EmailService emailService,
+            ReferralService referralService,
             AppProperties appProperties) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -58,6 +64,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.emailService = emailService;
+        this.referralService = referralService;
         this.appProperties = appProperties;
     }
 
@@ -80,6 +87,16 @@ public class AuthService {
         user.setEnabled(true);
 
         User savedUser = userRepository.save(user);
+
+        // Record referral if referral code is provided
+        if (request.getReferralCode() != null && !request.getReferralCode().isBlank()) {
+            try {
+                referralService.recordReferral(savedUser, request.getReferralCode());
+                log.info("Recorded referral for user id={} with code={}", savedUser.getId(), request.getReferralCode());
+            } catch (Exception e) {
+                log.warn("Failed to record referral code '{}' for user id={}: {}", request.getReferralCode(), savedUser.getId(), e.getMessage());
+            }
+        }
 
         if (!savedUser.isEmailVerified()) {
             generateAndSendVerificationEmail(savedUser);
@@ -219,6 +236,38 @@ public class AuthService {
                 .orElseThrow(() -> ResourceNotFoundException.user(userDetails.getId()));
     }
     
+    @Transactional
+    public void resendVerificationEmail(User user) {
+        if (user.isEmailVerified()) {
+            throw new BusinessException("ALREADY_VERIFIED", "Your email address is already verified");
+        }
+
+        emailVerificationTokenRepository.findFirstByUserOrderByCreatedAtDesc(user).ifPresent(lastToken -> {
+            if (lastToken.getCreatedAt().isAfter(Instant.now().minusSeconds(60))) {
+                throw new BusinessException("RATE_LIMIT_EXCEEDED", "Please wait 60 seconds before requesting another verification email");
+            }
+        });
+
+        generateAndSendVerificationEmail(user);
+    }
+
+    @Transactional
+    public void verifyEmailToken(String tokenHash) {
+        EmailVerificationToken token = emailVerificationTokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new BusinessException("INVALID_VERIFICATION_TOKEN", "Invalid or expired verification link"));
+
+        if (token.getExpiresAt().isBefore(Instant.now())) {
+            emailVerificationTokenRepository.delete(token);
+            throw new BusinessException("TOKEN_EXPIRED", "Verification link has expired. Please request a new one");
+        }
+
+        User user = token.getUser();
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        emailVerificationTokenRepository.deleteByUser(user);
+    }
+
     private void generateAndSendVerificationEmail(User user) {
         EmailVerificationToken token = new EmailVerificationToken();
         token.setUser(user);

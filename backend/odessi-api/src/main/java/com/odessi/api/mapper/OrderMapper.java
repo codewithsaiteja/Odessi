@@ -11,6 +11,8 @@ import org.mapstruct.Mapping;
 public interface OrderMapper {
 
     @Mapping(target = "variantId", source = "productVariant.id")
+    @Mapping(target = "productId", source = "productVariant.product.id")
+    @Mapping(target = "productSlug", source = "productVariant.product.slug")
     OrderItemResponse toItemResponse(OrderItem item);
 
     @Mapping(target = "userId", source = "user.id")

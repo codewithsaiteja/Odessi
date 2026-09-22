@@ -18,6 +18,24 @@ export default function Navbar() {
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [activeMegaMenu, setActiveMegaMenu] = useState<"shop" | "collections" | null>(null);
+  const megaMenuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleNavMouseEnter = (label: string) => {
+    if (megaMenuTimeoutRef.current) clearTimeout(megaMenuTimeoutRef.current);
+    const lower = label.toLowerCase();
+    if (lower === "shop" || lower === "collections") {
+      setActiveMegaMenu(lower as "shop" | "collections");
+    } else {
+      setActiveMegaMenu(null);
+    }
+  };
+
+  const handleNavMouseLeave = () => {
+    megaMenuTimeoutRef.current = setTimeout(() => {
+      setActiveMegaMenu(null);
+    }, 250);
+  };
   
   const navRef = useRef<HTMLElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
@@ -117,23 +135,30 @@ export default function Navbar() {
           {/* ── Desktop center nav ── */}
           <nav
             aria-label="Primary navigation"
+            onMouseLeave={handleNavMouseLeave}
             className="hidden lg:flex items-center gap-8 absolute left-1/2 -translate-x-1/2"
           >
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`
-                  type-nav link-underline transition-opacity duration-200
-                  ${scrolled
-                    ? "text-[var(--color-odessi-black)] hover:opacity-60"
-                    : "text-white hover:opacity-70"
-                  }
-                `}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const lower = link.label.toLowerCase();
+              const isMegaTarget = lower === "shop" || lower === "collections";
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onMouseEnter={() => (isMegaTarget ? handleNavMouseEnter(link.label) : setActiveMegaMenu(null))}
+                  className={`
+                    type-nav link-underline transition-all duration-200 py-2 relative
+                    ${scrolled
+                      ? "text-[var(--color-odessi-black)] hover:opacity-60"
+                      : "text-white hover:opacity-70"
+                    }
+                    ${activeMegaMenu === lower ? "opacity-100 font-bold text-[#D4AF37]" : ""}
+                  `}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* ── Right action icons: Search | Account | Wishlist | Bag ── */}
@@ -303,6 +328,224 @@ export default function Navbar() {
             </button>
           </div>
         </div>
+
+        {/* ── Desktop Mega Menu Flyout ── */}
+        {activeMegaMenu && (
+          <div
+            onMouseEnter={() => {
+              if (megaMenuTimeoutRef.current) clearTimeout(megaMenuTimeoutRef.current);
+            }}
+            onMouseLeave={handleNavMouseLeave}
+            className={`
+              hidden lg:block absolute top-full left-0 right-0 border-b shadow-2xl py-8 px-12 animate-in fade-in slide-in-from-top-2 duration-200
+              ${scrolled
+                ? "bg-[var(--color-odessi-warmwhite)]/98 border-[var(--color-odessi-smoke)] text-[var(--color-odessi-black)]"
+                : "bg-[#0A0A0A]/98 backdrop-blur-md border-neutral-800 text-white"
+              }
+            `}
+          >
+            <div className="max-w-7xl mx-auto grid grid-cols-3 gap-12">
+              {activeMegaMenu === "shop" ? (
+                <>
+                  <div>
+                    <span className="text-[10px] font-mono tracking-[0.2em] text-[#D4AF37] uppercase font-semibold block mb-4">
+                      GARMENT CATEGORIES
+                    </span>
+                    <ul className="space-y-3 text-xs uppercase tracking-wider font-medium">
+                      <li>
+                        <Link
+                          href="/shop?category=tees"
+                          onClick={() => setActiveMegaMenu(null)}
+                          className="hover:text-[#D4AF37] hover:translate-x-1 inline-block transition-all opacity-85 hover:opacity-100"
+                        >
+                          Heavyweight Tees (240–280 GSM)
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/shop?category=hoodies"
+                          onClick={() => setActiveMegaMenu(null)}
+                          className="hover:text-[#D4AF37] hover:translate-x-1 inline-block transition-all opacity-85 hover:opacity-100"
+                        >
+                          French Terry Hoodies (380 GSM)
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/shop?category=sweatshirts"
+                          onClick={() => setActiveMegaMenu(null)}
+                          className="hover:text-[#D4AF37] hover:translate-x-1 inline-block transition-all opacity-85 hover:opacity-100"
+                        >
+                          Oversized Sweatshirts
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/shop?newArrival=true"
+                          onClick={() => setActiveMegaMenu(null)}
+                          className="text-[#D4AF37] hover:translate-x-1 inline-block transition-all font-bold"
+                        >
+                          ⚡ Limited Drops & Launches
+                        </Link>
+                      </li>
+                      <li className="pt-2 border-t border-neutral-500/20">
+                        <Link
+                          href="/shop"
+                          onClick={() => setActiveMegaMenu(null)}
+                          className="text-xs font-semibold underline underline-offset-4 hover:text-[#D4AF37] transition-colors"
+                        >
+                          Browse Full Catalog →
+                        </Link>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-mono tracking-[0.2em] text-[#B89A5A] uppercase font-semibold block mb-4">
+                      SILHOUETTE & CRAFT
+                    </span>
+                    <ul className="space-y-3 text-xs tracking-wide opacity-85">
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+                        <span>Drop Shoulder Signature Oversized Fit</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+                        <span>100% Combed Compact Cotton</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+                        <span>High-Density HD Screen Printing</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+                        <span>Preshrunk & Bio-Washed Finish</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className={`rounded-xl p-5 flex flex-col justify-between border ${
+                    scrolled ? "bg-white/80 border-neutral-200" : "bg-neutral-900/80 border-neutral-800"
+                  }`}>
+                    <div>
+                      <span className="text-[10px] font-mono tracking-widest text-[#D4AF37] uppercase font-bold block mb-1">
+                        EDITORIAL SPOTLIGHT
+                      </span>
+                      <h4 className="text-base font-serif font-bold uppercase tracking-tight mb-2">
+                        THE DARK VERSE ATELIER
+                      </h4>
+                      <p className="text-xs opacity-75 leading-relaxed mb-4">
+                        Cinematic silhouettes crafted with heavyweight textures and understated dark embroidery.
+                      </p>
+                    </div>
+                    <Link
+                      href="/shop?collection=dark-verse"
+                      onClick={() => setActiveMegaMenu(null)}
+                      className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#D4AF37] hover:underline"
+                    >
+                      EXPLORE COLLECTION →
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <span className="text-[10px] font-mono tracking-[0.2em] text-[#D4AF37] uppercase font-semibold block mb-4">
+                      CURATED SERIES
+                    </span>
+                    <ul className="space-y-3 text-xs uppercase tracking-wider font-medium">
+                      <li>
+                        <Link
+                          href="/collections/dark-verse"
+                          onClick={() => setActiveMegaMenu(null)}
+                          className="hover:text-[#D4AF37] hover:translate-x-1 inline-block transition-all opacity-85 hover:opacity-100"
+                        >
+                          Dark Verse Collection
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/collections/cinema-origins"
+                          onClick={() => setActiveMegaMenu(null)}
+                          className="hover:text-[#D4AF37] hover:translate-x-1 inline-block transition-all opacity-85 hover:opacity-100"
+                        >
+                          Cinema Origins
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/collections/the-protagonist"
+                          onClick={() => setActiveMegaMenu(null)}
+                          className="hover:text-[#D4AF37] hover:translate-x-1 inline-block transition-all opacity-85 hover:opacity-100"
+                        >
+                          The Protagonist Series
+                        </Link>
+                      </li>
+                      <li className="pt-2 border-t border-neutral-500/20">
+                        <Link
+                          href="/collections"
+                          onClick={() => setActiveMegaMenu(null)}
+                          className="text-xs font-semibold underline underline-offset-4 hover:text-[#D4AF37] transition-colors"
+                        >
+                          View All Collections →
+                        </Link>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-mono tracking-[0.2em] text-[#B89A5A] uppercase font-semibold block mb-4">
+                      BESPOKE & COLLABS
+                    </span>
+                    <ul className="space-y-3 text-xs uppercase tracking-wider font-medium">
+                      <li>
+                        <Link
+                          href="/custom"
+                          onClick={() => setActiveMegaMenu(null)}
+                          className="hover:text-[#D4AF37] hover:translate-x-1 inline-block transition-all opacity-85 hover:opacity-100"
+                        >
+                          Custom Atelier & Bulk Orders
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/partner"
+                          onClick={() => setActiveMegaMenu(null)}
+                          className="hover:text-[#D4AF37] hover:translate-x-1 inline-block transition-all opacity-85 hover:opacity-100"
+                        >
+                          Creators & Brand Collaborations
+                        </Link>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className={`rounded-xl p-5 flex flex-col justify-between border ${
+                    scrolled ? "bg-white/80 border-neutral-200" : "bg-neutral-900/80 border-neutral-800"
+                  }`}>
+                    <div>
+                      <span className="text-[10px] font-mono tracking-widest text-[#D4AF37] uppercase font-bold block mb-1">
+                        BRAND PHILOSOPHY
+                      </span>
+                      <h4 className="text-base font-serif font-bold uppercase tracking-tight mb-2">
+                        WEAR YOUR STORY
+                      </h4>
+                      <p className="text-xs opacity-75 leading-relaxed mb-4">
+                        Clothing inspired by the heroes of Indian cinema, engineered for those who carry their own legend.
+                      </p>
+                    </div>
+                    <Link
+                      href="/about"
+                      onClick={() => setActiveMegaMenu(null)}
+                      className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#D4AF37] hover:underline"
+                    >
+                      READ OUR STORY →
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
       {/* ── Mobile menu overlay ── */}

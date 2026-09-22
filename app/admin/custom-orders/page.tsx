@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { growthApi, CustomOrderResponse } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 import { Shirt, Search, Filter, Save, ShieldAlert } from "lucide-react";
 
 export default function AdminCustomOrdersPage() {
+  const toast = useToast();
   const [inquiries, setInquiries] = useState<CustomOrderResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -24,8 +26,8 @@ export default function AdminCustomOrdersPage() {
         size: 50,
       });
       setInquiries(res.content || []);
-    } catch (err) {
-      console.error("Failed to load custom order inquiries", err);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to load custom order inquiries");
     } finally {
       setLoading(false);
     }
@@ -41,8 +43,9 @@ export default function AdminCustomOrdersPage() {
       const updated = await growthApi.updateCustomOrderStatus(id, newStatus);
       setInquiries((prev) => prev.map((item) => (item.id === id ? updated : item)));
       if (selectedInquiry?.id === id) setSelectedInquiry(updated);
-    } catch (err) {
-      alert("Failed to update status");
+      toast.success(`Custom order status updated to ${newStatus}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update status");
     } finally {
       setUpdatingStatus(false);
     }
@@ -55,9 +58,9 @@ export default function AdminCustomOrdersPage() {
       const updated = await growthApi.updateCustomOrderNotes(selectedInquiry.id, internalNotes);
       setInquiries((prev) => prev.map((item) => (item.id === selectedInquiry.id ? updated : item)));
       setSelectedInquiry(updated);
-      alert("Internal notes saved securely.");
-    } catch (err) {
-      alert("Failed to save internal notes");
+      toast.success("Internal notes saved securely.");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save internal notes");
     } finally {
       setSavingNotes(false);
     }

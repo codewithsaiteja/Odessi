@@ -7,16 +7,14 @@ import AccountOverview from "@/components/account/AccountOverview";
 import AccountOrders from "@/components/account/AccountOrders";
 import AccountAddresses from "@/components/account/AccountAddresses";
 import AccountWishlist from "@/components/account/AccountWishlist";
-import AccountReviews from "@/components/account/AccountReviews";
 import AccountProfile from "@/components/account/AccountProfile";
 import AccountSecurity from "@/components/account/AccountSecurity";
+import AccountSupport from "@/components/account/AccountSupport";
 import AccountReferrals from "@/components/account/AccountReferrals";
-import AccountLoyalty from "@/components/account/AccountLoyalty";
 
 import { getOrders, Order } from "@/lib/api/orders";
 import { getAddresses, Address } from "@/lib/api/addresses";
 import { getWishlist } from "@/lib/api/wishlist";
-import { getUserReviews, UserReviewResponse } from "@/lib/api/user";
 import { WishlistItem } from "@/types";
 
 import {
@@ -24,25 +22,23 @@ import {
   ShoppingBag,
   MapPin,
   Heart,
-  Star,
   User as UserIcon,
   Shield,
+  HelpCircle,
+  Gift,
   LogOut,
   ChevronRight,
-  Gift,
-  Crown
 } from "lucide-react";
 
 export type AccountTab =
   | "overview"
+  | "profile"
   | "orders"
   | "addresses"
   | "wishlist"
-  | "reviews"
-  | "referral"
-  | "loyalty"
-  | "profile"
-  | "security";
+  | "referrals"
+  | "security"
+  | "support";
 
 interface TabItem {
   id: AccountTab;
@@ -52,14 +48,13 @@ interface TabItem {
 
 const TABS: TabItem[] = [
   { id: "overview", label: "Overview", icon: LayoutGrid },
+  { id: "profile", label: "Profile", icon: UserIcon },
   { id: "orders", label: "Orders", icon: ShoppingBag },
   { id: "addresses", label: "Addresses", icon: MapPin },
   { id: "wishlist", label: "Wishlist", icon: Heart },
-  { id: "reviews", label: "Reviews", icon: Star },
-  { id: "referral", label: "Referral Program", icon: Gift },
-  { id: "loyalty", label: "Odessi Club", icon: Crown },
-  { id: "profile", label: "Profile", icon: UserIcon },
+  { id: "referrals", label: "Referrals & Rewards", icon: Gift },
   { id: "security", label: "Security", icon: Shield },
+  { id: "support", label: "Support", icon: HelpCircle },
 ];
 
 function AccountContent() {
@@ -73,18 +68,22 @@ function AccountContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
-  const [reviews, setReviews] = useState<UserReviewResponse[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const [isDataLoading, setIsDataLoading] = useState<boolean>(true);
+  const [dataError, setDataError] = useState<string | null>(null);
 
-  // Sync tab with URL search parameter
+  // Sync tab with URL search parameter with safe fallback to "overview"
   useEffect(() => {
     const tabParam = searchParams.get("tab") as AccountTab | null;
     if (tabParam && TABS.some((t) => t.id === tabParam)) {
       setActiveTab(tabParam);
+    } else if (tabParam) {
+      // Fallback invalid tab to "overview"
+      setActiveTab("overview");
+      router.replace("/account?tab=overview", { scroll: false });
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   // Auth Guard
   useEffect(() => {
@@ -123,26 +122,21 @@ function AccountContent() {
     }
   }, []);
 
-  const fetchReviews = useCallback(async () => {
-    try {
-      const res = await getUserReviews(0, 50);
-      const items = res?.data || res?.content || [];
-      setReviews(items);
-    } catch {
-      setReviews([]);
-    }
-  }, []);
-
   const loadAllData = useCallback(async () => {
     setIsDataLoading(true);
-    await Promise.all([
-      fetchAddresses(),
-      fetchWishlist(),
-      fetchOrders(),
-      fetchReviews(),
-    ]);
-    setIsDataLoading(false);
-  }, [fetchAddresses, fetchWishlist, fetchOrders, fetchReviews]);
+    setDataError(null);
+    try {
+      await Promise.all([
+        fetchAddresses(),
+        fetchWishlist(),
+        fetchOrders(),
+      ]);
+    } catch (err: any) {
+      setDataError("Unable to load complete account details. Please refresh or try again.");
+    } finally {
+      setIsDataLoading(false);
+    }
+  }, [fetchAddresses, fetchWishlist, fetchOrders]);
 
   useEffect(() => {
     if (user) {
@@ -185,6 +179,11 @@ function AccountContent() {
 
   return (
     <div className="min-h-screen bg-stone-50/50 pb-20 pt-8 sm:pt-12">
+      {/* Noindex robots meta for private customer route protection */}
+      <head>
+        <meta name="robots" content="noindex, nofollow" />
+      </head>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8 border-b border-stone-200 pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -204,6 +203,18 @@ function AccountContent() {
             {user.email}
           </div>
         </div>
+
+        {dataError && (
+          <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-sm flex items-center justify-between">
+            <span>{dataError}</span>
+            <button
+              onClick={loadAllData}
+              className="px-3 py-1 bg-stone-900 text-white rounded text-[10px] uppercase tracking-wider font-semibold"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
 
         {/* Navigation & Panels */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
@@ -278,7 +289,6 @@ function AccountContent() {
                 orders={orders}
                 addresses={addresses}
                 wishlistItems={wishlistItems}
-                reviews={reviews}
                 onNavigateTab={(tab) => handleTabChange(tab as AccountTab)}
                 onSelectOrder={(ord) => {
                   setSelectedOrder(ord);
@@ -286,11 +296,13 @@ function AccountContent() {
                 }}
               />
             )}
+            {activeTab === "profile" && <AccountProfile />}
             {activeTab === "orders" && (
               <AccountOrders
                 orders={orders}
                 selectedOrder={selectedOrder}
                 onSelectOrder={(ord) => setSelectedOrder(ord)}
+                onRefreshOrders={fetchOrders}
               />
             )}
             {activeTab === "addresses" && (
@@ -305,13 +317,9 @@ function AccountContent() {
                 onRefreshWishlist={fetchWishlist}
               />
             )}
-            {activeTab === "reviews" && (
-              <AccountReviews reviews={reviews} />
-            )}
-            {activeTab === "referral" && <AccountReferrals />}
-            {activeTab === "loyalty" && <AccountLoyalty />}
-            {activeTab === "profile" && <AccountProfile />}
+            {activeTab === "referrals" && <AccountReferrals />}
             {activeTab === "security" && <AccountSecurity />}
+            {activeTab === "support" && <AccountSupport />}
           </div>
         </div>
       </div>

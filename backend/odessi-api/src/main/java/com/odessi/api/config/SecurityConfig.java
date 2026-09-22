@@ -121,6 +121,10 @@ public class SecurityConfig {
                     "/api/categories/**",
                     "/api/collections",
                     "/api/collections/**",
+                    "/api/social/posts",
+                    "/api/social/posts/**",
+                    "/api/homepage/content",
+                    "/api/homepage/content/**",
                     "/uploads/**"
                 ).permitAll()
                 .requestMatchers(
@@ -132,7 +136,8 @@ public class SecurityConfig {
                     "/api/webhooks/razorpay",
                     "/api/partnerships",
                     "/api/custom-orders",
-                    "/api/back-in-stock/subscribe"
+                    "/api/back-in-stock/subscribe",
+                    "/api/newsletter/**"
                 ).permitAll()
                 // ── Health & documentation ───────────────────────────────────────────
                 .requestMatchers(
@@ -149,12 +154,14 @@ public class SecurityConfig {
                 .requestMatchers("/api/wishlist/**").authenticated()
                 .requestMatchers("/api/addresses/**").authenticated()
                 .requestMatchers("/api/orders/**").authenticated()
+                .requestMatchers("/api/reviews/**").authenticated()
                 .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
                 .requestMatchers("/api/users/me/**").authenticated()
                 // ── Admin ────────────────────────────────────────────────
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // ── Anything else ────────────────────────────────────────
                 .anyRequest().authenticated()
+
             )
             // Rate limiter runs before JWT authentication
             .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)

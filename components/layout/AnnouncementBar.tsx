@@ -3,12 +3,31 @@
 import { useState, useEffect, useCallback } from "react";
 import { X } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import { getHomepageContent } from "@/lib/api/content";
 
 export default function AnnouncementBar() {
-  const { messages, interval } = siteConfig.announcement;
+  const { messages: defaultMessages, interval } = siteConfig.announcement;
+  const [messages, setMessages] = useState<string[]>([...defaultMessages]);
   const [current, setCurrent] = useState(0);
   const [visible, setVisible] = useState(true);
   const [animating, setAnimating] = useState(false);
+
+  useEffect(() => {
+    getHomepageContent()
+      .then((sections) => {
+        const ann = sections.find((s) => s.sectionKey === "ANNOUNCEMENT");
+        if (ann) {
+          if (!ann.active) {
+            setVisible(false);
+          } else if (ann.headline) {
+            setMessages([ann.headline, ...defaultMessages.filter((m) => m !== ann.headline)]);
+          }
+        }
+      })
+      .catch(() => {
+        // Fallback gracefully
+      });
+  }, [defaultMessages]);
 
   const advance = useCallback(() => {
     if (messages.length <= 1) return;

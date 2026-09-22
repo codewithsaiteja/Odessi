@@ -28,7 +28,10 @@ import {
   Timer,
   ChevronDown,
   User as UserIcon,
+  Camera,
+  LayoutTemplate,
 } from "lucide-react";
+
 
 interface NavSection {
   title: string;
@@ -77,6 +80,14 @@ const NAV_SECTIONS: NavSection[] = [
       { name: "Limited Drops", href: "/admin/drops", icon: Timer },
     ],
   },
+  {
+    title: "CONTENT & SOCIAL",
+    items: [
+      { name: "Instagram / Social", href: "/admin/social", icon: Camera },
+      { name: "Storefront Content", href: "/admin/content", icon: LayoutTemplate },
+    ],
+  },
+
   {
     title: "BUSINESS",
     items: [
@@ -152,6 +163,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         return "Promotions & Coupon Engine";
       case "reviews":
         return "Customer Reviews & Moderation";
+      case "social":
+        return "Instagram / Social Feed Management";
+      case "content":
+        return "Storefront Editorial & Homepage Content";
       case "referrals":
         return "Customer Referrals & Rewards Audit";
       case "categories":

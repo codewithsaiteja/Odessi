@@ -56,4 +56,11 @@ public class OrderController {
         Long userId = authService.getCurrentUser().getId();
         return ResponseEntity.ok(ApiResponse.ok(orderService.findByOrderNumber(orderNumber, userId)));
     }
+
+    @PostMapping("/{orderNumber}/cancel")
+    @Operation(summary = "Cancel an order")
+    public ResponseEntity<ApiResponse<OrderResponse>> cancelOrder(@PathVariable String orderNumber) {
+        Long userId = authService.getCurrentUser().getId();
+        return ResponseEntity.ok(ApiResponse.ok(orderService.cancelOrder(orderNumber, userId), "Order cancelled successfully"));
+    }
 }

@@ -14,6 +14,7 @@ import ProductGrid from "@/components/product/ProductGrid";
 import type { Product, ProductFilters, ProductSort, PaginatedResponse } from "@/types";
 import { getProducts } from "@/lib/api/products";
 import { filtersToUrlParams } from "@/lib/product-utils";
+import { useWishlist } from "@/lib/wishlist-context";
 
 /* ── Skeleton Card Loader Component ── */
 function ProductCardSkeleton() {
@@ -43,7 +44,7 @@ function ShopContent() {
   const availableParam = searchParams.get("available") === "true" ? true : undefined;
   const newArrivalParam = searchParams.get("newArrival") === "true" ? true : undefined;
   const sortParam = (searchParams.get("sort") as ProductSort["field"]) || "newest";
-  const searchParam = searchParams.get("search") || "";
+  const searchParam = searchParams.get("search") || searchParams.get("q") || "";
   const pageParam = parseInt(searchParams.get("page") || "0", 10);
 
   // Local state
@@ -51,7 +52,7 @@ function ShopContent() {
   const [productsData, setProductsData] = useState<PaginatedResponse<Product> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [wishlistedProducts, setWishlistedProducts] = useState<string[]>([]);
+  const { wishlist, toggleWishlist } = useWishlist();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Stale request prevention token
@@ -157,11 +158,10 @@ function ShopContent() {
   ].filter(Boolean).length;
 
   const handleWishlistToggle = (productId: string) => {
-    setWishlistedProducts((prev) =>
-      prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId]
-    );
+    const prod = productsList.find((p) => p.id === productId);
+    if (prod) {
+      toggleWishlist(prod);
+    }
   };
 
   const handleQuickAdd = (_product: Product) => {
@@ -386,8 +386,7 @@ function ShopContent() {
                     <ProductGrid
                       products={productsList}
                       onWishlistToggle={handleWishlistToggle}
-                      onQuickAdd={handleQuickAdd}
-                      wishlistedProducts={wishlistedProducts}
+                      wishlistedProducts={wishlist.map((w) => w.product.id)}
                     />
 
                     {/* 11. PAGINATION */}

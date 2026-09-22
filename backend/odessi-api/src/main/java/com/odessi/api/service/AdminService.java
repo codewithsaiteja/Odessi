@@ -9,14 +9,24 @@ import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 public interface AdminService {
-    AdminDashboardStatsResponse getDashboardStats();
+    /**
+     * Returns dashboard KPIs filtered by the given range string.
+     *
+     * @param range one of: TODAY, 7_DAYS, 30_DAYS, 90_DAYS, ALL (case-insensitive).
+     *              Unknown values fall back to ALL.
+     */
+    AdminDashboardStatsResponse getDashboardStats(String range);
 
-    Page<ProductResponse> getProducts(String search, Long categoryId, Long collectionId, Boolean active, Pageable pageable);
+    Page<ProductResponse> getProducts(String search, Long categoryId, Long collectionId, Boolean active, String status, Pageable pageable);
     ProductResponse getProductById(Long id);
     ProductResponse createProduct(User admin, AdminProductRequest request);
     ProductResponse updateProduct(User admin, Long id, AdminProductRequest request);
     ProductResponse toggleProductActive(User admin, Long id);
     ProductResponse toggleProductFeatured(User admin, Long id);
+    ProductResponse duplicateProduct(User admin, Long id);
+    String deleteProduct(User admin, Long id);
+    List<ProductResponse> bulkProductAction(User admin, AdminBulkProductRequest request);
+    List<AdminAuditLogResponse> getProductActivity(Long id);
 
     ProductImageResponse uploadProductImage(User admin, Long productId, org.springframework.web.multipart.MultipartFile file, String altText, Boolean isPrimary);
     ProductImageResponse uploadProductVideo(User admin, Long productId, org.springframework.web.multipart.MultipartFile videoFile, org.springframework.web.multipart.MultipartFile posterFile, String altText);
@@ -26,6 +36,7 @@ public interface AdminService {
 
     ProductResponse addVariant(User admin, Long productId, AdminVariantRequest request);
     ProductResponse updateVariant(User admin, Long productId, Long variantId, AdminVariantRequest request);
+    ProductResponse deleteVariant(User admin, Long productId, Long variantId);
 
     Page<ProductVariantResponse> getInventoryVariants(String search, String stockFilter, Pageable pageable);
     InventoryLogResponse adjustInventory(User admin, InventoryAdjustmentRequest request);

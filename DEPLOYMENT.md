@@ -1,83 +1,262 @@
-# Odessi.tfi Production Deployment Guide
+# 🚀 **ODESSI.TFI DEPLOYMENT GUIDE**
 
-This document outlines the deployment procedure for Odessi.tfi onto a single Linux Virtual Private Server (VPS) using Docker Compose and Caddy.
+Complete guide to deploy your full-stack e-commerce application to production.
 
-## 1. VPS Requirements
-- **OS**: Ubuntu 22.04 LTS (recommended) or Debian 12.
-- **Resources**: Minimum 2vCPU, 4GB RAM.
-- **Network**: A static public IP address.
+---
 
-## 2. DNS Configuration
-Before deploying, configure your DNS provider (Cloudflare, Route53, GoDaddy, etc.) to point the domains to your VPS public IP:
-- **A Record**: `odessi.shop` -> `<VPS_PUBLIC_IP>`
-- **A Record**: `www.odessi.shop` -> `<VPS_PUBLIC_IP>`
-- **A Record**: `api.odessi.shop` -> `<VPS_PUBLIC_IP>`
+## 📋 **PREREQUISITES**
 
-*Note: If using Cloudflare, set proxy status to "DNS Only" initially so Caddy can provision Let's Encrypt certificates.*
+### **Required Accounts:**
+- ✅ **Vercel** (Frontend hosting - free tier available)
+- ✅ **Railway** or **Render** (Backend + Database hosting)
+- ✅ **Razorpay** (Payment processing - live account)
+- ✅ **Domain** (optional but recommended)
 
-## 3. Firewall Rules
-Configure the VPS firewall (e.g., UFW or AWS Security Groups) to strictly allow only the following inbound traffic:
-- **TCP 22**: SSH
-- **TCP 80**: HTTP (Caddy will redirect to HTTPS)
-- **TCP 443**: HTTPS
-
-Do **NOT** expose ports `5432` (PostgreSQL), `8080` (Backend), or `3000` (Frontend) to the public internet.
-
-## 4. Software Installation
-Install Docker and Docker Compose plugin on the VPS:
+### **Required Tools:**
 ```bash
-sudo apt-get update
-sudo apt-get install -y ca-certificates curl gnupg
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+npm install -g vercel    # Vercel CLI
+git                      # Version control
 ```
 
-## 5. Deployment Steps
-1. Clone the repository onto the VPS.
-   ```bash
-   git clone <YOUR_REPO_URL> /opt/odessi-store
-   cd /opt/odessi-store
+---
+
+## 🎯 **DEPLOYMENT OPTIONS**
+
+### **Option 1: Vercel + Railway (RECOMMENDED)**
+- ✅ **Frontend**: Vercel (optimized for Next.js)
+- ✅ **Backend**: Railway (includes PostgreSQL)
+- ✅ **Database**: Railway PostgreSQL addon
+- ✅ **Cost**: Free tier available, scales with usage
+
+### **Option 2: Docker Compose (Self-Hosted)**
+- ✅ **All services**: Your own VPS/server
+- ✅ **Database**: PostgreSQL container
+- ✅ **Cost**: VPS hosting costs only
+
+### **Option 3: Cloud Providers (AWS/Azure/GCP)**
+- ✅ **Advanced**: Full cloud infrastructure
+- ✅ **Scalable**: Enterprise-grade deployment
+
+---
+
+## 🚀 **OPTION 1: VERCEL + RAILWAY (RECOMMENDED)**
+
+### **Step 1: Deploy Backend to Railway**
+
+1. **Create Railway Account**: https://railway.app
+2. **Create New Project**: 
+   - Connect your GitHub repository
+   - Select `odessi-store/backend/odessi-api` folder
+3. **Add PostgreSQL**: 
+   - Click "Add Service" → "Database" → "PostgreSQL"
+4. **Set Environment Variables** in Railway dashboard:
+   ```env
+   SPRING_PROFILES_ACTIVE=prod
+   JWT_SECRET=your-super-secure-jwt-secret-change-this
+   FRONTEND_URL=https://your-app.vercel.app
+   RAZORPAY_KEY_ID=your_live_razorpay_key
+   RAZORPAY_KEY_SECRET=your_live_razorpay_secret
+   AUTH_COOKIE_SECURE=true
+   SEED_DATA_ENABLED=false
    ```
-2. Copy the environment template and fill in **REAL** secrets.
+5. **Deploy**: Railway auto-deploys on git push
+
+### **Step 2: Deploy Frontend to Vercel**
+
+1. **Install Vercel CLI**:
+   ```bash
+   npm i -g vercel
+   ```
+
+2. **Deploy from project root**:
+   ```bash
+   cd odessi-store
+   vercel
+   ```
+
+3. **Set Environment Variables** in Vercel dashboard:
+   ```env
+   NEXT_PUBLIC_API_URL=https://your-backend.railway.app
+   ```
+
+4. **Custom Domain** (optional):
+   - Add your domain in Vercel dashboard
+   - Update DNS records as instructed
+
+### **Step 3: Configure Production Settings**
+
+1. **Update Backend CORS**:
+   - Set `FRONTEND_URL` to your Vercel domain
+   
+2. **Update Razorpay**:
+   - Switch to live API keys
+   - Configure webhook URL: `https://your-backend.railway.app/api/payments/razorpay/webhook`
+
+3. **Test Deployment**:
+   - Visit your Vercel URL
+   - Test user registration/login
+   - Test product browsing and cart
+   - Test checkout flow
+
+---
+
+## 🐳 **OPTION 2: DOCKER COMPOSE**
+
+### **Prerequisites:**
+- Docker & Docker Compose installed
+- VPS/server with public IP
+- Domain name (optional)
+
+### **Deploy:**
+
+1. **Clone to server**:
+   ```bash
+   git clone your-repo-url
+   cd odessi-store
+   ```
+
+2. **Configure environment**:
    ```bash
    cp .env.production.example .env.production
-   nano .env.production
+   cp backend/odessi-api/.env.production.example backend/odessi-api/.env.production
+   # Edit both files with your actual values
    ```
-   > **CRITICAL**: Use TEST mode Razorpay keys initially. Do not set `rzp_live_*` keys until the deployment is verified.
 
-3. Make scripts executable:
+3. **Start services**:
    ```bash
-   chmod +x scripts/deploy.sh
-   chmod +x scripts/backup-db.sh
+   docker-compose up -d
    ```
 
-4. Run the deployment script:
-   ```bash
-   ./scripts/deploy.sh
+4. **Setup reverse proxy** (recommended):
+   ```nginx
+   server {
+       listen 80;
+       server_name your-domain.com;
+       
+       location / {
+           proxy_pass http://localhost:3000;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+       }
+       
+       location /api {
+           proxy_pass http://localhost:8080;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+       }
+   }
    ```
 
-## 6. Razorpay LIVE Activation
-**WARNING**: Live activation must be done manually ONLY after a successful Test Mode verification.
+---
 
-1. Ensure the production smoke test (Section 22 of the roadmap) passes using Test credentials.
-2. Ensure you have activated your Razorpay account to Live Mode via their dashboard.
-3. Edit `.env.production` on the VPS:
-   - Change `RAZORPAY_KEY_ID` to your `rzp_live_...` key.
-   - Change `RAZORPAY_KEY_SECRET` to your Live Secret.
-   - Change `RAZORPAY_WEBHOOK_SECRET` to your Live Webhook Secret.
-   - Change `NEXT_PUBLIC_RAZORPAY_KEY_ID` to your `rzp_live_...` key.
-4. Restart the containers to apply changes:
-   ```bash
-   docker compose -f docker-compose.prod.yml up -d --force-recreate
-   ```
-5. Ensure the Live Webhook URL (`https://api.odessi.shop/api/webhooks/razorpay`) is registered in the Razorpay Live Dashboard and all necessary events (`payment.failed`, `payment.captured`, `order.paid`) are checked.
+## 🔒 **SECURITY CHECKLIST**
 
-## 7. Rollback Procedure
-If a deployment fails critically (e.g., backend won't start):
-1. Revert to the previous stable git commit: `git checkout <PREVIOUS_COMMIT>`
-2. Re-run `./scripts/deploy.sh`
-3. If database schema was broken, follow `BACKUP-RESTORE.md` to restore the last automatic backup.
+### **Environment Variables:**
+- ✅ Generate new JWT_SECRET for production
+- ✅ Use live Razorpay keys
+- ✅ Set AUTH_COOKIE_SECURE=true
+- ✅ Disable SEED_DATA_ENABLED in production
+
+### **Database:**
+- ✅ Use strong database passwords
+- ✅ Enable SSL connections
+- ✅ Regular backups configured
+- ✅ Network access restrictions
+
+### **Application:**
+- ✅ HTTPS enforced (handled by hosting platforms)
+- ✅ Security headers configured
+- ✅ Rate limiting enabled
+- ✅ Error messages don't expose internals
+
+---
+
+## 📊 **MONITORING & MAINTENANCE**
+
+### **Health Checks:**
+- **Backend**: `https://your-backend/actuator/health`
+- **Frontend**: Monitor via hosting platform dashboards
+
+### **Logs:**
+- **Railway**: Built-in log viewer
+- **Vercel**: Function logs in dashboard
+- **Docker**: `docker-compose logs -f`
+
+### **Database Backups:**
+- **Railway**: Automatic backups included
+- **Self-hosted**: Configure pg_dump cron jobs
+
+### **Updates:**
+```bash
+git pull origin main
+# Railway/Vercel auto-deploy on push
+# Docker: docker-compose up -d --build
+```
+
+---
+
+## 🚨 **TROUBLESHOOTING**
+
+### **Common Issues:**
+
+1. **CORS Errors**:
+   - Check FRONTEND_URL environment variable
+   - Verify domain matches exactly
+
+2. **Database Connection**:
+   - Verify DB_URL format: `postgresql://user:password@host:port/database`
+   - Check if database addon is properly linked
+
+3. **Payment Issues**:
+   - Ensure live Razorpay keys are set
+   - Configure webhook URL correctly
+   - Test in Razorpay dashboard
+
+4. **Build Failures**:
+   - Check Node.js version compatibility
+   - Verify all dependencies are in package.json
+   - Check for environment variable dependencies
+
+### **Getting Help:**
+- Check hosting platform documentation
+- Review application logs
+- Test locally with production environment variables
+
+---
+
+## 💡 **PERFORMANCE OPTIMIZATION**
+
+### **Frontend (Vercel):**
+- ✅ Next.js Image Optimization enabled
+- ✅ Static assets cached automatically
+- ✅ CDN distribution worldwide
+
+### **Backend (Railway):**
+- ✅ Connection pooling configured
+- ✅ Rate limiting implemented
+- ✅ Health check endpoints
+
+### **Database:**
+- ✅ Proper indexing on queries
+- ✅ Connection pooling
+- ✅ Query optimization
+
+---
+
+## 🎉 **GO LIVE CHECKLIST**
+
+Before launching:
+- [ ] Test user registration/login flow
+- [ ] Test product browsing and search
+- [ ] Test cart functionality
+- [ ] Test checkout process
+- [ ] Test payment processing
+- [ ] Test admin functions
+- [ ] Verify email notifications
+- [ ] Check mobile responsiveness
+- [ ] Performance test with load
+- [ ] Security scan completed
+- [ ] Backup strategy confirmed
+- [ ] Monitoring alerts configured
+
+**Your Odessi.tfi e-commerce store is ready for production! 🚀**

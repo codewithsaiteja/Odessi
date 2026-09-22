@@ -53,3 +53,11 @@ export async function getUserReviews(page = 0, size = 10): Promise<PagedUserRevi
   const query = buildQueryString({ page, size });
   return apiGet<PagedUserReviewsResponse>(`/api/users/me/reviews${query}`);
 }
+
+export async function resendVerificationEmail(): Promise<{ message: string }> {
+  return apiPost<{ message: string }>("/api/auth/resend-verification");
+}
+
+export async function verifyEmailToken(token: string): Promise<{ message: string }> {
+  return apiGet<{ message: string }>(`/api/auth/verify-email?token=${encodeURIComponent(token)}`);
+}

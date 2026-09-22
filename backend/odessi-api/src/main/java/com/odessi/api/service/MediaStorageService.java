@@ -15,7 +15,13 @@ public interface MediaStorageService {
     String storeProductVideo(MultipartFile file);
 
     /**
+     * Stores an Instagram or social post image file and returns its public URL path.
+     */
+    String storeSocialImage(MultipartFile file);
+
+    /**
      * Deletes a product image or video file from storage if present.
      */
     void deleteProductImage(String imageUrl);
 }
+

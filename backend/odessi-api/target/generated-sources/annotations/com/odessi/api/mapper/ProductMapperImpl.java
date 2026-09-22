@@ -8,6 +8,7 @@ import com.odessi.api.dto.response.ProductSummaryResponse;
 import com.odessi.api.dto.response.ProductVariantResponse;
 import com.odessi.api.entity.Product;
 import com.odessi.api.entity.ProductImage;
+import com.odessi.api.entity.ProductStatus;
 import com.odessi.api.entity.ProductVariant;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -19,8 +20,8 @@ import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    date = "2026-09-20T00:05:50+0530",
-    comments = "version: 1.5.5.Final, compiler: Eclipse JDT (IDE) 3.46.100.v20260826-1225, environment: Java 21.0.12.1 (Eclipse Adoptium)"
+    date = "2026-09-22T00:05:32+0530",
+    comments = "version: 1.5.5.Final, compiler: javac, environment: Java 25.0.2 (Oracle Corporation)"
 )
 @Component
 public class ProductMapperImpl implements ProductMapper {
@@ -59,6 +60,7 @@ public class ProductMapperImpl implements ProductMapper {
         boolean bestseller = false;
         boolean newArrival = false;
         boolean active = false;
+        ProductStatus status = null;
         Instant createdAt = null;
         Instant updatedAt = null;
 
@@ -81,12 +83,13 @@ public class ProductMapperImpl implements ProductMapper {
         bestseller = product.isBestseller();
         newArrival = product.isNewArrival();
         active = product.isActive();
+        status = product.getStatus();
         createdAt = product.getCreatedAt();
         updatedAt = product.getUpdatedAt();
 
         List<String> imageUrls = extractImageUrls(product);
 
-        ProductResponse productResponse = new ProductResponse( id, name, slug, description, shortDescription, price, compareAtPrice, currency, category, collection, material, fit, careInstructions, featured, bestseller, newArrival, active, variants, images, imageUrls, createdAt, updatedAt );
+        ProductResponse productResponse = new ProductResponse( id, name, slug, description, shortDescription, price, compareAtPrice, currency, category, collection, material, fit, careInstructions, featured, bestseller, newArrival, active, status, variants, images, imageUrls, createdAt, updatedAt );
 
         return productResponse;
     }
@@ -108,6 +111,7 @@ public class ProductMapperImpl implements ProductMapper {
         boolean bestseller = false;
         boolean newArrival = false;
         boolean active = false;
+        ProductStatus status = null;
         Instant createdAt = null;
 
         id = product.getId();
@@ -121,6 +125,7 @@ public class ProductMapperImpl implements ProductMapper {
         bestseller = product.isBestseller();
         newArrival = product.isNewArrival();
         active = product.isActive();
+        status = product.getStatus();
         createdAt = product.getCreatedAt();
 
         String categorySlug = product.getCategory() != null ? product.getCategory().getSlug() : null;
@@ -130,7 +135,7 @@ public class ProductMapperImpl implements ProductMapper {
         List<String> images = extractImageUrls(product);
         String primaryImageUrl = extractPrimaryImageUrl(product);
 
-        ProductSummaryResponse productSummaryResponse = new ProductSummaryResponse( id, name, slug, shortDescription, price, compareAtPrice, currency, categorySlug, categoryName, collectionSlug, featured, bestseller, newArrival, active, hasAvailableVariants, images, primaryImageUrl, createdAt );
+        ProductSummaryResponse productSummaryResponse = new ProductSummaryResponse( id, name, slug, shortDescription, price, compareAtPrice, currency, categorySlug, categoryName, collectionSlug, featured, bestseller, newArrival, active, status, hasAvailableVariants, images, primaryImageUrl, createdAt );
 
         return productSummaryResponse;
     }

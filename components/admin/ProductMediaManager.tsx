@@ -52,21 +52,20 @@ export default function ProductMediaManager({
   const handleFilesSelected = async (files: FileList | File[]) => {
     setError(null);
     const validFiles: File[] = [];
-    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "model/gltf-binary", "model/gltf+json", "application/octet-stream"];
-    const allowedExts = [".jpeg", ".jpg", ".png", ".webp", ".glb", ".gltf"];
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    const allowedExts = [".jpeg", ".jpg", ".png", ".webp"];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
       
       if (!allowedTypes.includes(file.type.toLowerCase()) && !allowedExts.includes(ext)) {
-        setError(`File "${file.name}" is not a valid format. Allowed: JPG, PNG, WEBP, GLB, GLTF.`);
+        setError(`File "${file.name}" is not a valid format. Allowed: JPG, PNG, WEBP.`);
         continue;
       }
-      const is3DModel = ext === ".glb" || ext === ".gltf";
-      const maxSize = is3DModel ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+      const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
-        setError(`File "${file.name}" exceeds the size limit (${is3DModel ? '50MB' : '10MB'}).`);
+        setError(`File "${file.name}" exceeds the 10MB size limit.`);
         continue;
       }
       validFiles.push(file);

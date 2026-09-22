@@ -146,11 +146,13 @@ function mapBackendProductToFrontend(backendProduct: BackendProductResponse): Pr
     return colors;
   }, []);
 
-  const defaultSizes = ["S", "M", "L", "XL"];
-  const finalSizes: ProductSize[] = (uniqueSizes.length > 0 ? uniqueSizes : defaultSizes).map(size => ({
-    label: size,
-    available: variants.length > 0 ? variants.some(v => v.size === size && v.available) : backendProduct.active
-  }));
+  const hasVariants = variants.length > 0;
+  const finalSizes: ProductSize[] = hasVariants
+    ? uniqueSizes.map(size => ({
+        label: size,
+        available: variants.some(v => v.size === size && v.available)
+      }))
+    : [];
 
   const resolvedImages = extractResolvedImages(backendProduct);
   const primaryThumbnail = resolvedImages[0];
@@ -194,7 +196,7 @@ function mapBackendProductToFrontend(backendProduct: BackendProductResponse): Pr
     category: (backendProduct.category?.slug as ProductCategory) || "tees",
     collection: backendProduct.collection?.slug,
     sizes: finalSizes,
-    colors: uniqueColors.length > 0 ? uniqueColors : [{ name: "Standard", hex: "#000000" }],
+    colors: uniqueColors,
     variants,
     material: backendProduct.material,
     fit: backendProduct.fit,
@@ -202,20 +204,20 @@ function mapBackendProductToFrontend(backendProduct: BackendProductResponse): Pr
     featured: backendProduct.featured,
     bestseller: backendProduct.bestseller,
     newDrop: backendProduct.newArrival,
-    available: backendProduct.active && (variants.length === 0 || variants.some(v => v.available)),
-    stockStatus: variants.length === 0 ? "in_stock" : (variants.some(v => v.available) ? "in_stock" : "out_of_stock"),
+    available: backendProduct.active && hasVariants && variants.some(v => v.available),
+    stockStatus: !hasVariants ? "out_of_stock" : (variants.some(v => v.available) ? "in_stock" : "out_of_stock"),
     model3D,
     images360,
     createdAt: backendProduct.createdAt || new Date().toISOString(),
   };
 }
 
-function mapBackendSummaryToFrontend(summary: BackendProductSummaryResponse): Product {
+export function mapBackendSummaryToFrontend(summary: BackendProductSummaryResponse): Product {
   const images = (summary.images || []).map(getMediaUrl);
   if (images.length === 0 && summary.primaryImageUrl) {
     images.push(getMediaUrl(summary.primaryImageUrl));
   }
-  const resolvedImages = images.length > 0 ? images : [getMediaUrl(undefined)];
+  const resolvedImages = images.length > 0 ? images : ["/placeholder-product.svg"];
 
   return {
     id: String(summary.id),
@@ -230,13 +232,8 @@ function mapBackendSummaryToFrontend(summary: BackendProductSummaryResponse): Pr
     thumbnail: resolvedImages[0],
     category: (summary.categorySlug as ProductCategory) || "tees",
     collection: summary.collectionSlug,
-    sizes: [
-      { label: "S", available: summary.hasAvailableVariants },
-      { label: "M", available: summary.hasAvailableVariants },
-      { label: "L", available: summary.hasAvailableVariants },
-      { label: "XL", available: summary.hasAvailableVariants },
-    ],
-    colors: [{ name: "Standard", hex: "#000000" }],
+    sizes: [],
+    colors: [],
     variants: [],
     featured: summary.featured,
     bestseller: summary.bestseller,
@@ -296,7 +293,7 @@ export async function getProducts(
   try {
     const paged = await apiGet<any>(`/api/products${qs}`);
 
-    const rawList = paged?.content || (Array.isArray(paged) ? paged : []);
+    const rawList = paged?.data || paged?.content || (Array.isArray(paged) ? paged : []);
     const content = rawList.map((item: any) => {
       if (item.variants !== undefined || item.description !== undefined) {
         return mapBackendProductToFrontend(item);
@@ -306,9 +303,9 @@ export async function getProducts(
 
     return {
       data: content,
-      total: paged?.totalElements ?? content.length,
+      total: paged?.total ?? paged?.totalElements ?? content.length,
       page: paged?.page ?? 0,
-      pageSize: paged?.size ?? content.length,
+      pageSize: paged?.pageSize ?? paged?.size ?? content.length,
       totalPages: paged?.totalPages ?? 1,
     };
   } catch (error) {

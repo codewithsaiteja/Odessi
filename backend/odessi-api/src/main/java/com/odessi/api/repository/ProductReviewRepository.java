@@ -9,16 +9,25 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface ProductReviewRepository extends JpaRepository<ProductReview, Long> {
     Page<ProductReview> findByProductIdAndStatus(Long productId, ReviewStatus status, Pageable pageable);
     Page<ProductReview> findByStatus(ReviewStatus status, Pageable pageable);
     Page<ProductReview> findByUserId(Long userId, Pageable pageable);
     boolean existsByUserIdAndProductIdAndOrderId(Long userId, Long productId, Long orderId);
+    boolean existsByUserIdAndProductId(Long userId, Long productId);
 
     @Query("SELECT AVG(r.rating) FROM ProductReview r WHERE r.product.id = :productId AND r.status = com.odessi.api.entity.ReviewStatus.APPROVED")
     Double getAverageRatingForProduct(@Param("productId") Long productId);
 
     @Query("SELECT COUNT(r) FROM ProductReview r WHERE r.product.id = :productId AND r.status = com.odessi.api.entity.ReviewStatus.APPROVED")
     long countApprovedReviewsForProduct(@Param("productId") Long productId);
+
+    @Query("SELECT r.rating, COUNT(r) FROM ProductReview r WHERE r.product.id = :productId AND r.status = com.odessi.api.entity.ReviewStatus.APPROVED GROUP BY r.rating")
+    List<Object[]> getRatingDistributionForProduct(@Param("productId") Long productId);
+
+    @Query("SELECT COUNT(r) FROM ProductReview r WHERE r.product.id = :productId AND r.status = com.odessi.api.entity.ReviewStatus.APPROVED AND (r.recommended IS NULL OR r.recommended = true)")
+    long countRecommendedReviewsForProduct(@Param("productId") Long productId);
 }

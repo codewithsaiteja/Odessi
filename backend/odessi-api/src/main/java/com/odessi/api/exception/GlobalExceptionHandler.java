@@ -118,18 +118,68 @@ public class GlobalExceptionHandler {
             .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Malformed JSON request body", request.getRequestURI()));
     }
 
+    // ── Access Denied (403) ──────────────────────────────────────
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(
+            org.springframework.security.access.AccessDeniedException ex, HttpServletRequest request) {
+        log.warn("Access denied at {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity
+            .status(HttpStatus.FORBIDDEN)
+            .body(ErrorResponse.of(HttpStatus.FORBIDDEN, "FORBIDDEN", "Access denied. Admin role required.", request.getRequestURI()));
+    }
+
+    // ── Resource / Static Not Found (404) ────────────────────────
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(
+            org.springframework.web.servlet.resource.NoResourceFoundException ex, HttpServletRequest request) {
+        return ResponseEntity
+            .status(HttpStatus.NOT_FOUND)
+            .body(ErrorResponse.of(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", ex.getMessage(), request.getRequestURI()));
+    }
+
+    // ── Multipart / Max Upload Size Exceeded (400) ───────────────
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceeded(
+            org.springframework.web.multipart.MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        log.warn("File upload size exceeded at {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, "FILE_TOO_LARGE", "Uploaded file exceeds the maximum allowed limit (50MB).", request.getRequestURI()));
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MultipartException.class)
+    public ResponseEntity<ErrorResponse> handleMultipartException(
+            org.springframework.web.multipart.MultipartException ex, HttpServletRequest request) {
+        log.warn("Multipart request error at {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, "MULTIPART_ERROR", "Invalid file upload request: " + ex.getMessage(), request.getRequestURI()));
+    }
+
+    // ── Data Integrity Violation (409) ────────────────────────────
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
+            org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("Data integrity violation at {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity
+            .status(HttpStatus.CONFLICT)
+            .body(ErrorResponse.of(HttpStatus.CONFLICT, "DATA_INTEGRITY_VIOLATION", "Database constraint violation occurred.", request.getRequestURI()));
+    }
+
     // ── Unhandled exceptions (500) ────────────────────────────────
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(
             Exception ex, HttpServletRequest request) {
-        // Log full details server-side but expose nothing to the client
         log.error("Unhandled exception at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        String msg = ex.getMessage() != null && !ex.getMessage().isBlank()
+            ? ex.getMessage()
+            : "An unexpected error occurred. Please try again later.";
         return ResponseEntity
             .status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(ErrorResponse.of(HttpStatus.INTERNAL_SERVER_ERROR,
                 "INTERNAL_ERROR",
-                "An unexpected error occurred. Please try again later.",
+                msg,
                 request.getRequestURI()));
     }
 

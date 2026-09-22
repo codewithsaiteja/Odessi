@@ -145,9 +145,9 @@ export default function OrderSummary({
             {shippingAmount === 0 ? "FREE" : `₹${shippingAmount.toLocaleString("en-IN")}`}
           </span>
         </div>
-        {subtotal < 1999 && (
+        {subtotal < 999 && (
           <p className="text-[11px] text-amber-400/80 italic">
-            Add ₹{(1999 - subtotal).toLocaleString("en-IN")} more for Free Shipping!
+            Add ₹{(999 - subtotal).toLocaleString("en-IN")} more for Free Shipping!
           </p>
         )}
       </div>

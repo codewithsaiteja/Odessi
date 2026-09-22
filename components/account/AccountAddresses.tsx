@@ -10,6 +10,7 @@ import {
   deleteAddress,
   setDefaultAddress,
 } from "@/lib/api/addresses";
+import { useToast } from "@/components/ui/Toast";
 import { MapPin, Plus, Trash2, Edit3, Check, X, AlertCircle } from "lucide-react";
 
 interface AccountAddressesProps {
@@ -21,6 +22,7 @@ export default function AccountAddresses({
   addresses,
   onRefreshAddresses,
 }: AccountAddressesProps) {
+  const toast = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,6 +98,7 @@ export default function AccountAddresses({
           isDefault,
         };
         await updateAddress(editingAddress.id, updateData);
+        toast.success("Address updated successfully");
       } else {
         const createData: CreateAddressData = {
           fullName,
@@ -109,6 +112,7 @@ export default function AccountAddresses({
           isDefault,
         };
         await createAddress(createData);
+        toast.success("Address added successfully");
       }
 
       await onRefreshAddresses();
@@ -116,6 +120,7 @@ export default function AccountAddresses({
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to save address.";
       setError(msg);
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -125,18 +130,24 @@ export default function AccountAddresses({
     if (!confirm("Are you sure you want to delete this address?")) return;
     try {
       await deleteAddress(id);
+      toast.success("Address deleted");
       await onRefreshAddresses();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to delete address.");
+      const msg = err instanceof Error ? err.message : "Failed to delete address.";
+      setError(msg);
+      toast.error(msg);
     }
   };
 
   const handleSetDefault = async (id: number) => {
     try {
       await setDefaultAddress(id);
+      toast.success("Default address updated");
       await onRefreshAddresses();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to update default address.");
+      const msg = err instanceof Error ? err.message : "Failed to update default address.";
+      setError(msg);
+      toast.error(msg);
     }
   };
 

@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { growthApi, PartnershipResponse } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 import { Building2, Search, Filter, Save, ShieldAlert } from "lucide-react";
 
 export default function AdminPartnershipsPage() {
+  const toast = useToast();
   const [applications, setApplications] = useState<PartnershipResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -24,8 +26,8 @@ export default function AdminPartnershipsPage() {
         size: 50,
       });
       setApplications(res.content || []);
-    } catch (err) {
-      console.error("Failed to load partnership applications", err);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to load partnership applications");
     } finally {
       setLoading(false);
     }
@@ -41,8 +43,9 @@ export default function AdminPartnershipsPage() {
       const updated = await growthApi.updatePartnershipStatus(id, newStatus);
       setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)));
       if (selectedApp?.id === id) setSelectedApp(updated);
-    } catch (err) {
-      alert("Failed to update status");
+      toast.success(`Partnership status updated to ${newStatus}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update status");
     } finally {
       setUpdatingStatus(false);
     }
@@ -55,9 +58,9 @@ export default function AdminPartnershipsPage() {
       const updated = await growthApi.updatePartnershipNotes(selectedApp.id, internalNotes);
       setApplications((prev) => prev.map((a) => (a.id === selectedApp.id ? updated : a)));
       setSelectedApp(updated);
-      alert("Internal notes saved securely.");
-    } catch (err) {
-      alert("Failed to save internal notes");
+      toast.success("Internal notes saved securely.");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save internal notes");
     } finally {
       setSavingNotes(false);
     }

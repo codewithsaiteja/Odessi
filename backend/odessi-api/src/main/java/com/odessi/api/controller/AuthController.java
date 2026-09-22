@@ -129,6 +129,19 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Password has been reset successfully."));
     }
 
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Map<String, String>> resendVerification() {
+        User user = authService.getCurrentUser();
+        authService.resendVerificationEmail(user);
+        return ResponseEntity.ok(Map.of("message", "Verification email sent successfully. Please check your inbox."));
+    }
+
+    @GetMapping("/verify-email")
+    public ResponseEntity<Map<String, String>> verifyEmail(@RequestParam String token) {
+        authService.verifyEmailToken(token);
+        return ResponseEntity.ok(Map.of("message", "Email address verified successfully!"));
+    }
+
     private void setCookies(HttpServletResponse response, String accessToken, String refreshToken) {
         boolean secure = appProperties.getAuth().isCookieSecure();
         String sameSite = appProperties.getAuth().getCookieSameSite();

@@ -2,11 +2,31 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import SectionHeading from "@/components/ui/SectionHeading";
-import { categories } from "@/data/categories";
+import { categories as defaultCategories } from "@/data/categories";
 import { siteConfig } from "@/config/site";
+import { getCategories } from "@/lib/api/categories";
+import type { Category } from "@/types";
 
-export default function ShopByCategory() {
+export default async function ShopByCategory() {
   const { shopByCategory } = siteConfig;
+
+  let displayCategories: Category[] = defaultCategories;
+
+  try {
+    const res = await getCategories();
+    if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
+      displayCategories = res.data.map((cat, i) => {
+        const fallback = defaultCategories.find((c) => c.slug === cat.slug) || defaultCategories[i % defaultCategories.length];
+        return {
+          ...fallback,
+          ...cat,
+          coverImage: cat.coverImage || fallback?.coverImage || "/placeholder-product.svg",
+        };
+      });
+    }
+  } catch {
+    displayCategories = defaultCategories;
+  }
 
   return (
     <section
@@ -23,12 +43,12 @@ export default function ShopByCategory() {
 
         {/* Masonry-inspired category grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          {categories.map((cat, i) => {
+          {displayCategories.map((cat, i) => {
             // First category gets a taller treatment
             const isFeatured = i === 0;
             return (
               <Link
-                key={cat.id}
+                key={cat.id || cat.slug}
                 href={`/shop?category=${cat.slug}`}
                 className={`
                   group relative overflow-hidden bg-[var(--color-odessi-graphite)]

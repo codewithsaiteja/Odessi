@@ -14,4 +14,6 @@ public interface OrderService {
     void attachRazorpayOrderId(Long orderId, String razorpayOrderId);
 
     void handleOrderCreationFailure(Long orderId);
+
+    OrderResponse cancelOrder(String orderNumber, Long userId);
 }

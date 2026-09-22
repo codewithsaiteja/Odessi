@@ -26,6 +26,7 @@ public class RegisterRequest {
     private String password;
 
     private String phone;
+    private String referralCode;
 
     public String getFirstName() { return firstName; }
     public void setFirstName(String firstName) { this.firstName = firstName; }
@@ -37,4 +38,6 @@ public class RegisterRequest {
     public void setPassword(String password) { this.password = password; }
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
+    public String getReferralCode() { return referralCode; }
+    public void setReferralCode(String referralCode) { this.referralCode = referralCode; }
 }

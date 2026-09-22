@@ -73,16 +73,36 @@ public class InventoryService {
      */
     @Transactional
     public void releaseReservations(Long orderId) {
-        List<InventoryReservation> reservations = reservationRepository.findByOrderIdAndStatus(orderId, ReservationStatus.RESERVED);
-        for (InventoryReservation res : reservations) {
-            ProductVariant variant = variantRepository.findByIdForUpdate(res.getVariant().getId())
-                    .orElse(res.getVariant());
+        List<InventoryReservation> reservedList = reservationRepository.findByOrderIdAndStatus(orderId, ReservationStatus.RESERVED);
+        List<InventoryReservation> soldList = reservationRepository.findByOrderIdAndStatus(orderId, ReservationStatus.SOLD);
 
-            variant.setStockQuantity(variant.getStockQuantity() + res.getQuantity());
-            variantRepository.save(variant);
-
-            res.setStatus(ReservationStatus.RELEASED);
-            reservationRepository.save(res);
+        if (!reservedList.isEmpty() || !soldList.isEmpty()) {
+            for (InventoryReservation res : reservedList) {
+                ProductVariant variant = variantRepository.findByIdForUpdate(res.getVariant().getId()).orElse(res.getVariant());
+                variant.setStockQuantity(variant.getStockQuantity() + res.getQuantity());
+                variantRepository.save(variant);
+                res.setStatus(ReservationStatus.RELEASED);
+                reservationRepository.save(res);
+            }
+            for (InventoryReservation res : soldList) {
+                ProductVariant variant = variantRepository.findByIdForUpdate(res.getVariant().getId()).orElse(res.getVariant());
+                variant.setStockQuantity(variant.getStockQuantity() + res.getQuantity());
+                variantRepository.save(variant);
+                res.setStatus(ReservationStatus.RELEASED);
+                reservationRepository.save(res);
+            }
+        } else {
+            Order order = orderRepository.findById(orderId).orElse(null);
+            if (order != null) {
+                for (OrderItem item : order.getItems()) {
+                    if (item.getProductVariant() != null) {
+                        variantRepository.findByIdForUpdate(item.getProductVariant().getId()).ifPresent(variant -> {
+                            variant.setStockQuantity(variant.getStockQuantity() + item.getQuantity());
+                            variantRepository.save(variant);
+                        });
+                    }
+                }
+            }
         }
     }
 

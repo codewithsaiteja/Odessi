@@ -1,8 +1,10 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import type { WishlistItem, Product } from "@/types";
 import * as wishlistLib from "./wishlist";
+import { useAuth } from "./auth/AuthContext";
+import { fetchUserWishlist, addWishlistItem, removeWishlistItem } from "./api/wishlist";
 
 interface WishlistContextType {
   wishlist: WishlistItem[];
@@ -12,24 +14,58 @@ interface WishlistContextType {
   toggleWishlist: (product: Product) => boolean;
   isInWishlist: (productId: string) => boolean;
   clearWishlist: () => void;
+  refreshWishlist: () => Promise<void>;
 }
 
 const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
 
 export function WishlistProvider({ children }: { children: ReactNode }) {
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
+  const { user } = useAuth();
 
-  // Initialize wishlist from localStorage
+  const syncWithBackend = useCallback(async () => {
+    if (!user) {
+      setWishlist(wishlistLib.getWishlist());
+      return;
+    }
+
+    try {
+      // Check for any offline local items that need to be merged to backend
+      const localItems = wishlistLib.getWishlist();
+      if (localItems.length > 0) {
+        for (const item of localItems) {
+          const numId = Number(item.product.id);
+          if (!isNaN(numId)) {
+            try {
+              await addWishlistItem(numId);
+            } catch {
+              // Ignore if already in backend wishlist
+            }
+          }
+        }
+        wishlistLib.clearWishlist();
+      }
+
+      // Fetch authoritative backend wishlist
+      const backendItems = await fetchUserWishlist();
+      setWishlist(backendItems);
+    } catch (err) {
+      console.warn("Backend wishlist sync fallback to local storage:", err);
+      setWishlist(wishlistLib.getWishlist());
+    }
+  }, [user]);
+
+  // Sync on mount and when auth status changes
   useEffect(() => {
-    const storedWishlist = wishlistLib.getWishlist();
-    setWishlist(storedWishlist);
-  }, []);
+    syncWithBackend();
+  }, [syncWithBackend]);
 
-  // Listen for wishlist updates from other tabs/windows
+  // Listen for storage events across tabs
   useEffect(() => {
     const handleWishlistUpdate = () => {
-      const updatedWishlist = wishlistLib.getWishlist();
-      setWishlist(updatedWishlist);
+      if (!user) {
+        setWishlist(wishlistLib.getWishlist());
+      }
     };
 
     window.addEventListener("wishlist-updated", handleWishlistUpdate);
@@ -39,26 +75,51 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("wishlist-updated", handleWishlistUpdate);
       window.removeEventListener("storage", handleWishlistUpdate);
     };
-  }, []);
+  }, [user]);
 
   const addToWishlist = (product: Product) => {
-    const updatedWishlist = wishlistLib.addToWishlist(product);
-    setWishlist(updatedWishlist);
+    // Optimistic local update
+    const updated = wishlistLib.addToWishlist(product);
+    setWishlist(updated);
+
+    if (user) {
+      const numId = Number(product.id);
+      if (!isNaN(numId)) {
+        addWishlistItem(numId).catch((err) => {
+          console.error("Failed to add to backend wishlist:", err);
+        });
+      }
+    }
   };
 
   const removeFromWishlist = (productId: string) => {
-    const updatedWishlist = wishlistLib.removeFromWishlist(productId);
-    setWishlist(updatedWishlist);
+    // Optimistic local update
+    const updated = wishlistLib.removeFromWishlist(productId);
+    setWishlist(updated);
+
+    if (user) {
+      const numId = Number(productId);
+      if (!isNaN(numId)) {
+        removeWishlistItem(numId).catch((err) => {
+          console.error("Failed to remove from backend wishlist:", err);
+        });
+      }
+    }
   };
 
   const toggleWishlist = (product: Product): boolean => {
-    const { added, wishlist: updatedWishlist } = wishlistLib.toggleWishlist(product);
-    setWishlist(updatedWishlist);
-    return added;
+    const exists = wishlist.some((item) => item.product.id === product.id);
+    if (exists) {
+      removeFromWishlist(product.id);
+      return false;
+    } else {
+      addToWishlist(product);
+      return true;
+    }
   };
 
   const isInWishlist = (productId: string): boolean => {
-    return wishlistLib.isInWishlist(productId);
+    return wishlist.some((item) => item.product.id === productId);
   };
 
   const clearWishlist = () => {
@@ -78,6 +139,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         toggleWishlist,
         isInWishlist,
         clearWishlist,
+        refreshWishlist: syncWithBackend,
       }}
     >
       {children}
@@ -88,7 +150,6 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 export function useWishlist() {
   const context = useContext(WishlistContext);
   if (context === undefined) {
-    // Return default values during SSR/build time
     if (typeof window === "undefined") {
       return {
         wishlist: [],
@@ -98,6 +159,7 @@ export function useWishlist() {
         toggleWishlist: () => false,
         isInWishlist: () => false,
         clearWishlist: () => {},
+        refreshWishlist: async () => {},
       };
     }
     throw new Error("useWishlist must be used within a WishlistProvider");

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Truck, RotateCcw, Shield, ChevronDown } from "lucide-react";
+import { Heart, Truck, RotateCcw, Shield, ChevronDown, Bell, Ruler } from "lucide-react";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -11,6 +11,11 @@ import ProductGallery from "@/components/product/ProductGallery";
 import ProductGrid from "@/components/product/ProductGrid";
 import ProductReviewsSection from "@/components/product/ProductReviewsSection";
 import SizeGuide from "@/components/product/SizeGuide";
+import { SizeAssistantModal } from "@/components/product/SizeAssistantModal";
+import { BackInStockModal } from "@/components/product/BackInStockModal";
+import { PincodeDeliveryEstimator } from "@/components/product/PincodeDeliveryEstimator";
+import { MobileStickyBar } from "@/components/product/MobileStickyBar";
+import { RecentlyViewed } from "@/components/product/RecentlyViewed";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useWishlist } from "@/lib/wishlist-context";
@@ -32,6 +37,8 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   const { isInWishlist, toggleWishlist: toggleWishlistInContext } = useWishlist();
   const [showSizeGuide, setShowSizeGuide] = useState(false);
+  const [showSizeAssistant, setShowSizeAssistant] = useState(false);
+  const [showBackInStockModal, setShowBackInStockModal] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>("description");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -187,14 +194,29 @@ export default function ProductPage() {
   }
 
   const discount = calculateDiscount(product.price, product.compareAtPrice);
-  const isOutOfStock = !product.available || product.stockStatus === "out_of_stock";
+  const hasVariants = Boolean(product.variants && product.variants.length > 0);
+  const isOutOfStock = !product.available || product.stockStatus === "out_of_stock" || !hasVariants;
   const isLowStock = product.stockStatus === "low_stock";
   const isComingSoon = product.stockStatus === "coming_soon";
 
+  const selectedSizeObj = product.sizes.find((s) => s.label === selectedSize);
+  const isSelectedSizeOutOfStock = Boolean(selectedSize && selectedSizeObj && !selectedSizeObj.available);
+  const selectedVariant = product.variants?.find(
+    (v) => v.size === selectedSize && (!selectedColor || v.color?.name === selectedColor.name)
+  ) || product.variants?.find((v) => v.size === selectedSize) || product.variants?.[0];
+
   const handleAddToCart = async () => {
     setValidationError(null);
+    if (!hasVariants) {
+      setValidationError("This product is currently unavailable for purchase.");
+      return;
+    }
     if (!selectedSize) {
       setValidationError("Please select a size");
+      return;
+    }
+    if (isSelectedSizeOutOfStock || isOutOfStock) {
+      setShowBackInStockModal(true);
       return;
     }
     if (!selectedColor) {
@@ -222,6 +244,10 @@ export default function ProductPage() {
     setValidationError(null);
     if (!selectedSize || !selectedColor) {
       setValidationError("Please select size and color");
+      return;
+    }
+    if (isSelectedSizeOutOfStock || isOutOfStock) {
+      setShowBackInStockModal(true);
       return;
     }
     
@@ -426,39 +452,81 @@ export default function ProductPage() {
               )}
 
               {/* Size Selection */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <label className="type-caption font-semibold text-[var(--color-odessi-black)]">
-                    Size: {selectedSize || "Select"}
-                  </label>
-                  <button
-                    onClick={() => setShowSizeGuide(true)}
-                    className="text-sm text-[var(--color-odessi-stone)] hover:text-[var(--color-odessi-black)] underline transition-colors"
-                  >
-                    Size Guide
-                  </button>
+              {product.sizes.length > 0 ? (
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="type-caption font-semibold text-[var(--color-odessi-black)]">
+                      Size: {selectedSize || "Select"}
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setShowSizeAssistant(true)}
+                        className="text-xs text-[var(--color-odessi-stone)] hover:text-[var(--color-odessi-black)] flex items-center gap-1.5 transition-colors font-medium"
+                      >
+                        <Ruler size={13} className="text-[#B89A5A]" />
+                        <span>Find My Size</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowSizeGuide(true)}
+                        className="text-xs text-[var(--color-odessi-stone)] hover:text-[var(--color-odessi-black)] underline transition-colors"
+                      >
+                        Size Guide
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-6 gap-2">
+                    {product.sizes.map((size) => {
+                      const isSelected = selectedSize === size.label;
+                      const isAvailable = size.available;
+                      return (
+                        <button
+                          key={size.label}
+                          type="button"
+                          onClick={() => setSelectedSize(size.label)}
+                          className={`
+                            px-3 py-2.5 text-sm font-medium border rounded-sm transition-all relative flex flex-col items-center justify-center
+                            ${!isAvailable
+                              ? isSelected
+                                ? 'border-[#0A0A0A] bg-neutral-100 text-neutral-800'
+                                : 'border-[var(--color-odessi-smoke)] text-neutral-400 hover:border-neutral-400'
+                              : isSelected
+                              ? 'border-[var(--color-odessi-black)] bg-[var(--color-odessi-black)] text-white'
+                              : 'border-[var(--color-odessi-smoke)] hover:border-[var(--color-odessi-black)] text-[var(--color-odessi-black)]'
+                            }
+                          `}
+                        >
+                          <span className={!isAvailable ? "line-through opacity-75" : ""}>{size.label}</span>
+                          {!isAvailable && (
+                            <span className="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5 font-normal">Sold out</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {isSelectedSizeOutOfStock && (
+                    <div className="mt-3 p-3 bg-[#F7F5F0] border border-neutral-200 rounded-sm text-xs text-neutral-700 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Bell size={14} className="text-[#B89A5A] shrink-0" />
+                        <span>Size <strong>{selectedSize}</strong> is currently out of stock.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowBackInStockModal(true)}
+                        className="text-xs font-semibold text-[#0A0A0A] underline hover:text-[#B89A5A]"
+                      >
+                        Notify Me
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="grid grid-cols-6 gap-2">
-                  {product.sizes.map((size) => (
-                    <button
-                      key={size.label}
-                      onClick={() => size.available && setSelectedSize(size.label)}
-                      disabled={!size.available}
-                      className={`
-                        px-4 py-3 text-sm font-medium border rounded-sm transition-all
-                        ${!size.available
-                          ? 'border-[var(--color-odessi-smoke)] text-[var(--color-odessi-smoke)] cursor-not-allowed line-through'
-                          : selectedSize === size.label
-                          ? 'border-[var(--color-odessi-black)] bg-[var(--color-odessi-black)] text-white'
-                          : 'border-[var(--color-odessi-smoke)] hover:border-[var(--color-odessi-black)] text-[var(--color-odessi-black)]'
-                        }
-                      `}
-                    >
-                      {size.label}
-                    </button>
-                  ))}
+              ) : (
+                <div className="mb-6 p-4 bg-amber-50/60 border border-amber-200/70 rounded text-xs text-amber-900 leading-relaxed">
+                  Variants and sizes are being configured for this edition. Currently unavailable for online order.
                 </div>
-              </div>
+              )}
 
               {/* Quantity */}
               <div className="mb-6">
@@ -486,19 +554,40 @@ export default function ProductPage() {
 
               {/* Actions */}
               <div className="space-y-3 mb-8">
-                {isOutOfStock ? (
+                {!hasVariants ? (
+                  <div className="space-y-2">
+                    <button
+                      disabled
+                      className="w-full py-4 px-6 bg-[var(--color-odessi-smoke)] text-[var(--color-odessi-stone)] text-center type-nav font-semibold rounded-sm cursor-not-allowed uppercase tracking-wider"
+                    >
+                      CURRENTLY UNAVAILABLE
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowBackInStockModal(true)}
+                      className="w-full py-3.5 px-6 bg-[#0A0A0A] hover:bg-[#1A1A1A] text-white text-center type-nav font-semibold rounded-sm transition-all flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <Bell size={16} className="text-[#B89A5A]" />
+                      <span>NOTIFY ME WHEN AVAILABLE</span>
+                    </button>
+                  </div>
+                ) : isSelectedSizeOutOfStock || isOutOfStock ? (
                   <button
-                    disabled
-                    className="w-full py-4 px-6 bg-[var(--color-odessi-smoke)] text-[var(--color-odessi-stone)] text-center type-nav font-semibold rounded-sm cursor-not-allowed"
+                    type="button"
+                    onClick={() => setShowBackInStockModal(true)}
+                    className="w-full py-4 px-6 bg-[#0A0A0A] hover:bg-[#1A1A1A] text-white text-center type-nav font-semibold rounded-sm transition-all flex items-center justify-center gap-2 shadow-sm"
                   >
-                    OUT OF STOCK
+                    <Bell size={16} className="text-[#B89A5A]" />
+                    <span>NOTIFY ME WHEN AVAILABLE</span>
                   </button>
                 ) : isComingSoon ? (
                   <button
-                    disabled
-                    className="w-full py-4 px-6 bg-[var(--color-odessi-smoke)] text-[var(--color-odessi-stone)] text-center type-nav font-semibold rounded-sm cursor-not-allowed"
+                    type="button"
+                    onClick={() => setShowBackInStockModal(true)}
+                    className="w-full py-4 px-6 bg-[#0A0A0A] hover:bg-[#1A1A1A] text-white text-center type-nav font-semibold rounded-sm transition-all flex items-center justify-center gap-2 shadow-sm"
                   >
-                    COMING SOON
+                    <Bell size={16} className="text-[#B89A5A]" />
+                    <span>NOTIFY ME ON DROP LAUNCH</span>
                   </button>
                 ) : (
                   <>
@@ -539,6 +628,9 @@ export default function ProductPage() {
                     {isWishlisted ? "IN WISHLIST" : "ADD TO WISHLIST"}
                   </span>
                 </button>
+
+                {/* Indian Pincode Delivery Estimator */}
+                <PincodeDeliveryEstimator className="mt-4" />
               </div>
 
               {/* Product Features */}
@@ -639,7 +731,11 @@ export default function ProductPage() {
           </div>
 
           {/* Verified Customer Reviews */}
-          <ProductReviewsSection productId={Number(product.id)} />
+          <ProductReviewsSection
+            productId={Number(product.id)}
+            productName={product.name}
+            productImage={typeof product.images?.[0] === "string" ? product.images[0] : (product.images as unknown as { imageUrl: string }[])?.[0]?.imageUrl || product.thumbnail}
+          />
 
           {/* Related Products */}
           {relatedProducts.length > 0 && (
@@ -650,17 +746,47 @@ export default function ProductPage() {
               <ProductGrid products={relatedProducts} />
             </div>
           )}
+
+          {/* Recently Viewed */}
+          <RecentlyViewed currentProductId={product.id} />
         </div>
       </main>
 
       {/* ── Footer ── */}
       <Footer />
 
+      {/* Mobile Sticky Bar */}
+      <MobileStickyBar
+        product={product}
+        selectedSize={selectedSize}
+        isOutOfStock={isOutOfStock || isSelectedSizeOutOfStock}
+        onAddToCart={handleAddToCart}
+        onNotifyMe={() => setShowBackInStockModal(true)}
+        addedToCart={addedToCart}
+      />
+
       {/* Size Guide Modal */}
       <SizeGuide
         isOpen={showSizeGuide}
         onClose={() => setShowSizeGuide(false)}
         category={product.category}
+      />
+
+      {/* Size Assistant Modal */}
+      <SizeAssistantModal
+        isOpen={showSizeAssistant}
+        onClose={() => setShowSizeAssistant(false)}
+        onSelectSize={(size) => setSelectedSize(size)}
+      />
+
+      {/* Back In Stock Modal */}
+      <BackInStockModal
+        isOpen={showBackInStockModal}
+        onClose={() => setShowBackInStockModal(false)}
+        productId={Number(product.id) || 1}
+        productName={product.name}
+        variantId={Number(selectedVariant?.id) || 1}
+        variantSku={selectedVariant?.sku || `${product.slug}-${selectedSize || 'OS'}`}
       />
     </>
   );

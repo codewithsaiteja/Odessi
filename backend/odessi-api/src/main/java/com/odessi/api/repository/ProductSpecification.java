@@ -25,7 +25,8 @@ public class ProductSpecification implements Specification<Product> {
     public Predicate toPredicate(Root<Product> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
         List<Predicate> predicates = new ArrayList<>();
 
-        // Always filter to active products
+        // Authoritative public storefront visibility: status == PUBLISHED and active == true
+        predicates.add(cb.equal(root.get("status"), com.odessi.api.entity.ProductStatus.PUBLISHED));
         predicates.add(cb.isTrue(root.get("active")));
 
         if (filter.category() != null && !filter.category().isBlank()) {
