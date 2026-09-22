@@ -4,7 +4,6 @@ import com.odessi.api.exception.BadRequestException;
 import com.odessi.api.service.MediaStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -16,7 +15,18 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.UUID;
 
-@Service
+/**
+ * Local filesystem implementation of {@link MediaStorageService}.
+ *
+ * <p><b>Development only</b>: automatically selected by {@link com.odessi.api.config.MediaStorageConfig}
+ * when {@code AZURE_STORAGE_CONNECTION_STRING} is not configured.
+ *
+ * <p>This class is NOT annotated with {@code @Service} — instantiation is controlled
+ * by {@link com.odessi.api.config.MediaStorageConfig} which defines the {@code @Primary} bean.
+ *
+ * <p><b>NEVER use in production.</b> Files stored on disk are ephemeral on Render/Heroku
+ * and will be lost on every deployment or dyno restart.
+ */
 public class LocalStorageServiceImpl implements MediaStorageService {
 
     private static final Logger log = LoggerFactory.getLogger(LocalStorageServiceImpl.class);

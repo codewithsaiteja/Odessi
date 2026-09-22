@@ -136,7 +136,19 @@
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
 
+    <!-- ── Azure Blob Storage (persistent production media) ── -->
+    <dependency>
+      <groupId>com.azure</groupId>
+      <artifactId>azure-storage-blob</artifactId>
+      <version>12.28.1</version>
+    </dependency>
 
+    <!-- ── Sentry (Spring Boot error monitoring) ── -->
+    <dependency>
+      <groupId>io.sentry</groupId>
+      <artifactId>sentry-spring-boot-starter-jakarta</artifactId>
+      <version>8.14.0</version>
+    </dependency>
 
     <!-- ── Configuration Processor ── -->
     <dependency>

@@ -118,6 +118,24 @@ app:
     unauth-window-seconds: ${RATE_LIMIT_UNAUTH_WINDOW:60}  # 10 req / 60 s for auth endpoints
     auth-max-requests: ${RATE_LIMIT_AUTH_MAX:30}           # per userId+endpoint per window
     auth-window-seconds: ${RATE_LIMIT_AUTH_WINDOW:60}      # 30 req / 60 s for authenticated paths
+  # ── Azure Blob Storage (persistent production media) ───────────────────────
+  # Set AZURE_STORAGE_CONNECTION_STRING in Render environment variables.
+  # NEVER expose this value to the frontend or logs.
+  azure-storage:
+    connection-string: ${AZURE_STORAGE_CONNECTION_STRING:}
+    container-name: ${AZURE_STORAGE_CONTAINER_NAME:media}
+
+# ── Sentry ───────────────────────────────────────────────────
+sentry:
+  dsn: ${SENTRY_DSN:}
+  environment: ${SPRING_PROFILES_ACTIVE:development}
+  enable-tracing: false
+  traces-sample-rate: 0.0
+  # logs-integration disabled — requires Logback appender; enable via sentry-logback dep if needed
+  logging:
+    minimum-event-level: error
+    minimum-breadcrumb-level: warn
+
 
 # ── Logging ──────────────────────────────────────────────
 logging:

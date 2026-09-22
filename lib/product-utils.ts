@@ -275,6 +275,8 @@ export function getMediaUrl(urlInput?: any): string {
     return fallback;
   }
 
+  // Absolute URLs (Unsplash, Azure Blob Storage, blob: preview, Render /uploads, etc.)
+  // are passed through unchanged. Never wrap an already-absolute URL.
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("blob:")) {
     return trimmed;
   }

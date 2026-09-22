@@ -4,9 +4,8 @@ const nextConfig: NextConfig = {
   output: "standalone",
   images: {
     dangerouslyAllowSVG: true,
-    dangerouslyAllowLocalIP: true,
     remotePatterns: [
-      // Product images served from Unsplash (confirmed in use)
+      // ─── Unsplash (product/social/collection seed images) ─────────────────
       {
         protocol: "https",
         hostname: "images.unsplash.com",
@@ -17,7 +16,27 @@ const nextConfig: NextConfig = {
         hostname: "plus.unsplash.com",
         pathname: "/**",
       },
-      // Local Spring Boot backend uploaded media
+      // ─── Azure Blob Storage (persistent production media) ─────────────────
+      // All *.blob.core.windows.net hostnames are included to avoid hard-coding
+      // the storage account name, which is an infrastructure detail.
+      // Tighten to a specific account hostname once the account name is finalised.
+      {
+        protocol: "https",
+        hostname: "*.blob.core.windows.net",
+        pathname: "/**",
+      },
+      // ─── Render production backend (/uploads/** served by Spring Boot) ─────
+      {
+        protocol: "https",
+        hostname: "odessi-backend.onrender.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.onrender.com",
+        pathname: "/**",
+      },
+      // ─── Local development backend ─────────────────────────────────────────
       {
         protocol: "http",
         hostname: "localhost",
@@ -30,32 +49,34 @@ const nextConfig: NextConfig = {
         port: "8080",
         pathname: "/**",
       },
-      // Production Spring Boot backend uploaded media (Render)
-      {
-        protocol: "https",
-        hostname: "odessi-backend.onrender.com",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "*.onrender.com",
-        pathname: "/**",
-      },
     ],
     formats: ["image/avif", "image/webp"],
     qualities: [75, 85, 90],
   },
 
   /**
-   * Security headers — Phase 8 Production Hardening.
+   * API rewrites — proxies /api/* calls to the Spring Boot backend.
    *
-   * Applied to all routes via the `source: "/(.*)"` matcher.
-   * These headers complement the backend Spring Security headers for the
-   * Next.js-served pages (HTML, static assets, API routes if any).
+   * In production on Vercel, NEXT_PUBLIC_API_URL is set to the Render backend URL.
+   * The rewrite ensures that any server-side API calls made without the env var
+   * (unlikely but defensive) still resolve correctly for local development.
+   */
+  async rewrites() {
+    const backendUrl =
+      process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${backendUrl}/api/:path*`,
+      },
+    ];
+  },
+
+  /**
+   * Security headers — Production Hardening.
    *
-   * Note: Content-Security-Policy (CSP) for Next.js pages is best configured
-   * server-side in the Spring Boot API response for API calls. For Next.js HTML
-   * pages, it is set here via next.config headers (applies to SSR/SSG pages).
+   * Applied to all routes. These headers complement the Spring Security
+   * headers set on API responses.
    */
   async headers() {
     return [
@@ -67,12 +88,12 @@ const nextConfig: NextConfig = {
             key: "X-Content-Type-Options",
             value: "nosniff",
           },
-          // Prevent clickjacking — deny all frame embedding of Next.js pages
+          // Prevent clickjacking
           {
             key: "X-Frame-Options",
             value: "DENY",
           },
-          // Referrer policy: send origin on same-site, no referrer on cross-origin
+          // Referrer policy: origin on same-site, no referrer cross-origin
           {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
@@ -84,8 +105,7 @@ const nextConfig: NextConfig = {
           },
           // Note: Strict-Transport-Security (HSTS) is intentionally omitted here.
           // It must only be set over HTTPS and is configured at the CDN/reverse proxy
-          // level (e.g., Nginx, Vercel) for production. Setting it here would
-          // break local HTTP development.
+          // level (Vercel) for production. Setting it here would break local HTTP dev.
         ],
       },
     ];

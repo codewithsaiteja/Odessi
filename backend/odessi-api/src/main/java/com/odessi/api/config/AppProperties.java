@@ -17,6 +17,7 @@ public class AppProperties {
     private Razorpay razorpay = new Razorpay();
     private Checkout checkout = new Checkout();
     private RateLimit rateLimit = new RateLimit();
+    private AzureStorage azureStorage = new AzureStorage();
 
     public Auth getAuth() { return auth; }
     public void setAuth(Auth auth) { this.auth = auth; }
@@ -38,6 +39,9 @@ public class AppProperties {
 
     public RateLimit getRateLimit() { return rateLimit; }
     public void setRateLimit(RateLimit rateLimit) { this.rateLimit = rateLimit; }
+
+    public AzureStorage getAzureStorage() { return azureStorage; }
+    public void setAzureStorage(AzureStorage azureStorage) { this.azureStorage = azureStorage; }
 
     public static class Cors {
         private String allowedOrigins = "http://localhost:3000";
@@ -150,5 +154,28 @@ public class AppProperties {
 
         public int getAuthWindowSeconds() { return authWindowSeconds; }
         public void setAuthWindowSeconds(int authWindowSeconds) { this.authWindowSeconds = authWindowSeconds; }
+    }
+
+    /**
+     * Azure Blob Storage configuration for persistent production media.
+     *
+     * <p>Set {@code AZURE_STORAGE_CONNECTION_STRING} in the environment.
+     * If absent in non-dev environments the application will refuse to start.
+     */
+    public static class AzureStorage {
+        /** Full Azure Storage account connection string. Must remain server-side only. */
+        private String connectionString;
+        /** Blob container name. Defaults to "media". */
+        private String containerName = "media";
+
+        public String getConnectionString() { return connectionString; }
+        public void setConnectionString(String connectionString) { this.connectionString = connectionString; }
+
+        public String getContainerName() { return containerName; }
+        public void setContainerName(String containerName) { this.containerName = containerName; }
+
+        public boolean isConfigured() {
+            return connectionString != null && !connectionString.isBlank();
+        }
     }
 }

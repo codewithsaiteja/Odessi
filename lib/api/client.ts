@@ -3,9 +3,97 @@
  *
  * Central HTTP client for the Spring Boot backend.
  * All API calls go through this module — never fetch() directly in components.
+ *
+ * ## CSRF Strategy (cross-origin: Vercel → Render)
+ *
+ * Vercel and Render are on different origins. The browser's Same-Origin Policy
+ * prevents JavaScript on Vercel from reading cookies (including XSRF-TOKEN) set
+ * by Render via `document.cookie`. Therefore `getCookie()` always returns null in
+ * production for cross-origin deployments.
+ *
+ * Instead we use a server-side CSRF token endpoint (GET /api/csrf) which returns
+ * the current token as JSON. The token is cached in memory and attached as the
+ * `X-XSRF-TOKEN` header on every state-changing request. Spring Security validates
+ * this header against the XSRF-TOKEN cookie it wrote.
+ *
+ * CSRF protection is NOT weakened. Admin endpoints still require:
+ *   1. A valid JWT (access_token cookie) for authentication.
+ *   2. A valid X-XSRF-TOKEN header for CSRF protection.
  */
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+
+// ─── CSRF Token Manager ─────────────────────────────────────────────────────
+
+interface CsrfTokenResponse {
+  token: string;
+  headerName: string;
+  parameterName: string;
+}
+
+/** In-memory CSRF token cache. Never sent to client or written to storage. */
+let csrfCache: string | null = null;
+
+/**
+ * In-flight promise to deduplicate concurrent CSRF token fetches.
+ * If multiple requests fire simultaneously before the first fetch resolves,
+ * they all await the same promise instead of making N parallel requests.
+ */
+let csrfFetchInFlight: Promise<string> | null = null;
+
+/**
+ * Fetch a fresh CSRF token from GET /api/csrf and cache it in memory.
+ *
+ * Must be called with `credentials: "include"` so the XSRF-TOKEN cookie
+ * is set by the backend before the token is read from the JSON body.
+ */
+async function fetchCsrfToken(): Promise<string> {
+  if (csrfFetchInFlight) return csrfFetchInFlight;
+
+  csrfFetchInFlight = (async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/csrf`, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        throw new Error(`CSRF endpoint returned ${response.status}`);
+      }
+      const data: CsrfTokenResponse = await response.json();
+      csrfCache = data.token;
+      return csrfCache;
+    } finally {
+      csrfFetchInFlight = null;
+    }
+  })();
+
+  return csrfFetchInFlight;
+}
+
+/**
+ * Get the cached CSRF token, fetching it if not yet cached.
+ * Always prefers the in-memory cache — one network round-trip per browser session.
+ */
+async function getCsrfToken(): Promise<string> {
+  if (csrfCache) return csrfCache;
+  return fetchCsrfToken();
+}
+
+/**
+ * Invalidate the cached CSRF token.
+ *
+ * Call this after login or logout so the next state-changing request
+ * re-fetches a fresh token bound to the new authentication context.
+ */
+export function invalidateCsrfToken(): void {
+  csrfCache = null;
+}
+
+/** Alias — call after login so the next request gets a fresh session-bound token. */
+export const refreshCsrfToken = invalidateCsrfToken;
+
+// ─── Error Types ─────────────────────────────────────────────────────────────
 
 export class ApiError extends Error {
   constructor(
@@ -26,17 +114,12 @@ interface ErrorBody {
   path?: string;
 }
 
-function getCookie(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
-  if (match) return decodeURIComponent(match[2]);
-  return null;
-}
+// ─── Response Handler ────────────────────────────────────────────────────────
 
 async function handleResponse<T>(response: Response, originalRequest?: () => Promise<T>): Promise<T> {
   if (response.ok) {
     if (response.status === 204) return undefined as T;
-    
+
     const text = await response.text();
     if (!text || !text.trim()) {
       return undefined as T;
@@ -53,18 +136,21 @@ async function handleResponse<T>(response: Response, originalRequest?: () => Pro
     }
   }
 
-  // 401 Intercept & Refresh
+  // ── 401 Intercept & JWT Refresh ─────────────────────────────────────────
   if (response.status === 401 && originalRequest) {
     try {
+      const xsrf = await getCsrfToken();
       const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
         method: "POST",
         credentials: "include",
         headers: {
-          "X-XSRF-TOKEN": getCookie("XSRF-TOKEN") || "",
+          "X-XSRF-TOKEN": xsrf,
         },
       });
 
       if (refreshResponse.ok) {
+        // Invalidate CSRF cache — a new session may issue a new token
+        invalidateCsrfToken();
         return originalRequest();
       } else {
         if (typeof window !== "undefined") {
@@ -76,14 +162,22 @@ async function handleResponse<T>(response: Response, originalRequest?: () => Pro
     }
   }
 
+  // ── 403 Intercept — CSRF token may have expired ──────────────────────────
+  // If the backend rejects with 403 and we haven't already retried, invalidate
+  // the CSRF cache and retry once. A second 403 is a genuine access-denied.
+  // Note: We only retry 403s when originalRequest is provided (non-auth calls).
+  // Auth endpoints get a plain 403 which means wrong credentials, not CSRF.
+
   let errorBody: ErrorBody;
   try {
     const text = await response.text();
-    errorBody = text ? JSON.parse(text) : {
-      status: response.status,
-      error: "UNKNOWN_ERROR",
-      message: response.statusText || "An unknown error occurred",
-    };
+    errorBody = text
+      ? JSON.parse(text)
+      : {
+          status: response.status,
+          error: "UNKNOWN_ERROR",
+          message: response.statusText || "An unknown error occurred",
+        };
   } catch {
     errorBody = {
       status: response.status,
@@ -95,6 +189,8 @@ async function handleResponse<T>(response: Response, originalRequest?: () => Pro
   throw new ApiError(errorBody.status, errorBody.error, errorBody.message, errorBody.path);
 }
 
+// ─── Core Fetch ──────────────────────────────────────────────────────────────
+
 export interface RequestOptions {
   headers?: Record<string, string>;
   signal?: AbortSignal;
@@ -104,20 +200,21 @@ async function executeFetch<T>(
   method: string,
   path: string,
   body?: unknown,
-  options?: RequestOptions
+  options?: RequestOptions,
+  _isCsrfRetry = false
 ): Promise<T> {
   const isAuthRequest = path.startsWith("/api/auth/");
-  
+  const isStateChanging = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
+
   const headers = new Headers({
     "Content-Type": "application/json",
     ...options?.headers,
   });
 
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-    const xsrfToken = getCookie("XSRF-TOKEN");
-    if (xsrfToken) {
-      headers.set("X-XSRF-TOKEN", xsrfToken);
-    }
+  if (isStateChanging) {
+    // Use server-side CSRF endpoint — never relies on document.cookie cross-origin
+    const xsrfToken = await getCsrfToken();
+    headers.set("X-XSRF-TOKEN", xsrfToken);
   }
 
   let response: Response;
@@ -130,16 +227,23 @@ async function executeFetch<T>(
       credentials: "include",
       cache: "no-store",
     });
-  } catch (err: any) {
-    if (err?.name === "AbortError") {
+  } catch (err: unknown) {
+    const error = err as { name?: string; message?: string };
+    if (error?.name === "AbortError") {
       throw err;
     }
     throw new ApiError(
       0,
       "NETWORK_ERROR",
-      `Failed to connect to backend server (${API_BASE_URL}). ${err?.message || "Failed to fetch"}`,
+      `Failed to connect to backend server (${API_BASE_URL}). ${error?.message || "Failed to fetch"}`,
       path
     );
+  }
+
+  // ── CSRF 403 retry (once) — handles token rotation between tabs/deployments
+  if (response.status === 403 && isStateChanging && !isAuthRequest && !_isCsrfRetry) {
+    invalidateCsrfToken();
+    return executeFetch<T>(method, path, body, options, true);
   }
 
   // Don't retry auth endpoints themselves on 401
@@ -149,6 +253,8 @@ async function executeFetch<T>(
 
   return handleResponse<T>(response, () => executeFetch<T>(method, path, body, options));
 }
+
+// ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function apiGet<T>(path: string, options?: RequestOptions): Promise<T> {
   return executeFetch<T>("GET", path, undefined, options);
@@ -170,12 +276,29 @@ export async function apiDelete<T = void>(path: string, options?: RequestOptions
   return executeFetch<T>("DELETE", path, undefined, options);
 }
 
-export async function apiPostFormData<T>(path: string, formData: FormData): Promise<T> {
-  const headers = new Headers();
-  const xsrfToken = getCookie("XSRF-TOKEN");
-  if (xsrfToken) {
-    headers.set("X-XSRF-TOKEN", xsrfToken);
-  }
+// ─── Multipart Upload ─────────────────────────────────────────────────────────
+
+/**
+ * POST a multipart FormData payload.
+ *
+ * Unlike `apiPost`, this uses the raw `fetch` API with no `Content-Type` header
+ * so the browser can set the correct `multipart/form-data; boundary=...` header.
+ *
+ * The CSRF token is fetched from the server-side endpoint (not document.cookie)
+ * and attached as `X-XSRF-TOKEN`. On a 403, the token cache is invalidated and
+ * the request is retried once.
+ */
+export async function apiPostFormData<T>(
+  path: string,
+  formData: FormData,
+  _isCsrfRetry = false
+): Promise<T> {
+  const xsrfToken = await getCsrfToken();
+
+  const headers = new Headers({
+    "X-XSRF-TOKEN": xsrfToken,
+    // Note: Do NOT set Content-Type — browser must set it with boundary
+  });
 
   let response: Response;
   try {
@@ -185,17 +308,26 @@ export async function apiPostFormData<T>(path: string, formData: FormData): Prom
       body: formData,
       credentials: "include",
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const error = err as { message?: string };
     throw new ApiError(
       0,
       "NETWORK_ERROR",
-      `Failed to connect to backend server (${API_BASE_URL}). ${err?.message || "Failed to fetch"}`,
+      `Failed to connect to backend server (${API_BASE_URL}). ${error?.message || "Failed to fetch"}`,
       path
     );
   }
 
+  // Retry once on 403 (possible CSRF token rotation)
+  if (response.status === 403 && !_isCsrfRetry) {
+    invalidateCsrfToken();
+    return apiPostFormData<T>(path, formData, true);
+  }
+
   return handleResponse<T>(response);
 }
+
+// ─── Utility ──────────────────────────────────────────────────────────────────
 
 export function buildQueryString(
   params: Record<string, string | number | boolean | null | undefined>

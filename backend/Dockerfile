@@ -32,6 +32,13 @@ WORKDIR /app
 # Copy the built jar file
 COPY --from=build --chown=odessi:odessi /app/target/*.jar app.jar
 
+# Copy seed assets from repository into the container.
+# TEMPORARY: These are fallback assets for local/dev and for migration to Azure Blob Storage.
+# Production media must ultimately be stored in and served from Azure Blob Storage.
+# Once seed assets are migrated to Azure and PostgreSQL references updated, this COPY
+# layer can be removed to reduce image size.
+COPY --chown=odessi:odessi odessi-api/uploads /app/uploads/
+
 # Switch to non-root user
 USER odessi
 

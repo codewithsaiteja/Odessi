@@ -25,6 +25,13 @@ USER spring:spring
 # Copy the jar file from the build stage
 COPY --from=build --chown=spring:spring /app/target/*.jar app.jar
 
+# Copy seed assets from repository into the container.
+# TEMPORARY: These are fallback assets for local/dev and for migration to Azure Blob Storage.
+# Production media must ultimately be stored in and served from Azure Blob Storage.
+# Once seed assets are migrated to Azure and PostgreSQL references updated, this COPY
+# layer can be removed to reduce image size.
+COPY --chown=spring:spring uploads /app/uploads/
+
 # Expose Render default port
 EXPOSE 10000
 

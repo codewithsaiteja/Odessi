@@ -147,7 +147,9 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/swagger-ui.html",
                     "/api-docs/**",
-                    "/v3/api-docs/**"
+                    "/v3/api-docs/**",
+                    // Cross-origin CSRF token acquisition (GET only, not state-changing)
+                    "/api/csrf"
                 ).permitAll()
                 // ── Protected endpoints ──────────────────────────────────
                 .requestMatchers("/api/cart/**").authenticated()
@@ -195,8 +197,8 @@ public class SecurityConfig {
                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
                // Fonts: self + Google Fonts CDN
                "font-src 'self' https://fonts.gstatic.com; " +
-               // Images: self + data URIs + Unsplash product images
-               "img-src 'self' data: https://images.unsplash.com https://plus.unsplash.com; " +
+               // Images: self + data URIs + Unsplash product images + Azure Blob + blob: (local preview)
+               "img-src 'self' data: blob: https://images.unsplash.com https://plus.unsplash.com https://*.blob.core.windows.net; " +
                // Connections: self (API) + Razorpay API
                "connect-src 'self' https://api.razorpay.com; " +
                // Frames: Razorpay payment iframe
