@@ -17,6 +17,8 @@ public interface AdminService {
      */
     AdminDashboardStatsResponse getDashboardStats(String range);
 
+    record DeleteProductResult(String message, boolean archived) {}
+
     Page<ProductResponse> getProducts(String search, Long categoryId, Long collectionId, Boolean active, String status, Pageable pageable);
     ProductResponse getProductById(Long id);
     ProductResponse createProduct(User admin, AdminProductRequest request);
@@ -24,7 +26,7 @@ public interface AdminService {
     ProductResponse toggleProductActive(User admin, Long id);
     ProductResponse toggleProductFeatured(User admin, Long id);
     ProductResponse duplicateProduct(User admin, Long id);
-    String deleteProduct(User admin, Long id);
+    DeleteProductResult deleteProduct(User admin, Long id);
     List<ProductResponse> bulkProductAction(User admin, AdminBulkProductRequest request);
     List<AdminAuditLogResponse> getProductActivity(Long id);
 

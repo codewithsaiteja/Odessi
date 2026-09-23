@@ -1,5 +1,0 @@
-# Created at 2026-09-21T21:19:09.937
-Boot Manifest-JAR contains absolute paths in classpath 'E:\Odessi Store\odessi-store\backend\odessi-api\target\test-classes'
-Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
-'other' has different root
-

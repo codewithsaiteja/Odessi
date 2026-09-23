@@ -159,8 +159,17 @@ public class AuthService {
      */
     @Transactional
     public RefreshToken verifyAndRotateRefreshToken(String token) {
-        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(token)
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenHashWithUser(token)
+                .or(() -> refreshTokenRepository.findByTokenHash(token))
                 .orElseThrow(() -> new BusinessException("INVALID_REFRESH_TOKEN", "Refresh token is invalid"));
+
+        // Eagerly initialize user properties while hibernate session is open
+        if (refreshToken.getUser() != null) {
+            refreshToken.getUser().getEmail();
+            refreshToken.getUser().getRole();
+            refreshToken.getUser().getPasswordHash();
+            refreshToken.getUser().isEnabled();
+        }
 
         // ── Reuse/replay attack detection ──────────────────────────────────────
         if (refreshToken.isRevoked()) {

@@ -90,8 +90,11 @@ export function invalidateCsrfToken(): void {
   csrfCache = null;
 }
 
-/** Alias — call after login so the next request gets a fresh session-bound token. */
-export const refreshCsrfToken = invalidateCsrfToken;
+/** Refresh the CSRF token: invalidates the cache and fetches a fresh token immediately. */
+export async function refreshCsrfToken(): Promise<string> {
+  invalidateCsrfToken();
+  return fetchCsrfToken();
+}
 
 // ─── Error Types ─────────────────────────────────────────────────────────────
 
@@ -152,7 +155,7 @@ async function handleResponse<T>(response: Response, originalRequest?: () => Pro
         // Invalidate CSRF cache — a new session may issue a new token
         invalidateCsrfToken();
         return originalRequest();
-      } else {
+      } else if (refreshResponse.status === 401) {
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("auth-session-expired"));
         }
@@ -201,9 +204,16 @@ async function executeFetch<T>(
   path: string,
   body?: unknown,
   options?: RequestOptions,
-  _isCsrfRetry = false
+  _isCsrfRetry = false,
+  _isAuthRetry = false
 ): Promise<T> {
-  const isAuthRequest = path.startsWith("/api/auth/");
+  const isPublicAuthRequest = [
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/refresh",
+    "/api/auth/forgot-password",
+    "/api/auth/reset-password",
+  ].some((p) => path.startsWith(p));
   const isStateChanging = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
 
   const headers = new Headers({
@@ -241,17 +251,20 @@ async function executeFetch<T>(
   }
 
   // ── CSRF 403 retry (once) — handles token rotation between tabs/deployments
-  if (response.status === 403 && isStateChanging && !isAuthRequest && !_isCsrfRetry) {
+  if (response.status === 403 && isStateChanging && !isPublicAuthRequest && !_isCsrfRetry) {
     invalidateCsrfToken();
-    return executeFetch<T>(method, path, body, options, true);
+    return executeFetch<T>(method, path, body, options, true, _isAuthRetry);
   }
 
-  // Don't retry auth endpoints themselves on 401
-  if (isAuthRequest) {
+  // Don't retry public auth endpoints themselves on 401
+  if (isPublicAuthRequest) {
     return handleResponse<T>(response);
   }
 
-  return handleResponse<T>(response, () => executeFetch<T>(method, path, body, options));
+  return handleResponse<T>(
+    response,
+    !_isAuthRetry ? () => executeFetch<T>(method, path, body, options, _isCsrfRetry, true) : undefined
+  );
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -291,7 +304,8 @@ export async function apiDelete<T = void>(path: string, options?: RequestOptions
 export async function apiPostFormData<T>(
   path: string,
   formData: FormData,
-  _isCsrfRetry = false
+  _isCsrfRetry = false,
+  _isAuthRetry = false
 ): Promise<T> {
   const xsrfToken = await getCsrfToken();
 
@@ -321,10 +335,13 @@ export async function apiPostFormData<T>(
   // Retry once on 403 (possible CSRF token rotation)
   if (response.status === 403 && !_isCsrfRetry) {
     invalidateCsrfToken();
-    return apiPostFormData<T>(path, formData, true);
+    return apiPostFormData<T>(path, formData, true, _isAuthRetry);
   }
 
-  return handleResponse<T>(response);
+  return handleResponse<T>(
+    response,
+    !_isAuthRetry ? () => apiPostFormData<T>(path, formData, _isCsrfRetry, true) : undefined
+  );
 }
 
 // ─── Utility ──────────────────────────────────────────────────────────────────

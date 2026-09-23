@@ -47,9 +47,16 @@ public class AzureMediaSeedSyncRunner implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(AzureMediaSeedSyncRunner.class);
 
     private final AppProperties appProperties;
+    private final com.odessi.api.repository.ProductImageRepository productImageRepository;
+    private final com.odessi.api.repository.SocialPostRepository socialPostRepository;
 
-    public AzureMediaSeedSyncRunner(AppProperties appProperties) {
+    public AzureMediaSeedSyncRunner(
+            AppProperties appProperties,
+            com.odessi.api.repository.ProductImageRepository productImageRepository,
+            com.odessi.api.repository.SocialPostRepository socialPostRepository) {
         this.appProperties = appProperties;
+        this.productImageRepository = productImageRepository;
+        this.socialPostRepository = socialPostRepository;
     }
 
     @Override
@@ -107,23 +114,39 @@ public class AzureMediaSeedSyncRunner implements ApplicationRunner {
                 BlobClient blobClient = containerClient.getBlobClient(blobName);
 
                 try {
+                    String azureUrl;
                     if (blobClient.exists()) {
-                        log.debug("[SeedSync] Already exists in Azure, skipping: {}", blobName);
+                        log.debug("[SeedSync] Already exists in Azure, skipping upload: {}", blobName);
                         skipped.incrementAndGet();
-                        return;
+                        azureUrl = blobClient.getBlobUrl();
+                    } else {
+                        String contentType = probeContentType(file, filename);
+                        try (InputStream is = Files.newInputStream(file)) {
+                            blobClient.upload(is, Files.size(file), false);
+                            blobClient.setHttpHeaders(
+                                new com.azure.storage.blob.models.BlobHttpHeaders().setContentType(contentType)
+                            );
+                        }
+                        azureUrl = blobClient.getBlobUrl();
+                        log.info("[SeedSync] Uploaded {} → {}", filename, azureUrl);
+                        uploaded.incrementAndGet();
                     }
 
-                    String contentType = probeContentType(file, filename);
-                    try (InputStream is = Files.newInputStream(file)) {
-                        blobClient.upload(is, Files.size(file), false);
-                        blobClient.setHttpHeaders(
-                            new com.azure.storage.blob.models.BlobHttpHeaders().setContentType(contentType)
-                        );
+                    // Update PostgreSQL references to canonical Azure Blob HTTPS URL
+                    String localDbPath = "/" + localDir + "/" + filename;
+                    if ("products".equals(blobPrefix)) {
+                        int updatedCount = productImageRepository.updateImageUrl(localDbPath, azureUrl);
+                        if (updatedCount > 0) {
+                            log.info("[SeedSync] Updated {} ProductImage references: {} → {}", updatedCount, localDbPath, azureUrl);
+                        }
+                    } else if ("social".equals(blobPrefix)) {
+                        int updatedCount = socialPostRepository.updateMediaUrl(localDbPath, azureUrl);
+                        if (updatedCount > 0) {
+                            log.info("[SeedSync] Updated {} SocialPost references: {} → {}", updatedCount, localDbPath, azureUrl);
+                        }
                     }
-                    log.info("[SeedSync] Uploaded {} → {}", filename, blobClient.getBlobUrl());
-                    uploaded.incrementAndGet();
                 } catch (Exception e) {
-                    log.error("[SeedSync] Failed to upload {}: {}", blobName, e.getMessage());
+                    log.error("[SeedSync] Failed processing {}: {}", blobName, e.getMessage());
                     errors.incrementAndGet();
                 }
             });

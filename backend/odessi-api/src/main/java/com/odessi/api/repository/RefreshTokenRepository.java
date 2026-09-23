@@ -14,6 +14,9 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
 
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
+    @Query("SELECT rt FROM RefreshToken rt JOIN FETCH rt.user WHERE rt.tokenHash = :tokenHash")
+    Optional<RefreshToken> findByTokenHashWithUser(@org.springframework.data.repository.query.Param("tokenHash") String tokenHash);
+
     /**
      * Revokes (marks revoked=true) all active refresh tokens for the given user.
      * Used for reuse/replay attack response and password change/reset session invalidation.

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { apiGet, apiPost } from "../api/client";
+import { apiGet, apiPost, refreshCsrfToken, invalidateCsrfToken } from "../api/client";
 import { EVENTS, emitEvent } from "../events";
 
 export interface User {
@@ -68,6 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") {
       localStorage.removeItem("odessi_demo_user");
     }
+    // Refresh CSRF token for the new authenticated session
+    refreshCsrfToken().catch(() => {});
     emitEvent(EVENTS.AUTH_SUCCESS, data);
     emitEvent(EVENTS.CART_MERGED, null);
     return data;
@@ -83,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Ignore network errors on logout
     } finally {
+      invalidateCsrfToken();
       if (typeof window !== "undefined") {
         localStorage.removeItem("odessi_demo_user");
       }

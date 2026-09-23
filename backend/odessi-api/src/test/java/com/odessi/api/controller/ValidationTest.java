@@ -21,6 +21,10 @@ import com.odessi.api.dto.response.UserResponse;
 import com.odessi.api.entity.Role;
 import java.time.Instant;
 
+import com.odessi.api.dto.request.LoginRequest;
+import com.odessi.api.entity.RefreshToken;
+import com.odessi.api.entity.User;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -53,5 +57,50 @@ class ValidationTest {
                 .content(objectMapper.writeValueAsString(request)))
                 .andDo(org.springframework.test.web.servlet.result.MockMvcResultHandlers.print())
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void login_validEmailFormats_accepted() throws Exception {
+        String[] validEmails = {"user@gmail.com", "hello@odessi.shop", "name@example.in"};
+        for (String validEmail : validEmails) {
+            LoginRequest req = new LoginRequest();
+            req.setEmail(validEmail);
+            req.setPassword("ValidPass123");
+
+            User mockUser = new User();
+            mockUser.setId(1L);
+            mockUser.setEmail(validEmail);
+            mockUser.setPasswordHash("hashed");
+            mockUser.setRole(Role.CUSTOMER);
+            mockUser.setEnabled(true);
+            mockUser.setEmailVerified(true);
+
+            RefreshToken rt = new RefreshToken();
+            rt.setTokenHash("dummy-hash");
+
+            given(authService.authenticate(any())).willReturn(mockUser);
+            given(jwtService.generateToken(any())).willReturn("mock.jwt.token");
+            given(authService.createRefreshToken(any())).willReturn(rt);
+
+            mockMvc.perform(post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(req)))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    @Test
+    void login_invalidEmailFormats_rejected() throws Exception {
+        String[] invalidEmails = {"user", "user@", "@gmail.com", "user@gmail", "   "};
+        for (String invalidEmail : invalidEmails) {
+            LoginRequest req = new LoginRequest();
+            req.setEmail(invalidEmail);
+            req.setPassword("ValidPass123");
+
+            mockMvc.perform(post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(req)))
+                    .andExpect(status().is4xxClientError());
+        }
     }
 }

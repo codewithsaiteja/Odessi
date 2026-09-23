@@ -74,10 +74,26 @@ function LoginContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    const cleanEmail = email.trim();
+    const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+    if (!cleanEmail) {
+      setError("Please enter your email address.");
+      return;
+    }
+    if (!emailRegex.test(cleanEmail)) {
+      setError("Please enter a valid email address (e.g. user@example.com).");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const loggedInUser = await login({ email, password });
+      const loggedInUser = await login({ email: cleanEmail, password });
       const redirect = getSafeRedirect(searchParams.get("redirect"), loggedInUser?.role || user?.role);
       router.push(redirect);
     } catch (err: unknown) {

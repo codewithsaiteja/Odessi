@@ -1,5 +1,4 @@
 import { apiGet, apiPost, apiPut, apiPatch, apiDelete, apiPostFormData, ApiError } from "./client";
-import { products as staticProducts } from "@/data/products";
 
 export interface DashboardOrderSummary {
   id: number;
@@ -112,70 +111,14 @@ export async function getAdminProducts(
   search?: string,
   status?: string
 ): Promise<PageResponse<any>> {
-  try {
-    const query = new URLSearchParams({ page: String(page), size: String(size) });
-    if (search) query.append("search", search);
-    if (status && status !== "ALL") query.append("status", status);
-    return await apiGet<PageResponse<any>>(`/api/admin/products?${query.toString()}`);
-  } catch (err: unknown) {
-    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
-      const filtered = staticProducts.map((p, idx) => ({
-        id: idx + 1,
-        name: p.name,
-        slug: p.slug,
-        description: p.description,
-        price: p.price,
-        compareAtPrice: p.compareAtPrice,
-        currency: p.currency,
-        categoryName: (p.category || "tees").toUpperCase(),
-        featured: p.featured || false,
-        active: p.available !== false,
-        status: p.available !== false ? "PUBLISHED" : "ARCHIVED",
-        variants: p.sizes?.map((s, vIdx) => ({
-          id: vIdx + 1,
-          sku: `${p.slug}-${s.label}`,
-          size: s.label,
-          color: p.colors?.[0]?.name || "Black",
-          price: p.price,
-          stockQuantity: s.available ? 25 : 0,
-          active: true,
-        })),
-      }));
-
-      return {
-        content: filtered,
-        totalPages: 1,
-        totalElements: filtered.length,
-        number: page,
-        size: size,
-      };
-    }
-    throw err;
-  }
+  const query = new URLSearchParams({ page: String(page), size: String(size) });
+  if (search) query.append("search", search);
+  if (status && status !== "ALL") query.append("status", status);
+  return apiGet<PageResponse<any>>(`/api/admin/products?${query.toString()}`);
 }
 
 export async function getAdminProductById(id: number): Promise<any> {
-  try {
-    return await apiGet<any>(`/api/admin/products/${id}`);
-  } catch (err: unknown) {
-    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
-      const p = staticProducts[0];
-      return {
-        id,
-        name: p.name,
-        slug: p.slug,
-        description: p.description,
-        price: p.price,
-        currency: p.currency,
-        categoryName: "TEES",
-        featured: true,
-        active: true,
-        status: "PUBLISHED",
-        variants: [],
-      };
-    }
-    throw err;
-  }
+  return apiGet<any>(`/api/admin/products/${id}`);
 }
 
 export async function createAdminProduct(data: AdminProductRequest): Promise<any> {
@@ -305,17 +248,7 @@ export async function toggleAdminUserEnabled(id: number): Promise<any> {
 
 // ── Admin Categories & Collections ──────────────────────────────
 export async function getAdminCategories(): Promise<any[]> {
-  try {
-    return await apiGet<any[]>("/api/admin/categories");
-  } catch (err: unknown) {
-    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
-      return [
-        { id: 1, name: "Tees", slug: "tees", description: "Oversized Tees", active: true },
-        { id: 2, name: "Hoodies", slug: "hoodies", description: "French Terry Hoodies", active: true },
-      ];
-    }
-    throw err;
-  }
+  return apiGet<any[]>("/api/admin/categories");
 }
 
 export async function createAdminCategory(data: any): Promise<any> {
@@ -331,16 +264,7 @@ export async function toggleAdminCategoryActive(id: number): Promise<any> {
 }
 
 export async function getAdminCollections(): Promise<any[]> {
-  try {
-    return await apiGet<any[]>("/api/admin/collections");
-  } catch (err: unknown) {
-    if (err instanceof ApiError && (err.errorCode === "NETWORK_ERROR" || err.status === 0)) {
-      return [
-        { id: 1, name: "Dark Verse", slug: "dark-verse", description: "Anti-hero collection", active: true, featured: true },
-      ];
-    }
-    throw err;
-  }
+  return apiGet<any[]>("/api/admin/collections");
 }
 
 export async function createAdminCollection(data: any): Promise<any> {

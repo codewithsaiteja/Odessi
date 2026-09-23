@@ -101,11 +101,14 @@ public class AdminProductController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Safe delete or archive product")
-    public ResponseEntity<java.util.Map<String, String>> deleteProduct(
+    public ResponseEntity<java.util.Map<String, Object>> deleteProduct(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long id) {
-        String resultMessage = adminService.deleteProduct(getAdminUser(userDetails), id);
-        return ResponseEntity.ok(java.util.Map.of("message", resultMessage));
+        com.odessi.api.service.AdminService.DeleteProductResult result = adminService.deleteProduct(getAdminUser(userDetails), id);
+        return ResponseEntity.ok(java.util.Map.of(
+            "message", result.message(),
+            "archived", result.archived()
+        ));
     }
 
     @PostMapping("/bulk")

@@ -77,9 +77,18 @@ public class SecurityConfig {
         boolean isHttpsProfile = Arrays.asList(environment.getActiveProfiles()).contains("prod")
                 || Arrays.asList(environment.getActiveProfiles()).contains("staging");
 
+        CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfTokenRepository.setCookiePath("/");
+        csrfTokenRepository.setCookieCustomizer(cookie -> {
+            cookie.sameSite(appProperties.getAuth().getCookieSameSite());
+            if (appProperties.getAuth().isCookieSecure()) {
+                cookie.secure(true);
+            }
+        });
+
         http
             .csrf(csrf -> csrf
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRepository(csrfTokenRepository)
                 .csrfTokenRequestHandler(requestHandler)
                 .ignoringRequestMatchers(
                     "/api/auth/login", "/api/auth/register", "/api/auth/refresh",
@@ -165,13 +174,19 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
 
             )
-            // Rate limiter runs before JWT authentication
-            .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            // Authenticate and rate limit before CSRF filter evaluates state-changing requests
+            .addFilterBefore(jwtAuthFilter, org.springframework.security.web.csrf.CsrfFilter.class)
+            .addFilterBefore(rateLimitingFilter, JwtAuthenticationFilter.class)
             .exceptionHandling(ex -> ex
-                // Return 401 (not 403) when the request is not authenticated.
+                // Return 401 when the request is not authenticated.
                 .authenticationEntryPoint((request, response, authException) ->
                     response.sendError(HttpStatus.UNAUTHORIZED.value(), "Unauthorized"))
+                // Return 403 when authenticated user lacks permissions or CSRF validation fails
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setStatus(HttpStatus.FORBIDDEN.value());
+                    response.setContentType(org.springframework.http.MediaType.APPLICATION_JSON_VALUE);
+                    response.getWriter().write("{\"status\":403,\"error\":\"FORBIDDEN\",\"message\":\"Access denied.\"}");
+                })
             );
 
         return http.build();

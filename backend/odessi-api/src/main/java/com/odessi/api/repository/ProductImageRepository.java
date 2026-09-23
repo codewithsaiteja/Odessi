@@ -19,4 +19,8 @@ public interface ProductImageRepository extends JpaRepository<ProductImage, Long
     @Modifying
     @Query("UPDATE ProductImage pi SET pi.isPrimary = false WHERE pi.product.id = :productId")
     void clearPrimaryForProduct(Long productId);
+
+    @Modifying
+    @Query("UPDATE ProductImage pi SET pi.imageUrl = :newUrl WHERE pi.imageUrl = :oldUrl")
+    int updateImageUrl(@org.springframework.data.repository.query.Param("oldUrl") String oldUrl, @org.springframework.data.repository.query.Param("newUrl") String newUrl);
 }

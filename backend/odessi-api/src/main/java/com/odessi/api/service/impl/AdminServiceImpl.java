@@ -8,6 +8,7 @@ import com.odessi.api.entity.Order;
 import com.odessi.api.entity.OrderStatus;
 import com.odessi.api.entity.PaymentStatus;
 import com.odessi.api.entity.Product;
+import com.odessi.api.entity.ProductImage;
 import com.odessi.api.entity.ProductVariant;
 import com.odessi.api.entity.Role;
 import com.odessi.api.entity.User;
@@ -20,6 +21,8 @@ import com.odessi.api.service.AdminService;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.domain.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +39,8 @@ import java.util.List;
 
 @Service
 public class AdminServiceImpl implements AdminService {
+
+    private static final Logger log = LoggerFactory.getLogger(AdminServiceImpl.class);
 
     private final ProductRepository productRepository;
     private final ProductVariantRepository variantRepository;
@@ -58,6 +63,12 @@ public class AdminServiceImpl implements AdminService {
     private final CollectionMapper collectionMapper;
 
     private final com.odessi.api.service.NotificationService notificationService;
+
+    @Autowired(required = false)
+    private com.odessi.api.repository.CartItemRepository cartItemRepository;
+
+    @Autowired(required = false)
+    private com.odessi.api.repository.WishlistItemRepository wishlistItemRepository;
 
     @Autowired
     public AdminServiceImpl(
@@ -539,16 +550,12 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
-    public String deleteProduct(User admin, Long id) {
+    public DeleteProductResult deleteProduct(User admin, Long id) {
         Product product = productRepository.findByIdWithVariants(id)
             .orElseThrow(() -> new ResourceNotFoundException("PRODUCT_NOT_FOUND", "Product not found: " + id));
 
-        // Check historical order references via order items
-        boolean hasOrders = orderRepository.findAll().stream()
-            .anyMatch(order -> order.getItems() != null && order.getItems().stream()
-                .anyMatch(item -> item.getProductVariant() != null &&
-                                 item.getProductVariant().getProduct() != null &&
-                                 item.getProductVariant().getProduct().getId().equals(id)));
+        // Fast indexed check for historical customer order references
+        boolean hasOrders = orderRepository.existsByProductIdInOrderItems(id);
 
         if (hasOrders) {
             product.setStatus(com.odessi.api.entity.ProductStatus.ARCHIVED);
@@ -556,14 +563,35 @@ public class AdminServiceImpl implements AdminService {
             productRepository.save(product);
             auditService.logAction(admin, "PRODUCT_ARCHIVED_SAFE_DELETE", "Product", id.toString(),
                 "Product " + product.getName() + " has historical order items. Safely archived instead of hard delete.");
-            return "Product has historical customer order records and was safely archived.";
+            return new DeleteProductResult("Product has historical customer order records and was safely archived.", true);
+        }
+
+        // Clean up transient unpurchased cart items and wishlist items before deleting
+        if (cartItemRepository != null) {
+            cartItemRepository.deleteAllByProductId(id);
+        }
+        if (wishlistItemRepository != null) {
+            wishlistItemRepository.deleteAllByProductId(id);
+        }
+
+        // Delete associated image blobs from storage
+        if (product.getImages() != null) {
+            for (ProductImage img : product.getImages()) {
+                if (img.getImageUrl() != null) {
+                    try {
+                        mediaStorageService.deleteProductImage(img.getImageUrl());
+                    } catch (Exception e) {
+                        log.warn("Failed to delete storage blob for product {}: {}", id, e.getMessage());
+                    }
+                }
+            }
         }
 
         // True deletion when safe
         productRepository.delete(product);
         auditService.logAction(admin, "PRODUCT_HARD_DELETED", "Product", id.toString(),
             "Hard deleted product " + product.getName() + " (ID: " + id + ")");
-        return "Product was deleted successfully.";
+        return new DeleteProductResult("Product was deleted successfully.", false);
     }
 
     @Override

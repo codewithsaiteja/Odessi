@@ -97,4 +97,10 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
      */
     @Query("SELECT o FROM Order o JOIN FETCH o.user u ORDER BY o.createdAt DESC")
     List<Order> findRecentOrdersAllTime(Pageable pageable);
+
+    /**
+     * Fast indexed check if any order items reference variants belonging to this product.
+     */
+    @Query("SELECT COUNT(i) > 0 FROM OrderItem i WHERE i.productVariant.product.id = :productId")
+    boolean existsByProductIdInOrderItems(@Param("productId") Long productId);
 }
