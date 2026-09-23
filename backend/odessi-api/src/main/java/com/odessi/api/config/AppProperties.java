@@ -17,8 +17,8 @@ public class AppProperties {
     private Razorpay razorpay = new Razorpay();
     private Checkout checkout = new Checkout();
     private RateLimit rateLimit = new RateLimit();
-    private AzureStorage azureStorage = new AzureStorage();
     private Mail mail = new Mail();
+    private AzureStorage azureStorage = new AzureStorage();
 
     public Auth getAuth() { return auth; }
     public void setAuth(Auth auth) { this.auth = auth; }

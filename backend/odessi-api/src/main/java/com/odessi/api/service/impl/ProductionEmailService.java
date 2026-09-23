@@ -50,7 +50,9 @@ public class ProductionEmailService implements EmailService {
     private final AppProperties appProperties;
     private final Resend resendClient;
 
+    @Autowired
     public ProductionEmailService(
+            @Autowired(required = false) Resend resendClient,
             @Autowired(required = false) JavaMailSender mailSender,
             AppProperties appProperties) {
         this.mailSender = mailSender;
@@ -59,7 +61,11 @@ public class ProductionEmailService implements EmailService {
         AppProperties.Mail mailProps = appProperties.getMail();
         String from = mailProps.getFromEmail();
 
-        if (mailProps.isResendConfigured()) {
+        if (resendClient != null) {
+            this.resendClient = resendClient;
+            log.info("ProductionEmailService initialized with Resend client. Sender: '{} <{}>', RESEND_API_KEY: [DETECTED]",
+                    mailProps.getFromName(), from);
+        } else if (mailProps.isResendConfigured()) {
             this.resendClient = new Resend(mailProps.getResendApiKey().trim());
             log.info("ProductionEmailService initialized with official Resend Java SDK. Sender: '{} <{}>', RESEND_API_KEY: [DETECTED]",
                     mailProps.getFromName(), from);
@@ -72,15 +78,6 @@ public class ProductionEmailService implements EmailService {
                 log.warn("Production email provider is not configured. Set RESEND_API_KEY in Render environment variables.");
             }
         }
-    }
-
-    /**
-     * Testing constructor allowing dependency injection of mock Resend client.
-     */
-    public ProductionEmailService(Resend resendClient, JavaMailSender mailSender, AppProperties appProperties) {
-        this.resendClient = resendClient;
-        this.mailSender = mailSender;
-        this.appProperties = appProperties;
     }
 
     /**

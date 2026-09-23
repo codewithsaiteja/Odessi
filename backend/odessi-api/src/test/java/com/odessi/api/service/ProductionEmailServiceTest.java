@@ -48,7 +48,7 @@ class ProductionEmailServiceTest {
         mail.setFromName("Odessi");
         mail.setPrimaryFrontendUrl("https://www.odessitfi.me");
 
-        emailService = new ProductionEmailService(mailSender, appProperties);
+        emailService = new ProductionEmailService(null, mailSender, appProperties);
     }
 
     @Nested
@@ -142,7 +142,7 @@ class ProductionEmailServiceTest {
         void sendHtmlEmail_unconfiguredHost_throwsBusinessException() {
             appProperties.getMail().setHost(null);
             appProperties.getMail().setResendApiKey(null);
-            ProductionEmailService unconfiguredService = new ProductionEmailService(null, appProperties);
+            ProductionEmailService unconfiguredService = new ProductionEmailService(null, null, appProperties);
 
             assertThatThrownBy(() -> unconfiguredService.sendVerificationEmail("shopper@example.com", "tok-123"))
                     .isInstanceOf(BusinessException.class)
