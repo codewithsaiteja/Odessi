@@ -1,242 +1,417 @@
 package com.odessi.api.service.impl;
 
 import com.odessi.api.config.AppProperties;
+import com.odessi.api.exception.BadRequestException;
+import com.odessi.api.exception.BusinessException;
 import com.odessi.api.service.EmailService;
+import com.resend.Resend;
+import com.resend.services.emails.model.CreateEmailOptions;
+import com.resend.services.emails.model.CreateEmailResponse;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
+import org.springframework.mail.MailException;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.Year;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Production email service implementation.
- * 
- * IMPORTANT: This is a placeholder implementation for production deployment.
- * You must configure one of the following email providers:
- * 
- * 1. AWS SES (Simple Email Service)
- * 2. SendGrid
- * 3. Mailgun
- * 4. SMTP Server
- * 
- * Environment variables required:
- * - EMAIL_PROVIDER (aws-ses|sendgrid|mailgun|smtp)
- * - EMAIL_FROM_ADDRESS
- * - AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION (for SES)
- * - SENDGRID_API_KEY (for SendGrid)
- * - MAILGUN_API_KEY, MAILGUN_DOMAIN (for Mailgun)
- * - SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD (for SMTP)
+ *
+ * <p>Uses the official <b>Resend Java SDK</b> when {@code RESEND_API_KEY} is configured,
+ * with graceful fallback to Jakarta Mail / JavaMailSender over SMTP when configured.
+ *
+ * <p>Security & Reliability:
+ * <ul>
+ *   <li>Reads {@code RESEND_API_KEY} from server-side environment variables via {@link AppProperties}.</li>
+ *   <li>Never exposes API keys, tokens, or passwords in logs, client responses, or Git.</li>
+ *   <li>Customer email addresses are masked in logs (e.g. {@code u***r@domain.com}).</li>
+ *   <li>Verifies links against primary production frontend origin (https://www.odessitfi.me).</li>
+ * </ul>
  */
 @Service
 @Profile("prod")
 public class ProductionEmailService implements EmailService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ProductionEmailService.class);
-    
-    private final AppProperties appProperties;
-    private final String fromAddress;
-    private final String frontendUrl;
+    private static final Logger log = LoggerFactory.getLogger(ProductionEmailService.class);
 
-    public ProductionEmailService(AppProperties appProperties) {
+    private final JavaMailSender mailSender;
+    private final AppProperties appProperties;
+    private final Resend resendClient;
+
+    public ProductionEmailService(
+            @Autowired(required = false) JavaMailSender mailSender,
+            AppProperties appProperties) {
+        this.mailSender = mailSender;
         this.appProperties = appProperties;
-        this.fromAddress = System.getenv().getOrDefault("EMAIL_FROM_ADDRESS", "noreply@odessi.shop");
-        this.frontendUrl = System.getenv().getOrDefault("FRONTEND_URL", "https://odessi.shop");
-        
-        // Log configuration on startup
-        logger.info("ProductionEmailService initialized with FROM: {}", fromAddress);
-        logger.warn("PRODUCTION EMAIL SERVICE PLACEHOLDER - Configure your email provider!");
+
+        AppProperties.Mail mailProps = appProperties.getMail();
+        String from = mailProps.getFromEmail();
+
+        if (mailProps.isResendConfigured()) {
+            this.resendClient = new Resend(mailProps.getResendApiKey().trim());
+            log.info("ProductionEmailService initialized with official Resend Java SDK. Sender: '{} <{}>', RESEND_API_KEY: [DETECTED]",
+                    mailProps.getFromName(), from);
+        } else {
+            this.resendClient = null;
+            if (mailProps.getHost() != null && !mailProps.getHost().isBlank()) {
+                log.info("ProductionEmailService initialized with SMTP fallback. Sender: '{} <{}>', Host: {}",
+                        mailProps.getFromName(), from, mailProps.getHost());
+            } else {
+                log.warn("Production email provider is not configured. Set RESEND_API_KEY in Render environment variables.");
+            }
+        }
+    }
+
+    /**
+     * Testing constructor allowing dependency injection of mock Resend client.
+     */
+    public ProductionEmailService(Resend resendClient, JavaMailSender mailSender, AppProperties appProperties) {
+        this.resendClient = resendClient;
+        this.mailSender = mailSender;
+        this.appProperties = appProperties;
+    }
+
+    /**
+     * Checks whether an email provider (Resend or SMTP) is configured.
+     */
+    public boolean isMailConfigured() {
+        return (resendClient != null) || appProperties.getMail().isConfigured();
+    }
+
+    /**
+     * Returns true if the official Resend client is active.
+     */
+    public boolean isResendActive() {
+        return resendClient != null;
     }
 
     @Override
     public void sendVerificationEmail(String to, String token) {
-        String verificationUrl = frontendUrl + "/verify-email?token=" + token;
-        
-        // TODO: Replace with actual email provider implementation
-        logger.error("PRODUCTION EMAIL NOT CONFIGURED - Email verification not sent");
-        logger.error("To: {}", to);
-        logger.error("Verification URL: {}", verificationUrl);
-        
-        // Example implementations (uncomment and configure one):
-        
-        // AWS SES Example:
-        // sendWithAWSSES(to, fromAddress, "Verify Your Odessi Account", 
-        //     buildVerificationEmailHtml(verificationUrl));
-        
-        // SendGrid Example:
-        // sendWithSendGrid(to, fromAddress, "Verify Your Odessi Account",
-        //     buildVerificationEmailHtml(verificationUrl));
-        
-        // SMTP Example:
-        // sendWithSMTP(to, fromAddress, "Verify Your Odessi Account",
-        //     buildVerificationEmailHtml(verificationUrl));
-        
-        throw new RuntimeException("Production email service not configured. Please implement email provider integration.");
+        String primaryFrontendUrl = resolvePrimaryFrontendUrl();
+        String encodedToken = URLEncoder.encode(token, StandardCharsets.UTF_8);
+        String verificationUrl = primaryFrontendUrl + "/verify-email?token=" + encodedToken;
+
+        String htmlBody = buildVerificationEmailHtml(verificationUrl);
+        sendHtmlEmail(to, "Verify Your Odessi Account", htmlBody);
     }
 
     @Override
     public void sendPasswordResetEmail(String to, String token) {
-        String resetUrl = frontendUrl + "/reset-password?token=" + token;
-        
-        // TODO: Replace with actual email provider implementation
-        logger.error("PRODUCTION EMAIL NOT CONFIGURED - Password reset email not sent");
-        logger.error("To: {}", to);
-        logger.error("Reset URL: {}", resetUrl);
-        
-        // Example implementations (uncomment and configure one):
-        
-        // AWS SES Example:
-        // sendWithAWSSES(to, fromAddress, "Reset Your Odessi Password", 
-        //     buildPasswordResetEmailHtml(resetUrl));
-        
-        // SendGrid Example:
-        // sendWithSendGrid(to, fromAddress, "Reset Your Odessi Password",
-        //     buildPasswordResetEmailHtml(resetUrl));
-        
-        // SMTP Example:
-        // sendWithSMTP(to, fromAddress, "Reset Your Odessi Password",
-        //     buildPasswordResetEmailHtml(resetUrl));
-        
-        throw new RuntimeException("Production email service not configured. Please implement email provider integration.");
+        String primaryFrontendUrl = resolvePrimaryFrontendUrl();
+        String encodedToken = URLEncoder.encode(token, StandardCharsets.UTF_8);
+        String resetUrl = primaryFrontendUrl + "/reset-password?token=" + encodedToken;
+
+        String htmlBody = buildPasswordResetEmailHtml(resetUrl);
+        sendHtmlEmail(to, "Reset Your Odessi Password", htmlBody);
     }
-    
-    // TODO: Implement your preferred email provider methods
-    
-    /*
-    private void sendWithAWSSES(String to, String from, String subject, String htmlBody) {
-        // AWS SES implementation
-        // Requires: AWS SDK for Java, SES permissions
-        // Example:
-        // SesClient sesClient = SesClient.builder().region(Region.of(AWS_REGION)).build();
-        // SendEmailRequest request = SendEmailRequest.builder()
-        //     .source(from)
-        //     .destination(Destination.builder().toAddresses(to).build())
-        //     .message(Message.builder()
-        //         .subject(Content.builder().data(subject).build())
-        //         .body(Body.builder().html(Content.builder().data(htmlBody).build()).build())
-        //         .build())
-        //     .build();
-        // sesClient.sendEmail(request);
+
+    @Override
+    public void sendTestEmail(String to) {
+        String recipient = (to != null && !to.isBlank()) ? to.trim() : appProperties.getMail().getFromEmail();
+        String primaryFrontendUrl = resolvePrimaryFrontendUrl();
+        String htmlBody = buildTestEmailHtml(primaryFrontendUrl);
+        sendHtmlEmail(recipient, "Odessi.tfi — Production Email Integration Test", htmlBody);
     }
-    
-    private void sendWithSendGrid(String to, String from, String subject, String htmlBody) {
-        // SendGrid implementation
-        // Requires: SendGrid Java library
-        // Example:
-        // Email fromEmail = new Email(from);
-        // Email toEmail = new Email(to);
-        // Content content = new Content("text/html", htmlBody);
-        // Mail mail = new Mail(fromEmail, subject, toEmail, content);
-        // SendGrid sg = new SendGrid(System.getenv("SENDGRID_API_KEY"));
-        // Request request = new Request();
-        // request.setMethod(Method.POST);
-        // request.setEndpoint("mail/send");
-        // request.setBody(mail.build());
-        // sg.api(request);
+
+    /**
+     * Sends an HTML email via the configured provider (Resend primary, SMTP fallback).
+     *
+     * @param to Recipient email address
+     * @param subject Subject line
+     * @param htmlBody HTML email content
+     */
+    public void sendHtmlEmail(String to, String subject, String htmlBody) {
+        if (to == null || to.isBlank()) {
+            throw new BadRequestException("INVALID_EMAIL", "Recipient email address is required.");
+        }
+
+        AppProperties.Mail mailProps = appProperties.getMail();
+        String fromEmail = mailProps.getFromEmail();
+        String fromName = mailProps.getFromName();
+        String fromFormatted = String.format("%s <%s>", fromName, fromEmail);
+
+        // 1. Primary: Official Resend Java SDK
+        if (resendClient != null) {
+            try {
+                CreateEmailOptions params = CreateEmailOptions.builder()
+                        .from(fromFormatted)
+                        .to(to.trim())
+                        .subject(subject)
+                        .html(htmlBody)
+                        .build();
+
+                CreateEmailResponse response = resendClient.emails().send(params);
+                String emailId = (response != null && response.getId() != null) ? response.getId() : "ok";
+                log.info("Production email delivered via Resend. Subject: '{}', Recipient: {}, Resend ID: {}",
+                        subject, maskEmail(to), emailId);
+                return;
+            } catch (Exception e) {
+                log.error("Failed to deliver email via Resend to recipient {}: {}", maskEmail(to), e.getMessage());
+                throw new BusinessException("EMAIL_SEND_FAILED",
+                        "Failed to deliver email via Resend. Please check your address or try again later.");
+            }
+        }
+
+        // 2. Fallback: SMTP via JavaMailSender
+        if (mailSender != null && mailProps.getHost() != null && !mailProps.getHost().isBlank()) {
+            try {
+                MimeMessage message = mailSender.createMimeMessage();
+                MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+
+                helper.setFrom(new InternetAddress(fromEmail, fromName, StandardCharsets.UTF_8.name()));
+                helper.setTo(to.trim());
+                helper.setSubject(subject);
+                helper.setText(htmlBody, true);
+
+                mailSender.send(message);
+                log.info("Production email delivered to SMTP relay. Subject: '{}', Recipient: {}", subject, maskEmail(to));
+                return;
+            } catch (MessagingException | MailException | UnsupportedEncodingException e) {
+                log.error("Failed to deliver email with subject '{}' to recipient {}: {}",
+                        subject, maskEmail(to), e.getMessage());
+                throw new BusinessException("EMAIL_SEND_FAILED",
+                        "Failed to deliver email. Please check your address or try again later.");
+            }
+        }
+
+        // 3. Not configured
+        log.warn("Production email sending skipped: neither RESEND_API_KEY nor SMTP is configured. Recipient: {}", maskEmail(to));
+        throw new BusinessException("EMAIL_SERVICE_UNAVAILABLE",
+                "Email service is temporarily unavailable. Please try again later or contact support.");
     }
-    
-    private void sendWithSMTP(String to, String from, String subject, String htmlBody) {
-        // SMTP implementation
-        // Requires: JavaMail API
-        // Example:
-        // Properties props = new Properties();
-        // props.put("mail.smtp.host", System.getenv("SMTP_HOST"));
-        // props.put("mail.smtp.port", System.getenv("SMTP_PORT"));
-        // props.put("mail.smtp.auth", "true");
-        // props.put("mail.smtp.starttls.enable", "true");
-        // Session session = Session.getInstance(props, new Authenticator() {
-        //     protected PasswordAuthentication getPasswordAuthentication() {
-        //         return new PasswordAuthentication(System.getenv("SMTP_USERNAME"), System.getenv("SMTP_PASSWORD"));
-        //     }
-        // });
-        // MimeMessage message = new MimeMessage(session);
-        // message.setFrom(new InternetAddress(from));
-        // message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
-        // message.setSubject(subject);
-        // message.setContent(htmlBody, "text/html");
-        // Transport.send(message);
+
+    /**
+     * Resolves the primary customer-facing frontend origin for verification and reset links.
+     * Ensures comma-separated origins are never placed into generated URLs.
+     */
+    public String resolvePrimaryFrontendUrl() {
+        String configuredPrimary = appProperties.getMail().getPrimaryFrontendUrl();
+        if (configuredPrimary != null && !configuredPrimary.isBlank()) {
+            return cleanUrl(configuredPrimary);
+        }
+
+        String rawFrontendUrl = System.getenv("FRONTEND_URL");
+        if (rawFrontendUrl == null || rawFrontendUrl.isBlank()) {
+            rawFrontendUrl = appProperties.getCors().getAllowedOrigins();
+        }
+
+        if (rawFrontendUrl != null && !rawFrontendUrl.isBlank()) {
+            String[] origins = rawFrontendUrl.split(",");
+            for (String origin : origins) {
+                String trimmed = origin.trim();
+                if (trimmed.equalsIgnoreCase("https://www.odessitfi.me")) {
+                    return trimmed;
+                }
+            }
+            for (String origin : origins) {
+                String trimmed = origin.trim();
+                if (trimmed.equalsIgnoreCase("https://odessitfi.me")) {
+                    return trimmed;
+                }
+            }
+            for (String origin : origins) {
+                String trimmed = origin.trim();
+                if (!trimmed.isBlank() && !trimmed.contains("localhost") && !trimmed.contains("127.0.0.1")) {
+                    return cleanUrl(trimmed);
+                }
+            }
+            if (origins.length > 0 && !origins[0].trim().isBlank()) {
+                return cleanUrl(origins[0]);
+            }
+        }
+
+        return "https://www.odessitfi.me";
     }
-    */
-    
+
+    /**
+     * Masks an email address for safe logging without leaking customer PII.
+     * E.g. "alex@example.com" -> "a***x@example.com", "a@b.com" -> "***@b.com".
+     */
+    public static String maskEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return "***";
+        }
+        String trimmed = email.trim();
+        int atIndex = trimmed.indexOf('@');
+        if (atIndex <= 1) {
+            return "***" + (atIndex >= 0 ? trimmed.substring(atIndex) : "");
+        }
+        String user = trimmed.substring(0, atIndex);
+        String domain = trimmed.substring(atIndex);
+        if (user.length() <= 2) {
+            return user.charAt(0) + "***" + domain;
+        }
+        return user.charAt(0) + "***" + user.charAt(user.length() - 1) + domain;
+    }
+
+    private String cleanUrl(String url) {
+        String trimmed = url.trim();
+        return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
+    }
+
     private String buildVerificationEmailHtml(String verificationUrl) {
+        int year = Year.now().getValue();
         return """
             <!DOCTYPE html>
-            <html>
+            <html lang="en">
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Verify Your Odessi Account</title>
                 <style>
-                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #080808; background: #FAF9F6; margin: 0; padding: 20px; }
-                    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-                    .header { background: #080808; color: #FAF9F6; padding: 30px; text-align: center; }
-                    .content { padding: 40px 30px; }
-                    .button { display: inline-block; background: #080808; color: white; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 14px; letter-spacing: 0.5px; text-transform: uppercase; margin: 20px 0; }
-                    .footer { background: #F7F5F0; padding: 20px 30px; text-align: center; font-size: 12px; color: #7A7A7A; }
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #080808; background-color: #FAF9F6; margin: 0; padding: 24px; }
+                    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #EFECE6; }
+                    .header { background: #080808; color: #FAF9F6; padding: 36px 30px; text-align: center; }
+                    .content { padding: 40px 32px; }
+                    .button { display: inline-block; background: #080808; color: #ffffff !important; text-decoration: none; padding: 16px 36px; border-radius: 6px; font-weight: 600; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; margin: 24px 0; }
+                    .footer { background: #F7F5F0; padding: 24px 30px; text-align: center; font-size: 12px; color: #7A7A7A; border-top: 1px solid #EFECE6; }
+                    p { margin: 0 0 16px; font-size: 15px; color: #333333; }
                 </style>
             </head>
             <body>
                 <div class="container">
                     <div class="header">
-                        <h1 style="margin:0;font-size:24px;font-weight:300;">ODESSI.TFI</h1>
-                        <p style="margin:10px 0 0;font-size:12px;opacity:0.8;letter-spacing:2px;">WEAR YOUR STORY</p>
+                        <h1 style="margin:0;font-size:24px;font-weight:300;letter-spacing:3px;">ODESSI.TFI</h1>
+                        <p style="margin:8px 0 0;font-size:11px;opacity:0.8;letter-spacing:2px;text-transform:uppercase;">Wear Your Story</p>
                     </div>
                     <div class="content">
-                        <h2 style="margin:0 0 20px;font-size:20px;color:#080808;">Verify Your Account</h2>
-                        <p>Welcome to Odessi.tfi! Please verify your email address to complete your account setup and start your luxury fashion journey.</p>
-                        <p style="text-align:center;">
+                        <h2 style="margin:0 0 20px;font-size:20px;font-weight:600;color:#080808;">Verify Your Account</h2>
+                        <p>Welcome to Odessi.tfi! Please verify your email address to complete your account setup and explore our luxury collections.</p>
+                        <p style="text-align:center;margin:32px 0;">
                             <a href="%s" class="button">VERIFY EMAIL ADDRESS</a>
                         </p>
-                        <p style="font-size:14px;color:#7A7A7A;">If you didn't create an account with Odessi, please ignore this email.</p>
-                        <p style="font-size:12px;color:#7A7A7A;">This verification link will expire in 24 hours for security.</p>
+                        <p style="font-size:13px;color:#7A7A7A;">If you did not create an account with Odessi, please disregard this email.</p>
+                        <p style="font-size:12px;color:#999999;margin-bottom:0;">This verification link will expire in 24 hours for security.</p>
                     </div>
                     <div class="footer">
-                        <p>&copy; 2024 Odessi.tfi. All rights reserved.</p>
-                        <p>Premium • Custom • Iconic</p>
+                        <p style="margin:0 0 4px;font-size:12px;color:#7A7A7A;">&copy; %d Odessi.tfi. All rights reserved.</p>
+                        <p style="margin:0;font-size:11px;letter-spacing:1px;color:#999999;text-transform:uppercase;">Premium &bull; Custom &bull; Iconic</p>
                     </div>
                 </div>
             </body>
             </html>
-            """.formatted(verificationUrl);
+            """.formatted(verificationUrl, year);
     }
-    
+
     private String buildPasswordResetEmailHtml(String resetUrl) {
+        int year = Year.now().getValue();
         return """
             <!DOCTYPE html>
-            <html>
+            <html lang="en">
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Reset Your Odessi Password</title>
                 <style>
-                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #080808; background: #FAF9F6; margin: 0; padding: 20px; }
-                    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-                    .header { background: #080808; color: #FAF9F6; padding: 30px; text-align: center; }
-                    .content { padding: 40px 30px; }
-                    .button { display: inline-block; background: #080808; color: white; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 14px; letter-spacing: 0.5px; text-transform: uppercase; margin: 20px 0; }
-                    .footer { background: #F7F5F0; padding: 20px 30px; text-align: center; font-size: 12px; color: #7A7A7A; }
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #080808; background-color: #FAF9F6; margin: 0; padding: 24px; }
+                    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #EFECE6; }
+                    .header { background: #080808; color: #FAF9F6; padding: 36px 30px; text-align: center; }
+                    .content { padding: 40px 32px; }
+                    .button { display: inline-block; background: #080808; color: #ffffff !important; text-decoration: none; padding: 16px 36px; border-radius: 6px; font-weight: 600; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; margin: 24px 0; }
+                    .footer { background: #F7F5F0; padding: 24px 30px; text-align: center; font-size: 12px; color: #7A7A7A; border-top: 1px solid #EFECE6; }
+                    p { margin: 0 0 16px; font-size: 15px; color: #333333; }
                 </style>
             </head>
             <body>
                 <div class="container">
                     <div class="header">
-                        <h1 style="margin:0;font-size:24px;font-weight:300;">ODESSI.TFI</h1>
-                        <p style="margin:10px 0 0;font-size:12px;opacity:0.8;letter-spacing:2px;">WEAR YOUR STORY</p>
+                        <h1 style="margin:0;font-size:24px;font-weight:300;letter-spacing:3px;">ODESSI.TFI</h1>
+                        <p style="margin:8px 0 0;font-size:11px;opacity:0.8;letter-spacing:2px;text-transform:uppercase;">Wear Your Story</p>
                     </div>
                     <div class="content">
-                        <h2 style="margin:0 0 20px;font-size:20px;color:#080808;">Reset Your Password</h2>
-                        <p>We received a request to reset the password for your Odessi account. Click the button below to create a new password.</p>
-                        <p style="text-align:center;">
+                        <h2 style="margin:0 0 20px;font-size:20px;font-weight:600;color:#080808;">Reset Your Password</h2>
+                        <p>We received a request to reset the password for your Odessi account. Click the button below to choose a new password.</p>
+                        <p style="text-align:center;margin:32px 0;">
                             <a href="%s" class="button">RESET PASSWORD</a>
                         </p>
-                        <p style="font-size:14px;color:#7A7A7A;">If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>
-                        <p style="font-size:12px;color:#7A7A7A;">This reset link will expire in 1 hour for security.</p>
+                        <p style="font-size:13px;color:#7A7A7A;">If you did not request a password reset, please ignore this email. Your password will remain unchanged.</p>
+                        <p style="font-size:12px;color:#999999;margin-bottom:0;">This reset link will expire in 1 hour for security.</p>
                     </div>
                     <div class="footer">
-                        <p>&copy; 2024 Odessi.tfi. All rights reserved.</p>
-                        <p>Premium • Custom • Iconic</p>
+                        <p style="margin:0 0 4px;font-size:12px;color:#7A7A7A;">&copy; %d Odessi.tfi. All rights reserved.</p>
+                        <p style="margin:0;font-size:11px;letter-spacing:1px;color:#999999;text-transform:uppercase;">Premium &bull; Custom &bull; Iconic</p>
                     </div>
                 </div>
             </body>
             </html>
-            """.formatted(resetUrl);
+            """.formatted(resetUrl, year);
+    }
+
+    private String buildTestEmailHtml(String frontendUrl) {
+        int year = Year.now().getValue();
+        String timestamp = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
+        String provider = resendClient != null ? "Resend (Official Java SDK)" : "SMTP Relay";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Odessi.tfi — Email Service Test</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #080808; background-color: #FAF9F6; margin: 0; padding: 24px; }
+                    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #EFECE6; }
+                    .header { background: #080808; color: #FAF9F6; padding: 36px 30px; text-align: center; }
+                    .content { padding: 40px 32px; }
+                    .status-badge { display: inline-block; background: #E8F5E9; color: #2E7D32; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 20px; }
+                    .info-table { width: 100%%; border-collapse: collapse; margin: 24px 0; }
+                    .info-table td { padding: 12px 14px; border-bottom: 1px solid #EFECE6; font-size: 14px; }
+                    .info-table td.label { font-weight: 600; color: #555555; width: 35%%; }
+                    .button { display: inline-block; background: #080808; color: #ffffff !important; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; margin: 20px 0; }
+                    .footer { background: #F7F5F0; padding: 24px 30px; text-align: center; font-size: 12px; color: #7A7A7A; border-top: 1px solid #EFECE6; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1 style="margin:0;font-size:24px;font-weight:300;letter-spacing:3px;">ODESSI.TFI</h1>
+                        <p style="margin:8px 0 0;font-size:11px;opacity:0.8;letter-spacing:2px;text-transform:uppercase;">Wear Your Story</p>
+                    </div>
+                    <div class="content">
+                        <span class="status-badge">&bull; Operational</span>
+                        <h2 style="margin:0 0 16px;font-size:20px;font-weight:600;color:#080808;">Email Service Active</h2>
+                        <p>This is a verification email confirming that your Odessi.tfi production email integration is working successfully.</p>
+                        
+                        <table class="info-table">
+                            <tr>
+                                <td class="label">Provider</td>
+                                <td><strong>%s</strong></td>
+                            </tr>
+                            <tr>
+                                <td class="label">Timestamp</td>
+                                <td>%s</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Frontend Origin</td>
+                                <td><a href="%s" style="color:#080808;">%s</a></td>
+                            </tr>
+                        </table>
+
+                        <p style="text-align:center;margin:28px 0;">
+                            <a href="%s" class="button">VISIT STOREFRONT</a>
+                        </p>
+                        <p style="font-size:12px;color:#999999;margin-bottom:0;">Automated message sent by Odessi.tfi API.</p>
+                    </div>
+                    <div class="footer">
+                        <p style="margin:0 0 4px;font-size:12px;color:#7A7A7A;">&copy; %d Odessi.tfi. All rights reserved.</p>
+                        <p style="margin:0;font-size:11px;letter-spacing:1px;color:#999999;text-transform:uppercase;">Premium &bull; Custom &bull; Iconic</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """.formatted(provider, timestamp, frontendUrl, frontendUrl, frontendUrl, year);
     }
 }

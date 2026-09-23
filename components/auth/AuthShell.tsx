@@ -40,7 +40,7 @@ export default function AuthShell({ children }: AuthShellProps) {
         <div className="relative z-20 flex items-center justify-between">
           <Link href="/" aria-label="Odessi.tfi Home" className="inline-block group">
             <Image
-              src="/logo-light.svg"
+              src="/logo-light.png"
               alt="Odessi.tfi"
               width={200}
               height={40}
@@ -103,7 +103,7 @@ export default function AuthShell({ children }: AuthShellProps) {
           />
           <div className="relative z-10 flex flex-col items-center">
             <Image
-              src="/logo-light.svg"
+              src="/logo-light.png"
               alt="Odessi.tfi"
               width={160}
               height={32}

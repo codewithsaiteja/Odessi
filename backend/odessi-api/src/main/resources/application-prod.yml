@@ -4,14 +4,25 @@ spring:
       on-profile: prod
 
 app:
-  # In production, the frontend is served from odessi.shop
+  # In production, the frontend is served from odessitfi.me (with apex, www, Vercel preview, and legacy odessi.shop)
   cors:
-    allowed-origins: ${FRONTEND_URL:https://odessi.shop}
+    allowed-origins: ${FRONTEND_URL:https://odessitfi.me,https://www.odessitfi.me,https://odessi-frontend.vercel.app,https://odessi.shop}
   
   # Ensure cookies are secure and use SameSite=None for cross-site cookie support (Vercel <-> Render)
   auth:
     cookie-secure: ${AUTH_COOKIE_SECURE:true}
     cookie-same-site: ${AUTH_COOKIE_SAME_SITE:None}
+
+  # Production Email Configuration (Resend official SDK / SMTP fallback)
+  mail:
+    resend-api-key: ${RESEND_API_KEY:}
+    host: ${MAIL_HOST:${SMTP_HOST:}}
+    port: ${MAIL_PORT:${SMTP_PORT:587}}
+    username: ${MAIL_USERNAME:${SMTP_USERNAME:}}
+    password: ${MAIL_PASSWORD:${SMTP_PASSWORD:}}
+    from-email: ${MAIL_FROM:${EMAIL_FROM_ADDRESS:noreply@odessitfi.me}}
+    from-name: ${MAIL_FROM_NAME:${EMAIL_FROM_NAME:Odessi}}
+    primary-frontend-url: ${PRIMARY_FRONTEND_URL:https://www.odessitfi.me}
 
 logging:
   level:

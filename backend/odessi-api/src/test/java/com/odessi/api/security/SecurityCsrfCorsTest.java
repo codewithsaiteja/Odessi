@@ -185,7 +185,7 @@ class SecurityCsrfCorsTest {
     class CorsTests {
 
         @Test
-        @DisplayName("OPTIONS preflight from allowed origin — includes Access-Control-Allow-Origin header")
+        @DisplayName("OPTIONS preflight for /api/cart from localhost:3000 — includes Access-Control-Allow-Origin")
         void preflight_allowedOrigin_includesCorsHeaders() throws Exception {
             mockMvc.perform(options("/api/cart")
                     .header("Origin", "http://localhost:3000")
@@ -194,6 +194,76 @@ class SecurityCsrfCorsTest {
                     .andExpect(status().isOk())
                     .andExpect(header().exists("Access-Control-Allow-Origin"))
                     .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"));
+        }
+
+        @Test
+        @DisplayName("OPTIONS preflight for /api/auth/me from https://odessitfi.me — returns 200 with CORS headers")
+        void preflight_authMe_apexDomain_succeedsWithCorsHeaders() throws Exception {
+            mockMvc.perform(options("/api/auth/me")
+                    .header("Origin", "https://odessitfi.me")
+                    .header("Access-Control-Request-Method", "GET")
+                    .header("Access-Control-Request-Headers", "Authorization, Content-Type, X-XSRF-TOKEN, sentry-trace, baggage"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Access-Control-Allow-Origin", "https://odessitfi.me"))
+                    .andExpect(header().string("Access-Control-Allow-Credentials", "true"))
+                    .andExpect(header().exists("Access-Control-Allow-Methods"));
+        }
+
+        @Test
+        @DisplayName("OPTIONS preflight for /api/auth/me from https://www.odessitfi.me — returns 200 with CORS headers")
+        void preflight_authMe_wwwDomain_succeedsWithCorsHeaders() throws Exception {
+            mockMvc.perform(options("/api/auth/me")
+                    .header("Origin", "https://www.odessitfi.me")
+                    .header("Access-Control-Request-Method", "GET")
+                    .header("Access-Control-Request-Headers", "Authorization, Content-Type, X-XSRF-TOKEN, sentry-trace, baggage"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Access-Control-Allow-Origin", "https://www.odessitfi.me"))
+                    .andExpect(header().string("Access-Control-Allow-Credentials", "true"))
+                    .andExpect(header().exists("Access-Control-Allow-Methods"));
+        }
+
+        @Test
+        @DisplayName("OPTIONS preflight for /api/products from https://www.odessitfi.me — returns 200")
+        void preflight_products_wwwDomain_succeedsWithCorsHeaders() throws Exception {
+            mockMvc.perform(options("/api/products")
+                    .header("Origin", "https://www.odessitfi.me")
+                    .header("Access-Control-Request-Method", "GET"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Access-Control-Allow-Origin", "https://www.odessitfi.me"))
+                    .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+        }
+
+        @Test
+        @DisplayName("OPTIONS preflight for /api/csrf from https://odessitfi.me — returns 200")
+        void preflight_csrf_apexDomain_succeedsWithCorsHeaders() throws Exception {
+            mockMvc.perform(options("/api/csrf")
+                    .header("Origin", "https://odessitfi.me")
+                    .header("Access-Control-Request-Method", "GET"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Access-Control-Allow-Origin", "https://odessitfi.me"))
+                    .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+        }
+
+        @Test
+        @DisplayName("OPTIONS preflight for /api/homepage/content from https://www.odessitfi.me — returns 200")
+        void preflight_homepage_wwwDomain_succeedsWithCorsHeaders() throws Exception {
+            mockMvc.perform(options("/api/homepage/content")
+                    .header("Origin", "https://www.odessitfi.me")
+                    .header("Access-Control-Request-Method", "GET"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Access-Control-Allow-Origin", "https://www.odessitfi.me"))
+                    .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+        }
+
+        @Test
+        @DisplayName("OPTIONS preflight for /api/health from https://odessitfi.me — returns 200")
+        void preflight_health_apexDomain_succeedsWithCorsHeaders() throws Exception {
+            mockMvc.perform(options("/api/health")
+                    .header("Origin", "https://odessitfi.me")
+                    .header("Access-Control-Request-Method", "GET"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Access-Control-Allow-Origin", "https://odessitfi.me"))
+                    .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
         }
 
         @Test
@@ -218,6 +288,16 @@ class SecurityCsrfCorsTest {
                     .header("Origin", "http://localhost:3000")
                     .header("Access-Control-Request-Method", "GET"))
                     .andExpect(status().isOk())
+                    .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+        }
+
+        @Test
+        @DisplayName("GET /api/auth/me without authentication returns 401 — CORS preflight allowance does not bypass security")
+        void getAuthMe_withoutAuth_stillReturns401() throws Exception {
+            mockMvc.perform(get("/api/auth/me")
+                    .header("Origin", "https://odessitfi.me"))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(header().string("Access-Control-Allow-Origin", "https://odessitfi.me"))
                     .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
         }
     }

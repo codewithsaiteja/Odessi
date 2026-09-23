@@ -275,21 +275,55 @@ export function getMediaUrl(urlInput?: any): string {
     return fallback;
   }
 
-  // Absolute URLs (Unsplash, Azure Blob Storage, blob: preview, Render /uploads, etc.)
-  // are passed through unchanged. Never wrap an already-absolute URL.
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("blob:")) {
+  // Blob URLs from client-side file inputs (used during local preview before upload)
+  if (trimmed.startsWith("blob:")) {
     return trimmed;
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080").replace(/\/+$/, "");
+
+  // Match Azure Blob Storage URLs (which remain strictly private and must be routed
+  // through the authenticated Spring Boot gateway at /api/media/{category}/{filename})
+  // Handles: https://odessimedia2026.blob.core.windows.net/media/products%2Fprod-123.jpg
+  //      and: https://odessimedia2026.blob.core.windows.net/media/products/prod-123.jpg
+  const azureMatch = trimmed.match(/^https?:\/\/[^/]+\.blob\.core\.windows\.net\/media\/(.+)$/i);
+  if (azureMatch) {
+    try {
+      const rawPath = decodeURIComponent(azureMatch[1]).replace(/\\/g, "/").replace(/^\/+/, "");
+      return `${baseUrl}/api/media/${rawPath}`;
+    } catch {
+      const rawPath = azureMatch[1].replace(/%2F/gi, "/").replace(/^\/+/, "");
+      return `${baseUrl}/api/media/${rawPath}`;
+    }
+  }
+
+  // Canonical Spring Boot media gateway paths
+  if (trimmed.startsWith("/api/media/")) {
+    return `${baseUrl}${trimmed}`;
+  }
+  if (trimmed.startsWith("api/media/")) {
+    return `${baseUrl}/${trimmed}`;
+  }
+
+  // Legacy /uploads/ paths served by Spring Boot
   if (trimmed.startsWith("/uploads/")) {
     return `${baseUrl}${trimmed}`;
   }
-
   if (trimmed.startsWith("uploads/")) {
     return `${baseUrl}/${trimmed}`;
   }
 
+  // Absolute URLs that already point to the backend media endpoint
+  if (trimmed.includes("/api/media/")) {
+    return trimmed;
+  }
+
+  // External CDN images (e.g. Unsplash) passed through unchanged
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+
+  // Static site assets (e.g. /placeholder-product.svg, /logo.png)
   if (trimmed.startsWith("/")) {
     return trimmed;
   }

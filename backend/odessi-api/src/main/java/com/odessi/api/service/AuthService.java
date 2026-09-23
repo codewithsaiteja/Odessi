@@ -200,7 +200,11 @@ public class AuthService {
             token.setExpiresAt(Instant.now().plus(1, ChronoUnit.HOURS));
             passwordResetTokenRepository.save(token);
 
-            emailService.sendPasswordResetEmail(user.getEmail(), token.getTokenHash());
+            try {
+                emailService.sendPasswordResetEmail(user.getEmail(), token.getTokenHash());
+            } catch (Exception e) {
+                log.error("Failed to send password reset email to user id={}: {}", user.getId(), e.getMessage());
+            }
         });
         // Always return generic response in controller
     }

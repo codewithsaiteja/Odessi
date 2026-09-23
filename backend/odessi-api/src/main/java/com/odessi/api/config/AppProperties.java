@@ -18,12 +18,16 @@ public class AppProperties {
     private Checkout checkout = new Checkout();
     private RateLimit rateLimit = new RateLimit();
     private AzureStorage azureStorage = new AzureStorage();
+    private Mail mail = new Mail();
 
     public Auth getAuth() { return auth; }
     public void setAuth(Auth auth) { this.auth = auth; }
 
     public Cors getCors() { return cors; }
     public void setCors(Cors cors) { this.cors = cors; }
+
+    public Mail getMail() { return mail; }
+    public void setMail(Mail mail) { this.mail = mail; }
 
     public Pagination getPagination() { return pagination; }
     public void setPagination(Pagination pagination) { this.pagination = pagination; }
@@ -44,7 +48,7 @@ public class AppProperties {
     public void setAzureStorage(AzureStorage azureStorage) { this.azureStorage = azureStorage; }
 
     public static class Cors {
-        private String allowedOrigins = "http://localhost:3000";
+        private String allowedOrigins = "https://odessitfi.me,https://www.odessitfi.me,http://localhost:3000,http://localhost:3001";
 
         public String getAllowedOrigins() { return allowedOrigins; }
         public void setAllowedOrigins(String allowedOrigins) { this.allowedOrigins = allowedOrigins; }
@@ -176,6 +180,76 @@ public class AppProperties {
 
         public boolean isConfigured() {
             return connectionString != null && !connectionString.isBlank();
+        }
+    }
+
+    /**
+     * SMTP Email Service configuration.
+     *
+     * <p>Supports standard SMTP providers (Resend, Brevo, SendGrid, AWS SES, Gmail, Mailgun, Postmark).
+     * Sensitive values are read from environment variables (e.g. MAIL_PASSWORD).
+     */
+    public static class Mail {
+        private String host;
+        private int port = 587;
+        private String username;
+        private String password;
+        private String fromEmail = "noreply@odessitfi.me";
+        private String fromName = "Odessi";
+        private boolean auth = true;
+        private boolean starttls = true;
+        private int connectionTimeout = 5000;
+        private int readTimeout = 5000;
+        private int writeTimeout = 5000;
+        private String primaryFrontendUrl = "https://www.odessitfi.me";
+
+        private String resendApiKey;
+
+        public String getResendApiKey() { return resendApiKey; }
+        public void setResendApiKey(String resendApiKey) { this.resendApiKey = resendApiKey; }
+
+        public String getHost() { return host; }
+        public void setHost(String host) { this.host = host; }
+
+        public int getPort() { return port; }
+        public void setPort(int port) { this.port = port; }
+
+        public String getUsername() { return username; }
+        public void setUsername(String username) { this.username = username; }
+
+        public String getPassword() { return password; }
+        public void setPassword(String password) { this.password = password; }
+
+        public String getFromEmail() { return fromEmail; }
+        public void setFromEmail(String fromEmail) { this.fromEmail = fromEmail; }
+
+        public String getFromName() { return fromName; }
+        public void setFromName(String fromName) { this.fromName = fromName; }
+
+        public boolean isAuth() { return auth; }
+        public void setAuth(boolean auth) { this.auth = auth; }
+
+        public boolean isStarttls() { return starttls; }
+        public void setStarttls(boolean starttls) { this.starttls = starttls; }
+
+        public int getConnectionTimeout() { return connectionTimeout; }
+        public void setConnectionTimeout(int connectionTimeout) { this.connectionTimeout = connectionTimeout; }
+
+        public int getReadTimeout() { return readTimeout; }
+        public void setReadTimeout(int readTimeout) { this.readTimeout = readTimeout; }
+
+        public int getWriteTimeout() { return writeTimeout; }
+        public void setWriteTimeout(int writeTimeout) { this.writeTimeout = writeTimeout; }
+
+        public String getPrimaryFrontendUrl() { return primaryFrontendUrl; }
+        public void setPrimaryFrontendUrl(String primaryFrontendUrl) { this.primaryFrontendUrl = primaryFrontendUrl; }
+
+        public boolean isResendConfigured() {
+            return resendApiKey != null && !resendApiKey.isBlank();
+        }
+
+        public boolean isConfigured() {
+            return isResendConfigured() || (host != null && !host.isBlank());
         }
     }
 }

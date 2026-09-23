@@ -56,6 +56,15 @@ export const metadata: Metadata = {
     title: "Odessi.tfi — Premium Hero-Inspired Clothing",
     description: "Wear the story. Premium cinematic clothing.",
   },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
   metadataBase: new URL("https://odessi.shop"),
 };
 

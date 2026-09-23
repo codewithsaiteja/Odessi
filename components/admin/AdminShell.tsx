@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
@@ -194,6 +195,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       {/* Mobile Header Bar */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 bg-[#0B0F17] border-b border-[#1E293B] text-white z-40">
         <div className="flex items-center space-x-2">
+          <Image
+            src="/logo-mark.png"
+            alt="Odessi Emblem"
+            width={24}
+            height={24}
+            className="w-6 h-6 object-contain"
+          />
           <span className="font-serif tracking-widest text-lg font-bold text-[#F3F0E8]">
             ODESSI<span className="text-[#B89A5A]">.TFI</span>
           </span>
@@ -219,8 +227,17 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         {/* Brand Header */}
         <div className="p-6 border-b border-[#1E293B] flex flex-col space-y-1 bg-[#070A10]">
           <div className="flex items-center justify-between">
-            <Link href="/admin" className="font-serif text-xl tracking-widest font-bold text-white">
-              ODESSI<span className="text-[#B89A5A]">.TFI</span>
+            <Link href="/admin" className="flex items-center gap-2.5 font-serif text-xl tracking-widest font-bold text-white group">
+              <Image
+                src="/logo-mark.png"
+                alt="Odessi Emblem"
+                width={28}
+                height={28}
+                className="w-7 h-7 object-contain transition-transform group-hover:scale-105"
+              />
+              <span>
+                ODESSI<span className="text-[#B89A5A]">.TFI</span>
+              </span>
             </Link>
             <span className="text-[10px] font-mono font-semibold px-2 py-0.5 bg-[#B89A5A]/15 text-[#B89A5A] border border-[#B89A5A]/30 rounded">
               CONTROL

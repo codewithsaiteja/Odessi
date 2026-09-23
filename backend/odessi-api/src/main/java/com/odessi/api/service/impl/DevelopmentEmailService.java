@@ -31,4 +31,12 @@ public class DevelopmentEmailService implements EmailService {
         logger.info("Link: http://localhost:3000/reset-password?token={}", token);
         logger.info("==================================================");
     }
+
+    @Override
+    public void sendTestEmail(String to) {
+        logger.info("==================================================");
+        logger.info("MOCK EMAIL SENT: Test Email");
+        logger.info("To: {}", to);
+        logger.info("==================================================");
+    }
 }

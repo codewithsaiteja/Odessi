@@ -122,6 +122,8 @@ public class SecurityConfig {
                 .permissionsPolicy(pp -> pp.policy("camera=(), microphone=(), geolocation=()"))
             )
             .authorizeHttpRequests(auth -> auth
+                // ── CORS Preflight ──────────────────────────────────────────
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // ── Public endpoints ─────────────────────────────────────
                 .requestMatchers(
                     "/api/products",
@@ -134,7 +136,8 @@ public class SecurityConfig {
                     "/api/social/posts/**",
                     "/api/homepage/content",
                     "/api/homepage/content/**",
-                    "/uploads/**"
+                    "/uploads/**",
+                    "/api/media/**"
                 ).permitAll()
                 .requestMatchers(
                     "/api/auth/register",
@@ -261,16 +264,36 @@ public class SecurityConfig {
                 "Set app.cors.allowed-origins to explicit origins.");
         }
 
-        config.setAllowedOrigins(origins.stream().map(String::trim).toList());
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("X-Total-Count", "X-Page", "X-Page-Size"));
+        config.setAllowedOrigins(origins.stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList());
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
+        config.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "X-XSRF-TOKEN",
+                "X-CSRF-TOKEN",
+                "Accept",
+                "Origin",
+                "X-Requested-With",
+                "Cache-Control",
+                "baggage",
+                "sentry-trace",
+                "*"
+        ));
+        config.setExposedHeaders(List.of(
+                "X-Total-Count",
+                "X-Page",
+                "X-Page-Size",
+                "X-XSRF-TOKEN",
+                "Set-Cookie"
+        ));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", config);
-        source.registerCorsConfiguration("/uploads/**", config);
+        source.registerCorsConfiguration("/**", config);
         return source;
     }
 }

@@ -1,18 +1,21 @@
 package com.odessi.api.service.impl;
 
+import com.odessi.api.dto.media.MediaStream;
 import com.odessi.api.exception.BadRequestException;
 import com.odessi.api.service.MediaStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -50,7 +53,6 @@ public class LocalStorageServiceImpl implements MediaStorageService {
         }
     }
 
-
     @Override
     public String storeProductImage(MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -81,7 +83,7 @@ public class LocalStorageServiceImpl implements MediaStorageService {
         try {
             Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
             log.info("Stored product image to {}", targetPath);
-            return "/uploads/products/" + fileName;
+            return "/api/media/products/" + fileName;
         } catch (IOException e) {
             log.error("Failed to store uploaded product image {}", fileName, e);
             throw new BadRequestException("STORAGE_ERROR", "Failed to store image file on server");
@@ -120,7 +122,7 @@ public class LocalStorageServiceImpl implements MediaStorageService {
         try {
             Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
             log.info("Stored product video to {}", targetPath);
-            return "/uploads/products/" + fileName;
+            return "/api/media/products/" + fileName;
         } catch (IOException e) {
             log.error("Failed to store uploaded product video {}", fileName, e);
             throw new BadRequestException("STORAGE_ERROR", "Failed to store video file on server");
@@ -157,7 +159,7 @@ public class LocalStorageServiceImpl implements MediaStorageService {
         try {
             Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
             log.info("Stored social image to {}", targetPath);
-            return "/uploads/social/" + fileName;
+            return "/api/media/social/" + fileName;
         } catch (IOException e) {
             log.error("Failed to store uploaded social image {}", fileName, e);
             throw new BadRequestException("STORAGE_ERROR", "Failed to store social image on server");
@@ -165,21 +167,86 @@ public class LocalStorageServiceImpl implements MediaStorageService {
     }
 
     @Override
+    public Optional<MediaStream> loadMedia(String category, String filename) {
+        if (category == null || filename == null) {
+            return Optional.empty();
+        }
+
+        String safeCategory = category.trim().toLowerCase();
+        if (!"products".equals(safeCategory) && !"social".equals(safeCategory)) {
+            return Optional.empty();
+        }
+
+        String safeFilename = filename.trim();
+        if (safeFilename.contains("..") || safeFilename.contains("/") || safeFilename.contains("\\")) {
+            log.warn("[LocalStorage] Directory traversal attempt detected: category={}, filename={}", category, filename);
+            return Optional.empty();
+        }
+
+        Path dir = "products".equals(safeCategory) ? this.uploadDirectory : this.socialUploadDirectory;
+        Path filePath = dir.resolve(safeFilename).normalize();
+
+        if (!filePath.startsWith(dir) || !Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+            return Optional.empty();
+        }
+
+        try {
+            long size = Files.size(filePath);
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                contentType = resolveMimeType(safeFilename);
+            }
+            Instant lastModified = Files.getLastModifiedTime(filePath).toInstant();
+            String eTag = "\"" + lastModified.toEpochMilli() + "-" + size + "\"";
+            InputStream is = Files.newInputStream(filePath);
+
+            return Optional.of(new MediaStream(
+                    is,
+                    contentType,
+                    size,
+                    eTag,
+                    lastModified,
+                    safeFilename
+            ));
+        } catch (IOException e) {
+            log.error("[LocalStorage] Failed reading file {}", filePath, e);
+            return Optional.empty();
+        }
+    }
+
+    @Override
     public void deleteProductImage(String imageUrl) {
-        if (imageUrl == null || !imageUrl.startsWith("/uploads/products/")) {
+        if (imageUrl == null) {
             return;
         }
 
-        String fileName = imageUrl.substring("/uploads/products/".length());
-        Path filePath = this.uploadDirectory.resolve(fileName).normalize();
+        String fileName = null;
+        if (imageUrl.startsWith("/api/media/products/")) {
+            fileName = imageUrl.substring("/api/media/products/".length());
+        } else if (imageUrl.startsWith("/uploads/products/")) {
+            fileName = imageUrl.substring("/uploads/products/".length());
+        }
 
-        if (filePath.startsWith(this.uploadDirectory)) {
-            try {
-                Files.deleteIfExists(filePath);
-                log.info("Deleted product image file {}", filePath);
-            } catch (IOException e) {
-                log.warn("Could not delete image file {}", filePath, e);
+        if (fileName != null && !fileName.isBlank()) {
+            Path filePath = this.uploadDirectory.resolve(fileName).normalize();
+            if (filePath.startsWith(this.uploadDirectory)) {
+                try {
+                    Files.deleteIfExists(filePath);
+                    log.info("Deleted product image file {}", filePath);
+                } catch (IOException e) {
+                    log.warn("Could not delete image file {}", filePath, e);
+                }
             }
         }
+    }
+
+    private String resolveMimeType(String filename) {
+        String lower = filename.toLowerCase();
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".webp")) return "image/webp";
+        if (lower.endsWith(".mp4")) return "video/mp4";
+        if (lower.endsWith(".webm")) return "video/webm";
+        if (lower.endsWith(".mov")) return "video/quicktime";
+        return "image/jpeg";
     }
 }
