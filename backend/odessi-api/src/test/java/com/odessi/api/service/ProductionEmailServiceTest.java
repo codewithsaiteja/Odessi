@@ -2,6 +2,8 @@ package com.odessi.api.service;
 
 import com.odessi.api.config.AppProperties;
 import com.odessi.api.config.MailConfig;
+import com.odessi.api.entity.Order;
+import com.odessi.api.entity.OrderItem;
 import com.odessi.api.exception.BusinessException;
 import com.odessi.api.service.impl.ProductionEmailService;
 import jakarta.mail.Session;
@@ -18,6 +20,7 @@ import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 
+import java.math.BigDecimal;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -162,6 +165,100 @@ class ProductionEmailServiceTest {
             assertThatThrownBy(() -> emailService.sendPasswordResetEmail("shopper@example.com", "secret-token-456"))
                     .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("Failed to deliver email");
+        }
+
+        @Test
+        @DisplayName("sendOrderConfirmationEmail sends rich HTML confirmation via Resend SDK")
+        void sendOrderConfirmationEmail_sendsViaResend() throws Exception {
+            com.resend.Resend mockResend = mock(com.resend.Resend.class);
+            com.resend.services.emails.Emails mockEmails = mock(com.resend.services.emails.Emails.class);
+            com.resend.services.emails.model.CreateEmailResponse mockResponse = mock(com.resend.services.emails.model.CreateEmailResponse.class);
+
+            given(mockResend.emails()).willReturn(mockEmails);
+            given(mockEmails.send(any(com.resend.services.emails.model.CreateEmailOptions.class))).willReturn(mockResponse);
+            given(mockResponse.getId()).willReturn("re_msg_order_123");
+
+            appProperties.getMail().setResendApiKey("re_test_key_123");
+            ProductionEmailService resendEmailService = new ProductionEmailService(mockResend, mailSender, appProperties);
+
+            Order order = new Order();
+            order.setId(100L);
+            order.setOrderNumber("ORD-20260923-00003");
+            order.setCustomerEmail("shopper@example.com");
+            order.setCustomerName("Aarav Sharma");
+            order.setTotalAmount(new BigDecimal("2999.00"));
+            order.setCurrency("INR");
+            order.setRazorpayOrderId("order_rzp_123");
+            order.setRazorpayPaymentId("pay_456");
+
+            OrderItem item = new OrderItem();
+            item.setProductNameSnapshot("Odessi Noir Hoodie");
+            item.setSkuSnapshot("ODS-BLK-L");
+            item.setColorSnapshot("Obsidian Black");
+            item.setSizeSnapshot("L");
+            item.setQuantity(1);
+            item.setUnitPrice(new BigDecimal("2999.00"));
+            order.addItem(item);
+
+            resendEmailService.sendOrderConfirmationEmail(order);
+
+            ArgumentCaptor<com.resend.services.emails.model.CreateEmailOptions> captor =
+                    ArgumentCaptor.forClass(com.resend.services.emails.model.CreateEmailOptions.class);
+            verify(mockEmails, times(1)).send(captor.capture());
+
+            com.resend.services.emails.model.CreateEmailOptions sentOptions = captor.getValue();
+            assertThat(sentOptions.getTo()).contains("shopper@example.com");
+            assertThat(sentOptions.getSubject()).contains("ORD-20260923-00003");
+            assertThat(sentOptions.getHtml()).contains("ORD-20260923-00003");
+            assertThat(sentOptions.getHtml()).contains("Odessi Noir Hoodie");
+            assertThat(sentOptions.getHtml()).contains("ODS-BLK-L");
+        }
+
+        @Test
+        @DisplayName("sendOrderConfirmationEmail retries with onboarding@resend.dev when custom domain is not verified")
+        void sendOrderConfirmationEmail_retriesWithFallbackSender() throws Exception {
+            com.resend.Resend mockResend = mock(com.resend.Resend.class);
+            com.resend.services.emails.Emails mockEmails = mock(com.resend.services.emails.Emails.class);
+            com.resend.services.emails.model.CreateEmailResponse mockResponse = mock(com.resend.services.emails.model.CreateEmailResponse.class);
+
+            given(mockResend.emails()).willReturn(mockEmails);
+            given(mockEmails.send(any(com.resend.services.emails.model.CreateEmailOptions.class)))
+                    .willThrow(new RuntimeException("domain_not_verified: The domain odessitfi.me is not verified"))
+                    .willReturn(mockResponse);
+            given(mockResponse.getId()).willReturn("re_fallback_msg_999");
+
+            appProperties.getMail().setResendApiKey("re_test_key_123");
+            ProductionEmailService resendEmailService = new ProductionEmailService(mockResend, mailSender, appProperties);
+
+            Order order = new Order();
+            order.setId(100L);
+            order.setOrderNumber("ORD-20260923-00003");
+            order.setCustomerEmail("shopper@example.com");
+            order.setTotalAmount(new BigDecimal("1999.00"));
+
+            resendEmailService.sendOrderConfirmationEmail(order);
+
+            ArgumentCaptor<com.resend.services.emails.model.CreateEmailOptions> captor =
+                    ArgumentCaptor.forClass(com.resend.services.emails.model.CreateEmailOptions.class);
+            verify(mockEmails, times(2)).send(captor.capture());
+
+            // Second attempt should use onboarding@resend.dev
+            assertThat(captor.getAllValues().get(1).getFrom()).contains("onboarding@resend.dev");
+        }
+
+        @Test
+        @DisplayName("sendOrderConfirmationEmail handles null customer email gracefully without throwing")
+        void sendOrderConfirmationEmail_nullCustomerEmail_gracefullyHandled() {
+            ProductionEmailService resendEmailService = new ProductionEmailService(null, mailSender, appProperties);
+            Order order = new Order();
+            order.setId(100L);
+            order.setOrderNumber("ORD-20260923-00003");
+            order.setCustomerEmail(null);
+            order.setUser(null);
+
+            // Should not throw exception
+            resendEmailService.sendOrderConfirmationEmail(order);
+            verifyNoInteractions(mailSender);
         }
     }
 

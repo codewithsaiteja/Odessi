@@ -93,6 +93,22 @@ public class Order {
     @Column(name = "shipping_method_code", length = 50)
     private String shippingMethodCode;
 
+    // ── Direct snapshot & payment tracking ────────────────────────
+    @Column(name = "razorpay_order_id", length = 100)
+    private String razorpayOrderId;
+
+    @Column(name = "razorpay_payment_id", length = 100)
+    private String razorpayPaymentId;
+
+    @Column(name = "customer_email", length = 255)
+    private String customerEmail;
+
+    @Column(name = "customer_name", length = 200)
+    private String customerName;
+
+    @Column(name = "confirmation_email_sent", nullable = false)
+    private boolean confirmationEmailSent = false;
+
     // ── Timestamps ────────────────────────────────────────────────
 
     @CreationTimestamp
@@ -154,4 +170,62 @@ public class Order {
     public void setItems(List<OrderItem> items) { this.items = items; }
     public Payment getPayment() { return payment; }
     public void setPayment(Payment payment) { this.payment = payment; }
+
+    public String getRazorpayOrderId() {
+        if (razorpayOrderId != null && !razorpayOrderId.isBlank()) {
+            return razorpayOrderId;
+        }
+        return payment != null ? payment.getProviderOrderId() : null;
+    }
+
+    public void setRazorpayOrderId(String razorpayOrderId) {
+        this.razorpayOrderId = razorpayOrderId;
+    }
+
+    public String getRazorpayPaymentId() {
+        if (razorpayPaymentId != null && !razorpayPaymentId.isBlank()) {
+            return razorpayPaymentId;
+        }
+        return payment != null ? payment.getProviderPaymentId() : null;
+    }
+
+    public void setRazorpayPaymentId(String razorpayPaymentId) {
+        this.razorpayPaymentId = razorpayPaymentId;
+    }
+
+    public String getCustomerEmail() {
+        if (customerEmail != null && !customerEmail.isBlank()) {
+            return customerEmail;
+        }
+        return user != null ? user.getEmail() : null;
+    }
+
+    public void setCustomerEmail(String customerEmail) {
+        this.customerEmail = customerEmail;
+    }
+
+    public String getCustomerName() {
+        if (customerName != null && !customerName.isBlank()) {
+            return customerName;
+        }
+        if (user != null) {
+            String first = user.getFirstName() != null ? user.getFirstName() : "";
+            String last = user.getLastName() != null ? user.getLastName() : "";
+            String full = (first + " " + last).trim();
+            return full.isEmpty() ? null : full;
+        }
+        return null;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
+
+    public boolean isConfirmationEmailSent() {
+        return confirmationEmailSent;
+    }
+
+    public void setConfirmationEmailSent(boolean confirmationEmailSent) {
+        this.confirmationEmailSent = confirmationEmailSent;
+    }
 }

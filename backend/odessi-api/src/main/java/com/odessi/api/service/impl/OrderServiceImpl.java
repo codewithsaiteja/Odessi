@@ -172,6 +172,11 @@ public class OrderServiceImpl implements OrderService {
         order.setShippingAddressSnapshot(addressSnapshotJson);
         order.setShippingMethodCode(shippingMethod != null ? shippingMethod.getCode() : "STANDARD");
         order.setCouponCode(appliedCouponCode);
+        order.setCustomerEmail(user.getEmail());
+        String customerFirst = user.getFirstName() != null ? user.getFirstName() : "";
+        String customerLast = user.getLastName() != null ? user.getLastName() : "";
+        String fullCustomerName = (customerFirst + " " + customerLast).trim();
+        order.setCustomerName(fullCustomerName.isEmpty() ? null : fullCustomerName);
 
         // Create Order Items Snapshots
         for (CartItem cartItem : cart.getItems()) {
@@ -215,6 +220,11 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void attachRazorpayOrderId(Long orderId, String razorpayOrderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> ResourceNotFoundException.order(orderId));
+        order.setRazorpayOrderId(razorpayOrderId);
+        orderRepository.save(order);
+
         Payment payment = paymentRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("PAYMENT_NOT_FOUND", "Payment record not found for order ID: " + orderId));
         payment.setProviderOrderId(razorpayOrderId);

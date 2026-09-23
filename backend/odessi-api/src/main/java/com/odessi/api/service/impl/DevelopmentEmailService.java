@@ -39,4 +39,14 @@ public class DevelopmentEmailService implements EmailService {
         logger.info("To: {}", to);
         logger.info("==================================================");
     }
+
+    @Override
+    public void sendOrderConfirmationEmail(com.odessi.api.entity.Order order) {
+        logger.info("==================================================");
+        logger.info("MOCK EMAIL SENT: Order Confirmation");
+        logger.info("Order: {}", order != null ? order.getOrderNumber() : "null");
+        logger.info("Recipient: {}", order != null ? order.getCustomerEmail() : "null");
+        logger.info("Total: {}", order != null ? order.getTotalAmount() : "null");
+        logger.info("==================================================");
+    }
 }

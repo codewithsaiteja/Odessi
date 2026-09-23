@@ -153,36 +153,52 @@ export default function AdminOrderDetailPage() {
       </div>
 
       {/* Order Summary & Address Snapshot Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Shipping Address Snapshot */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-3 shadow-2xs">
-          <div className="flex items-center space-x-2 text-slate-900 font-bold">
-            <MapPin className="w-4 h-4 text-amber-600" />
-            <h3 className="text-xs font-mono uppercase tracking-wider">Shipping Address Snapshot</h3>
-          </div>
-          <div className="text-xs text-slate-700 space-y-1">
-            <p className="font-semibold text-slate-900">{order.shippingAddress?.fullName}</p>
-            <p>{order.shippingAddress?.phone}</p>
-            <p>{order.shippingAddress?.addressLine1}</p>
-            {order.shippingAddress?.addressLine2 && <p>{order.shippingAddress?.addressLine2}</p>}
-            <p>{order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.postalCode}</p>
-            <p className="text-slate-500">{order.shippingAddress?.country}</p>
-          </div>
-        </div>
+      {(() => {
+        const shippingAddress = order.shippingAddress || (typeof order.shippingAddressSnapshot === 'string' ? (() => { try { return JSON.parse(order.shippingAddressSnapshot); } catch { return null; } })() : null);
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Shipping Address Snapshot */}
+            <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-3 shadow-2xs">
+              <div className="flex items-center space-x-2 text-slate-900 font-bold">
+                <MapPin className="w-4 h-4 text-amber-600" />
+                <h3 className="text-xs font-mono uppercase tracking-wider">Shipping Address Snapshot</h3>
+              </div>
+              {shippingAddress ? (
+                <div className="text-xs text-slate-700 space-y-1">
+                  {shippingAddress.fullName && <p className="font-semibold text-slate-900">{shippingAddress.fullName}</p>}
+                  {shippingAddress.phone && <p>{shippingAddress.phone}</p>}
+                  {shippingAddress.addressLine1 && <p>{shippingAddress.addressLine1}</p>}
+                  {shippingAddress.addressLine2 && <p>{shippingAddress.addressLine2}</p>}
+                  {(shippingAddress.city || shippingAddress.state || shippingAddress.postalCode) && (
+                    <p>{[shippingAddress.city, shippingAddress.state].filter(Boolean).join(", ")} {shippingAddress.postalCode || ""}</p>
+                  )}
+                  {shippingAddress.country && <p className="text-slate-500">{shippingAddress.country}</p>}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">No shipping address recorded</p>
+              )}
+            </div>
 
-        {/* Payment & Order Metadata */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-3 shadow-2xs">
-          <div className="flex items-center space-x-2 text-slate-900 font-bold">
-            <CreditCard className="w-4 h-4 text-amber-600" />
-            <h3 className="text-xs font-mono uppercase tracking-wider">Payment Metadata</h3>
+            {/* Payment & Order Metadata */}
+            <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-3 shadow-2xs">
+              <div className="flex items-center space-x-2 text-slate-900 font-bold">
+                <CreditCard className="w-4 h-4 text-amber-600" />
+                <h3 className="text-xs font-mono uppercase tracking-wider">Payment & Customer Metadata</h3>
+              </div>
+              <div className="text-xs text-slate-700 space-y-1 font-mono">
+                <p>Customer: <span className="font-semibold text-slate-900">{order.customerName || "Customer"}</span></p>
+                <p>Email: <span className="font-semibold text-slate-900">{order.customerEmail || "N/A"}</span></p>
+                <p>Razorpay Order ID: <span className="font-semibold text-slate-900">{order.razorpayOrderId || "N/A"}</span></p>
+                {order.razorpayPaymentId && (
+                  <p>Razorpay Payment ID: <span className="font-semibold text-slate-900">{order.razorpayPaymentId}</span></p>
+                )}
+                <p>Currency: <span className="font-semibold text-slate-900">{order.currency}</span></p>
+                <p>Total Amount: <span className="text-emerald-700 font-bold text-sm">₹{order.totalAmount}</span></p>
+              </div>
+            </div>
           </div>
-          <div className="text-xs text-slate-700 space-y-1 font-mono">
-            <p>Razorpay Order ID: <span className="font-semibold text-slate-900">{order.razorpayOrderId || "N/A"}</span></p>
-            <p>Currency: <span className="font-semibold text-slate-900">{order.currency}</span></p>
-            <p>Total Amount: <span className="text-emerald-700 font-bold text-sm">₹{order.totalAmount}</span></p>
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Immutable Order Line Items */}
       <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4 shadow-2xs">
@@ -203,16 +219,26 @@ export default function AdminOrderDetailPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {order.items?.map((item: any) => (
-                <tr key={item.id}>
-                  <td className="p-3 font-semibold text-slate-900">{item.productName}</td>
-                  <td className="p-3 font-mono text-slate-500">{item.sku}</td>
-                  <td className="p-3">{item.color} / {item.size}</td>
-                  <td className="p-3 font-mono">₹{item.unitPrice}</td>
-                  <td className="p-3 font-mono font-bold">{item.quantity}</td>
-                  <td className="p-3 font-mono font-bold text-slate-900 text-right">₹{item.totalPrice}</td>
-                </tr>
-              ))}
+              {order.items?.map((item: any) => {
+                const name = item.productName || item.productNameSnapshot || "Item";
+                const sku = item.sku || item.skuSnapshot || "—";
+                const color = item.color || item.colorSnapshot;
+                const size = item.size || item.sizeSnapshot;
+                const variantStr = [color, size].filter(Boolean).join(" / ") || "Standard";
+                const unitPrice = item.unitPrice != null ? `₹${item.unitPrice}` : "—";
+                const totalPrice = item.totalPrice != null ? `₹${item.totalPrice}` : "—";
+
+                return (
+                  <tr key={item.id}>
+                    <td className="p-3 font-semibold text-slate-900">{name}</td>
+                    <td className="p-3 font-mono text-slate-500">{sku}</td>
+                    <td className="p-3">{variantStr}</td>
+                    <td className="p-3 font-mono">{unitPrice}</td>
+                    <td className="p-3 font-mono font-bold">{item.quantity}</td>
+                    <td className="p-3 font-mono font-bold text-slate-900 text-right">{totalPrice}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

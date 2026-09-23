@@ -16,6 +16,7 @@ import com.razorpay.Utils;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +36,29 @@ public class RazorpayPaymentService {
     private final CouponService couponService;
     private final CartService cartService;
     private final OrderMapper orderMapper;
+    private final EmailService emailService;
+
+    @Autowired
+    public RazorpayPaymentService(
+            AppProperties appProperties,
+            OrderRepository orderRepository,
+            PaymentRepository paymentRepository,
+            PaymentWebhookEventRepository webhookEventRepository,
+            InventoryService inventoryService,
+            CouponService couponService,
+            CartService cartService,
+            OrderMapper orderMapper,
+            @Autowired(required = false) EmailService emailService) {
+        this.appProperties = appProperties;
+        this.orderRepository = orderRepository;
+        this.paymentRepository = paymentRepository;
+        this.webhookEventRepository = webhookEventRepository;
+        this.inventoryService = inventoryService;
+        this.couponService = couponService;
+        this.cartService = cartService;
+        this.orderMapper = orderMapper;
+        this.emailService = emailService;
+    }
 
     public RazorpayPaymentService(
             AppProperties appProperties,
@@ -45,14 +69,8 @@ public class RazorpayPaymentService {
             CouponService couponService,
             CartService cartService,
             OrderMapper orderMapper) {
-        this.appProperties = appProperties;
-        this.orderRepository = orderRepository;
-        this.paymentRepository = paymentRepository;
-        this.webhookEventRepository = webhookEventRepository;
-        this.inventoryService = inventoryService;
-        this.couponService = couponService;
-        this.cartService = cartService;
-        this.orderMapper = orderMapper;
+        this(appProperties, orderRepository, paymentRepository, webhookEventRepository,
+             inventoryService, couponService, cartService, orderMapper, null);
     }
 
     /**
@@ -123,6 +141,8 @@ public class RazorpayPaymentService {
         payment.setStatus(PaymentStatus.CAPTURED);
         paymentRepository.save(payment);
 
+        order.setRazorpayOrderId(request.razorpayOrderId());
+        order.setRazorpayPaymentId(request.razorpayPaymentId());
         order.setPaymentStatus(PaymentStatus.CAPTURED);
         order.setStatus(OrderStatus.CONFIRMED);
         orderRepository.save(order);
@@ -135,6 +155,20 @@ public class RazorpayPaymentService {
         cartService.clearCart(userId);
 
         log.info("Successfully verified payment and confirmed order {}", order.getOrderNumber());
+
+        // Send order confirmation email exactly once
+        if (emailService != null && !order.isConfirmationEmailSent()) {
+            try {
+                Order fullOrder = orderRepository.findByOrderNumberWithItems(order.getOrderNumber())
+                        .orElse(order);
+                emailService.sendOrderConfirmationEmail(fullOrder);
+                order.setConfirmationEmailSent(true);
+                orderRepository.save(order);
+            } catch (Exception e) {
+                log.error("[EMAIL] Confirmation email dispatch failed for order {}: {}", order.getOrderNumber(), e.getMessage());
+            }
+        }
+
         return orderMapper.toResponse(order);
     }
 
@@ -229,6 +263,8 @@ public class RazorpayPaymentService {
 
             order.setPaymentStatus(PaymentStatus.CAPTURED);
             order.setStatus(OrderStatus.CONFIRMED);
+            if (providerOrderId != null) order.setRazorpayOrderId(providerOrderId);
+            if (providerPaymentId != null) order.setRazorpayPaymentId(providerPaymentId);
             orderRepository.save(order);
 
             inventoryService.confirmReservations(order.getId());
@@ -236,6 +272,19 @@ public class RazorpayPaymentService {
             cartService.clearCart(order.getUser().getId());
 
             log.info("Webhook updated order {} to CONFIRMED via event {}", order.getOrderNumber(), eventType);
+
+            // Send order confirmation email exactly once
+            if (emailService != null && !order.isConfirmationEmailSent()) {
+                try {
+                    Order fullOrder = orderRepository.findByOrderNumberWithItems(order.getOrderNumber())
+                            .orElse(order);
+                    emailService.sendOrderConfirmationEmail(fullOrder);
+                    order.setConfirmationEmailSent(true);
+                    orderRepository.save(order);
+                } catch (Exception e) {
+                    log.error("[EMAIL] Webhook confirmation email dispatch failed for order {}: {}", order.getOrderNumber(), e.getMessage());
+                }
+            }
 
         } else if ("payment.failed".equalsIgnoreCase(eventType)) {
             if (order.getStatus() == OrderStatus.PENDING_PAYMENT || order.getStatus() == OrderStatus.PENDING) {

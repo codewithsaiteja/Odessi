@@ -44,6 +44,7 @@ class RazorpayPaymentServiceTest {
     @Mock private CouponService couponService;
     @Mock private CartService cartService;
     @Mock private OrderMapper orderMapper;
+    @Mock private EmailService emailService;
 
     private RazorpayPaymentService razorpayPaymentService;
 
@@ -68,7 +69,8 @@ class RazorpayPaymentServiceTest {
                 inventoryService,
                 couponService,
                 cartService,
-                orderMapper
+                orderMapper,
+                emailService
         );
 
         user = new User("Aarav", "Sharma", "aarav@example.com", "hash");
@@ -115,6 +117,36 @@ class RazorpayPaymentServiceTest {
 
             verify(inventoryService).confirmReservations(100L);
             verify(cartService).clearCart(10L);
+            verify(emailService).sendOrderConfirmationEmail(order);
+            assertThat(order.isConfirmationEmailSent()).isTrue();
+            assertThat(order.getRazorpayOrderId()).isEqualTo("order_rzp_123");
+            assertThat(order.getRazorpayPaymentId()).isEqualTo("pay_456");
+        }
+    }
+
+    @Test
+    @DisplayName("verifyPayment — email failure does not rollback or fail payment verification")
+    void verifyPayment_emailFailureDoesNotRollback() {
+        VerifyPaymentRequest request = new VerifyPaymentRequest("pay_456", "order_rzp_123", "valid_sig_hash");
+
+        given(paymentRepository.findByProviderOrderId("order_rzp_123")).willReturn(Optional.of(payment));
+        OrderResponse mockResponse = new OrderResponse(
+            100L, "ODR-20260913-00001", 10L, Collections.emptyList(),
+            new BigDecimal("1999.00"), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("1999.00"),
+            "INR", OrderStatus.CONFIRMED, PaymentStatus.CAPTURED, "Address Snapshot", Instant.now(), Instant.now()
+        );
+        given(orderMapper.toResponse(any())).willReturn(mockResponse);
+        doThrow(new RuntimeException("Resend API down")).when(emailService).sendOrderConfirmationEmail(any());
+
+        try (MockedStatic<Utils> utilsMock = mockStatic(Utils.class)) {
+            utilsMock.when(() -> Utils.verifyPaymentSignature(any(JSONObject.class), eq("test_secret"))).thenReturn(true);
+
+            OrderResponse response = razorpayPaymentService.verifyPayment(10L, request);
+
+            assertThat(response.status()).isEqualTo(OrderStatus.CONFIRMED);
+            assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CAPTURED);
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+            verify(emailService).sendOrderConfirmationEmail(order);
         }
     }
 
@@ -134,6 +166,7 @@ class RazorpayPaymentServiceTest {
 
             verify(inventoryService, never()).confirmReservations(any());
             verify(cartService, never()).clearCart(any());
+            verify(emailService, never()).sendOrderConfirmationEmail(any());
         }
     }
 
@@ -147,12 +180,15 @@ class RazorpayPaymentServiceTest {
         assertThatThrownBy(() -> razorpayPaymentService.verifyPayment(99L, request))
             .isInstanceOf(BadRequestException.class)
             .hasMessageContaining("Unauthorized access");
+
+        verify(emailService, never()).sendOrderConfirmationEmail(any());
     }
 
     @Test
     @DisplayName("verifyPayment — idempotent retry on already CONFIRMED order returns response without duplicate processing")
     void verifyPayment_duplicateVerification_idempotent() {
         order.setStatus(OrderStatus.CONFIRMED);
+        order.setConfirmationEmailSent(true);
         payment.setStatus(PaymentStatus.CAPTURED);
 
         given(paymentRepository.findByProviderOrderId("order_rzp_123")).willReturn(Optional.of(payment));
@@ -162,6 +198,7 @@ class RazorpayPaymentServiceTest {
 
         verify(inventoryService, never()).confirmReservations(any());
         verify(cartService, never()).clearCart(any());
+        verify(emailService, never()).sendOrderConfirmationEmail(any());
     }
 
     @Test
@@ -180,9 +217,13 @@ class RazorpayPaymentServiceTest {
 
             assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
             assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CAPTURED);
+            assertThat(order.isConfirmationEmailSent()).isTrue();
+            assertThat(order.getRazorpayOrderId()).isEqualTo("order_rzp_123");
+            assertThat(order.getRazorpayPaymentId()).isEqualTo("pay_123");
 
             verify(inventoryService).confirmReservations(100L);
             verify(cartService).clearCart(10L);
+            verify(emailService).sendOrderConfirmationEmail(order);
         }
     }
 

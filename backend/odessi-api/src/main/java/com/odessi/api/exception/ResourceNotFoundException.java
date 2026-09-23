@@ -69,6 +69,16 @@ public class ResourceNotFoundException extends RuntimeException {
             "Order not found with order number: " + orderNumber);
     }
 
+    public static ResourceNotFoundException order(Long id) {
+        return new ResourceNotFoundException("ORDER_NOT_FOUND",
+            "Order not found with id: " + id);
+    }
+
+    public static ResourceNotFoundException orderById(Long id) {
+        return new ResourceNotFoundException("ORDER_NOT_FOUND",
+            "Order not found with id: " + id);
+    }
+
     public static ResourceNotFoundException user(Long id) {
         return new ResourceNotFoundException("USER_NOT_FOUND",
             "User not found with id: " + id);
