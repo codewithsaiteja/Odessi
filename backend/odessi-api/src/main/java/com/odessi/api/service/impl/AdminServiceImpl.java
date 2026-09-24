@@ -70,6 +70,20 @@ public class AdminServiceImpl implements AdminService {
     @Autowired(required = false)
     private com.odessi.api.repository.WishlistItemRepository wishlistItemRepository;
 
+    @Autowired(required = false)
+    private com.odessi.api.service.EmailService emailService;
+
+    @Autowired(required = false)
+    private com.odessi.api.repository.OrderStatusEmailLogRepository orderStatusEmailLogRepository;
+
+    public void setEmailService(com.odessi.api.service.EmailService emailService) {
+        this.emailService = emailService;
+    }
+
+    public void setOrderStatusEmailLogRepository(com.odessi.api.repository.OrderStatusEmailLogRepository orderStatusEmailLogRepository) {
+        this.orderStatusEmailLogRepository = orderStatusEmailLogRepository;
+    }
+
     @Autowired
     public AdminServiceImpl(
             ProductRepository productRepository,
@@ -1025,7 +1039,9 @@ public class AdminServiceImpl implements AdminService {
         } else if (currentStatus == OrderStatus.PROCESSING) {
             valid = (newStatus == OrderStatus.SHIPPED || newStatus == OrderStatus.CANCELLED);
         } else if (currentStatus == OrderStatus.SHIPPED) {
-            valid = (newStatus == OrderStatus.DELIVERED);
+            valid = (newStatus == OrderStatus.OUT_FOR_DELIVERY || newStatus == OrderStatus.DELIVERED || newStatus == OrderStatus.CANCELLED);
+        } else if (currentStatus == OrderStatus.OUT_FOR_DELIVERY) {
+            valid = (newStatus == OrderStatus.DELIVERED || newStatus == OrderStatus.CANCELLED);
         }
 
         if (!valid) {
@@ -1038,7 +1054,59 @@ public class AdminServiceImpl implements AdminService {
         auditService.logAction(admin, "ORDER_STATUS_CHANGED", "Order", orderId.toString(),
             "Updated status from " + currentStatus + " to " + newStatus);
 
+        sendStatusUpdateEmailIfEligible(updated, currentStatus, newStatus);
+
         return orderMapper.toResponse(updated);
+    }
+
+    private void sendStatusUpdateEmailIfEligible(Order order, OrderStatus previousStatus, OrderStatus newStatus) {
+        if (emailService == null || order == null || previousStatus == newStatus) {
+            return;
+        }
+
+        // Only send status emails for customer-facing order status updates
+        boolean isEligibleStatus = (newStatus == OrderStatus.PROCESSING
+            || newStatus == OrderStatus.SHIPPED
+            || newStatus == OrderStatus.OUT_FOR_DELIVERY
+            || newStatus == OrderStatus.DELIVERED
+            || newStatus == OrderStatus.CANCELLED);
+
+        if (!isEligibleStatus) {
+            return;
+        }
+
+        Long orderId = order.getId();
+        if (orderId == null) {
+            return;
+        }
+
+        // Database-backed idempotency check: Skip if status email was already logged
+        if (orderStatusEmailLogRepository != null && orderStatusEmailLogRepository.existsByOrderIdAndOrderStatus(orderId, newStatus)) {
+            log.info("Order status update email already recorded/sent for order {} and status {}. Skipping duplicate email.", orderId, newStatus);
+            return;
+        }
+
+        try {
+            Order fullOrder = orderRepository.findByIdWithItems(orderId).orElse(order);
+
+            // Record log to enforce database-level duplicate protection
+            if (orderStatusEmailLogRepository != null) {
+                com.odessi.api.entity.OrderStatusEmailLog emailLog = new com.odessi.api.entity.OrderStatusEmailLog(
+                    fullOrder,
+                    newStatus,
+                    fullOrder.getCustomerEmail(),
+                    null
+                );
+                orderStatusEmailLogRepository.save(emailLog);
+            }
+
+            emailService.sendOrderStatusUpdateEmail(fullOrder, previousStatus, newStatus);
+            log.info("Sent order status update email for order {} ({} -> {}) to {}",
+                fullOrder.getOrderNumber(), previousStatus, newStatus, fullOrder.getCustomerEmail());
+        } catch (Exception e) {
+            log.error("Failed to dispatch order status update email for order {} to {}: {}",
+                order.getOrderNumber(), order.getCustomerEmail(), e.getMessage(), e);
+        }
     }
 
     @Override

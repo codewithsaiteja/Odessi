@@ -49,4 +49,20 @@ public class DevelopmentEmailService implements EmailService {
         logger.info("Total: {}", order != null ? order.getTotalAmount() : "null");
         logger.info("==================================================");
     }
+
+    @Override
+    public void sendOrderStatusUpdateEmail(com.odessi.api.entity.Order order, com.odessi.api.entity.OrderStatus previousStatus, com.odessi.api.entity.OrderStatus newStatus) {
+        String orderNum = order != null ? order.getOrderNumber() : "null";
+        String recipient = order != null ? order.getCustomerEmail() : "null";
+        String subject = ProductionEmailService.resolveStatusSubject(newStatus, orderNum);
+
+        logger.info("==================================================");
+        logger.info("MOCK EMAIL SENT: Order Status Update");
+        logger.info("Order: {}", orderNum);
+        logger.info("Recipient: {}", recipient);
+        logger.info("Previous Status: {}", previousStatus);
+        logger.info("New Status: {}", newStatus);
+        logger.info("Subject: {}", subject);
+        logger.info("==================================================");
+    }
 }

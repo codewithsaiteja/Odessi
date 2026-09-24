@@ -194,7 +194,7 @@ public class AppProperties {
         private int port = 587;
         private String username;
         private String password;
-        private String fromEmail = "noreply@odessitfi.me";
+        private String fromEmail = "orders@odessitfi.me";
         private String fromName = "Odessi";
         private boolean auth = true;
         private boolean starttls = true;

@@ -16,6 +16,8 @@ function formatOrderStatus(status: string): string {
       return "Processing";
     case "SHIPPED":
       return "Shipped";
+    case "OUT_FOR_DELIVERY":
+      return "Out for Delivery";
     case "DELIVERED":
       return "Delivered";
     case "CANCELLED":

@@ -45,6 +45,7 @@ function orderStatusClass(status: string): string {
     case "CONFIRMED":
     case "PROCESSING":
     case "SHIPPED":
+    case "OUT_FOR_DELIVERY":
     case "DELIVERED":
       return "bg-blue-50 text-blue-700 border-blue-200";
     case "PENDING":

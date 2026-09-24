@@ -20,7 +20,7 @@ app:
     port: ${MAIL_PORT:${SMTP_PORT:587}}
     username: ${MAIL_USERNAME:${SMTP_USERNAME:}}
     password: ${MAIL_PASSWORD:${SMTP_PASSWORD:}}
-    from-email: ${MAIL_FROM:${EMAIL_FROM_ADDRESS:noreply@odessitfi.me}}
+    from-email: ${MAIL_FROM:${EMAIL_FROM_ADDRESS:orders@odessitfi.me}}
     from-name: ${MAIL_FROM_NAME:${EMAIL_FROM_NAME:Odessi}}
     primary-frontend-url: ${PRIMARY_FRONTEND_URL:https://www.odessitfi.me}
 

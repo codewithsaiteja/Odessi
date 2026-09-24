@@ -260,6 +260,62 @@ class ProductionEmailServiceTest {
             resendEmailService.sendOrderConfirmationEmail(order);
             verifyNoInteractions(mailSender);
         }
+
+        @Test
+        @DisplayName("sendOrderStatusUpdateEmail sends status email via Resend SDK with accurate status subject")
+        void sendOrderStatusUpdateEmail_sendsViaResend() throws Exception {
+            com.resend.Resend mockResend = mock(com.resend.Resend.class);
+            com.resend.services.emails.Emails mockEmails = mock(com.resend.services.emails.Emails.class);
+            com.resend.services.emails.model.CreateEmailResponse mockResponse =
+                    mock(com.resend.services.emails.model.CreateEmailResponse.class);
+
+            given(mockResend.emails()).willReturn(mockEmails);
+            given(mockResponse.getId()).willReturn("re_status_msg_12345");
+            given(mockEmails.send(any(com.resend.services.emails.model.CreateEmailOptions.class))).willReturn(mockResponse);
+
+            ProductionEmailService resendEmailService = new ProductionEmailService(mockResend, mailSender, appProperties);
+
+            Order order = new Order();
+            order.setId(101L);
+            order.setOrderNumber("ODR-20260924-00001");
+            order.setCustomerEmail("customer@example.com");
+            order.setStatus(com.odessi.api.entity.OrderStatus.SHIPPED);
+            order.setTotalAmount(new BigDecimal("3500.00"));
+
+            resendEmailService.sendOrderStatusUpdateEmail(
+                order,
+                com.odessi.api.entity.OrderStatus.PROCESSING,
+                com.odessi.api.entity.OrderStatus.SHIPPED
+            );
+
+            ArgumentCaptor<com.resend.services.emails.model.CreateEmailOptions> captor =
+                    ArgumentCaptor.forClass(com.resend.services.emails.model.CreateEmailOptions.class);
+            verify(mockEmails, times(1)).send(captor.capture());
+
+            com.resend.services.emails.model.CreateEmailOptions sentOptions = captor.getValue();
+            assertThat(sentOptions.getTo()).contains("customer@example.com");
+            assertThat(sentOptions.getSubject()).isEqualTo("Order Shipped — ODR-20260924-00001 | Odessi");
+            assertThat(sentOptions.getHtml()).contains("ODR-20260924-00001");
+            assertThat(sentOptions.getHtml()).contains("Shipped");
+            verifyNoInteractions(mailSender);
+        }
+
+        @Test
+        @DisplayName("sendOrderStatusUpdateEmail handles null customer email gracefully without throwing")
+        void sendOrderStatusUpdateEmail_nullCustomerEmail_gracefullyHandled() {
+            ProductionEmailService resendEmailService = new ProductionEmailService(null, mailSender, appProperties);
+            Order order = new Order();
+            order.setId(102L);
+            order.setOrderNumber("ODR-20260924-00002");
+            order.setCustomerEmail(null);
+
+            resendEmailService.sendOrderStatusUpdateEmail(
+                order,
+                com.odessi.api.entity.OrderStatus.CONFIRMED,
+                com.odessi.api.entity.OrderStatus.PROCESSING
+            );
+            verifyNoInteractions(mailSender);
+        }
     }
 
     @Nested

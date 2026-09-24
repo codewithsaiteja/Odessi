@@ -31,6 +31,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.odessi.api.entity.Order;
 import com.odessi.api.entity.OrderItem;
+import com.odessi.api.entity.OrderStatus;
 
 /**
  * Production email service implementation.
@@ -229,6 +230,102 @@ public class ProductionEmailService implements EmailService {
                 log.info("[EMAIL] Order confirmation delivered via SMTP relay. Order: {}, Recipient: {}", orderNumber, maskEmail(to));
             } catch (Exception smtpEx) {
                 log.error("[EMAIL] SMTP fallback failed for order {}: {}", orderNumber, smtpEx.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public void sendOrderStatusUpdateEmail(Order order, OrderStatus previousStatus, OrderStatus newStatus) {
+        if (order == null) {
+            log.warn("[EMAIL] Status update email requested with null order");
+            return;
+        }
+
+        String to = order.getCustomerEmail();
+        if (to == null || to.isBlank()) {
+            if (order.getUser() != null) {
+                to = order.getUser().getEmail();
+            }
+        }
+        if (to == null || to.isBlank()) {
+            log.warn("[EMAIL] Status update email skipped: No customer email on order {}", order.getOrderNumber());
+            return;
+        }
+
+        String orderNumber = order.getOrderNumber();
+        String subject = resolveStatusSubject(newStatus, orderNumber);
+        String primaryFrontendUrl = resolvePrimaryFrontendUrl();
+        String htmlBody = buildOrderStatusUpdateEmailHtml(order, previousStatus, newStatus, primaryFrontendUrl);
+
+        log.info("[EMAIL] Status update email requested. Order: {}, Transition: {} -> {}, Recipient: {}",
+                orderNumber, previousStatus, newStatus, maskEmail(to));
+
+        AppProperties.Mail mailProps = appProperties.getMail();
+        String fromEmail = mailProps.getFromEmail();
+        String fromName = mailProps.getFromName();
+        String fromFormatted = String.format("%s <%s>", fromName, fromEmail);
+
+        if (resendClient != null) {
+            String messageId = null;
+            try {
+                CreateEmailOptions params = CreateEmailOptions.builder()
+                        .from(fromFormatted)
+                        .to(to.trim())
+                        .subject(subject)
+                        .html(htmlBody)
+                        .build();
+
+                CreateEmailResponse response = resendClient.emails().send(params);
+                messageId = (response != null && response.getId() != null) ? response.getId() : null;
+                if (messageId != null) {
+                    log.info("[EMAIL] Resend status update email success: id={}", messageId);
+                }
+            } catch (Exception e) {
+                log.error("[EMAIL] Resend status update email failed for order {} with sender '{}': {}",
+                        orderNumber, fromFormatted, e.getMessage());
+
+                // Fallback to verified sandbox sender if custom domain is not yet verified in Resend
+                if (!fromEmail.equals("onboarding@resend.dev") && e.getMessage() != null &&
+                        (e.getMessage().toLowerCase().contains("verify") || e.getMessage().toLowerCase().contains("domain")
+                                || e.getMessage().toLowerCase().contains("forbidden") || e.getMessage().toLowerCase().contains("not verified"))) {
+                    try {
+                        log.info("[EMAIL] Retrying status update email with verified sandbox sender: Odessi <onboarding@resend.dev>");
+                        CreateEmailOptions fallbackParams = CreateEmailOptions.builder()
+                                .from("Odessi <onboarding@resend.dev>")
+                                .to(to.trim())
+                                .subject(subject)
+                                .html(htmlBody)
+                                .build();
+                        CreateEmailResponse fallbackResp = resendClient.emails().send(fallbackParams);
+                        messageId = (fallbackResp != null && fallbackResp.getId() != null) ? fallbackResp.getId() : null;
+                        if (messageId != null) {
+                            log.info("[EMAIL] Resend status update email fallback success: id={}", messageId);
+                        }
+                    } catch (Exception retryEx) {
+                        log.error("[EMAIL] Sandbox retry also failed for order {}: {}", orderNumber, retryEx.getMessage());
+                    }
+                }
+            }
+
+            if (messageId != null) {
+                return;
+            }
+        }
+
+        // SMTP fallback if Resend client is absent or fails
+        if (mailSender != null && mailProps.getHost() != null && !mailProps.getHost().isBlank()) {
+            try {
+                MimeMessage message = mailSender.createMimeMessage();
+                MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+                helper.setFrom(new InternetAddress(fromEmail, fromName, StandardCharsets.UTF_8.name()));
+                helper.setTo(to.trim());
+                helper.setSubject(subject);
+                helper.setText(htmlBody, true);
+                mailSender.send(message);
+                log.info("[EMAIL] Status update email delivered via SMTP relay. Order: {}, Status: {}, Recipient: {}",
+                        orderNumber, newStatus, maskEmail(to));
+            } catch (Exception smtpEx) {
+                log.error("[EMAIL] SMTP fallback failed for order {} status {}: {}", orderNumber, newStatus, smtpEx.getMessage());
             }
         }
     }
@@ -751,6 +848,293 @@ public class ProductionEmailService implements EmailService {
             paymentStatus,
             razorpayOrderId,
             razorpayPaymentId,
+            addressHtml,
+            viewOrderUrl,
+            year
+        );
+    }
+
+    public static String resolveStatusSubject(OrderStatus status, String orderNumber) {
+        String title;
+        if (status == null) {
+            title = "Order Update";
+        } else {
+            switch (status) {
+                case PROCESSING -> title = "Order Processing";
+                case SHIPPED -> title = "Order Shipped";
+                case OUT_FOR_DELIVERY -> title = "Order Out for Delivery";
+                case DELIVERED -> title = "Order Delivered";
+                case CANCELLED -> title = "Order Cancelled";
+                case CONFIRMED -> title = "Order Confirmed";
+                case PAYMENT_FAILED -> title = "Payment Failed";
+                default -> title = "Order Update";
+            }
+        }
+        return title + " — " + orderNumber + " | Odessi";
+    }
+
+    private String buildOrderStatusUpdateEmailHtml(Order order, OrderStatus previousStatus, OrderStatus newStatus, String frontendUrl) {
+        int year = Year.now().getValue();
+        String orderNumber = escapeHtml(order.getOrderNumber());
+        String customerName = escapeHtml(order.getCustomerName() != null && !order.getCustomerName().isBlank()
+                ? order.getCustomerName() : "Valued Customer");
+
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a 'IST'").withZone(ZoneId.of("Asia/Kolkata"));
+        String updateDate = dtf.format(order.getUpdatedAt() != null ? order.getUpdatedAt() : Instant.now());
+
+        String addressHtml = formatAddressHtml(order);
+
+        // Status badge, headline, and message configuration
+        String badgeText;
+        String badgeBg;
+        String badgeColor;
+        String headlineText;
+        String messageText;
+
+        if (newStatus == OrderStatus.PROCESSING) {
+            badgeText = "&bull; Order Processing";
+            badgeBg = "#FEF3C7";
+            badgeColor = "#92400E";
+            headlineText = "ORDER IS PROCESSING";
+            messageText = "Your order has been confirmed and our atelier is now preparing your garments with the highest craftsmanship.";
+        } else if (newStatus == OrderStatus.SHIPPED) {
+            badgeText = "&bull; Dispatched & Shipped";
+            badgeBg = "#EFF6FF";
+            badgeColor = "#1E40AF";
+            headlineText = "ORDER HAS SHIPPED";
+            messageText = "Your bespoke Odessi package has been carefully packed and handed to our premium logistics courier. It is on its journey to you.";
+        } else if (newStatus == OrderStatus.OUT_FOR_DELIVERY) {
+            badgeText = "&bull; Out for Delivery";
+            badgeBg = "#F3E8FF";
+            badgeColor = "#6B21A8";
+            headlineText = "OUT FOR DELIVERY";
+            messageText = "Your package is out for delivery with our delivery courier today. Please ensure someone is available at your shipping address to receive it.";
+        } else if (newStatus == OrderStatus.DELIVERED) {
+            badgeText = "&bull; Delivered";
+            badgeBg = "#E8F5E9";
+            badgeColor = "#2E7D32";
+            headlineText = "ORDER DELIVERED";
+            messageText = "Your order has been successfully delivered. We hope you cherish your new Odessi garments. Wear your story with pride.";
+        } else if (newStatus == OrderStatus.CANCELLED) {
+            badgeText = "&bull; Order Cancelled";
+            badgeBg = "#FEE2E2";
+            badgeColor = "#991B1B";
+            headlineText = "ORDER CANCELLED";
+            messageText = "Your order has been cancelled. If any payment was captured, your refund will be processed back to your original payment method within standard banking timelines.";
+        } else if (newStatus == OrderStatus.CONFIRMED) {
+            badgeText = "&bull; Order Confirmed";
+            badgeBg = "#E8F5E9";
+            badgeColor = "#2E7D32";
+            headlineText = "ORDER CONFIRMED";
+            messageText = "Your order has been confirmed. Thank you for choosing Odessi.tfi.";
+        } else {
+            badgeText = "&bull; " + (newStatus != null ? newStatus.name() : "UPDATED");
+            badgeBg = "#F3F4F6";
+            badgeColor = "#374151";
+            headlineText = "ORDER UPDATE: " + (newStatus != null ? newStatus.name() : "UPDATED");
+            messageText = "The status of your order has been updated to " + (newStatus != null ? newStatus.name() : "UPDATED") + ".";
+        }
+
+        StringBuilder itemsRows = new StringBuilder();
+        if (order.getItems() != null && !order.getItems().isEmpty()) {
+            for (OrderItem item : order.getItems()) {
+                String itemName = escapeHtml(item.getProductNameSnapshot() != null ? item.getProductNameSnapshot() : "Odessi Garment");
+                String sku = escapeHtml(item.getSkuSnapshot() != null ? item.getSkuSnapshot() : "—");
+                String color = escapeHtml(item.getColorSnapshot() != null && !item.getColorSnapshot().isBlank() ? item.getColorSnapshot() : "—");
+                String size = escapeHtml(item.getSizeSnapshot() != null && !item.getSizeSnapshot().isBlank() ? item.getSizeSnapshot() : "—");
+
+                int qty = item.getQuantity() > 0 ? item.getQuantity() : 1;
+                String unitPrice = item.getUnitPrice() != null ? "₹" + item.getUnitPrice().setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() : "—";
+                BigDecimal itemTotal = item.getTotalPrice() != null ? item.getTotalPrice()
+                        : (item.getUnitPrice() != null ? item.getUnitPrice().multiply(BigDecimal.valueOf(qty)) : BigDecimal.ZERO);
+                String subtotal = "₹" + itemTotal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
+
+                itemsRows.append("""
+                    <tr style="border-bottom:1px solid #EFECE6;">
+                        <td style="padding:12px 8px;font-size:13px;font-weight:600;color:#080808;">%s</td>
+                        <td style="padding:12px 8px;font-size:12px;font-family:monospace;color:#666666;">%s</td>
+                        <td style="padding:12px 8px;font-size:12px;color:#555555;text-align:center;">%s</td>
+                        <td style="padding:12px 8px;font-size:12px;color:#555555;text-align:center;">%s</td>
+                        <td style="padding:12px 8px;font-size:13px;color:#080808;text-align:center;font-weight:600;">%d</td>
+                        <td style="padding:12px 8px;font-size:13px;color:#080808;text-align:right;">%s</td>
+                        <td style="padding:12px 8px;font-size:13px;font-weight:600;color:#080808;text-align:right;">%s</td>
+                    </tr>
+                """.formatted(itemName, sku, color, size, qty, unitPrice, subtotal));
+            }
+        } else {
+            itemsRows.append("<tr><td colspan='7' style='padding:20px;text-align:center;color:#777777;font-size:13px;'>Order items recorded in system.</td></tr>");
+        }
+
+        BigDecimal subtotalVal = order.getSubtotal() != null ? order.getSubtotal() : (order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO);
+        String subtotalStr = "₹" + subtotalVal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
+
+        BigDecimal shipVal = order.getShippingAmount() != null ? order.getShippingAmount() : BigDecimal.ZERO;
+        String shippingStr = shipVal.compareTo(BigDecimal.ZERO) > 0 ? "₹" + shipVal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() : "FREE";
+
+        BigDecimal discVal = order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO;
+        String discountStr = discVal.compareTo(BigDecimal.ZERO) > 0 ? "-₹" + discVal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() : "₹0.00";
+
+        BigDecimal taxVal = order.getTaxAmount() != null ? order.getTaxAmount() : BigDecimal.ZERO;
+        String taxStr = taxVal.compareTo(BigDecimal.ZERO) > 0 ? "₹" + taxVal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() : "Included";
+
+        BigDecimal totalVal = order.getTotalAmount() != null ? order.getTotalAmount() : subtotalVal;
+        String totalStr = "₹" + totalVal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
+
+        String shippingMethodCode = escapeHtml(order.getShippingMethodCode() != null && !order.getShippingMethodCode().isBlank()
+                ? order.getShippingMethodCode() : "STANDARD");
+
+        String cleanOrigin = cleanUrl(frontendUrl);
+        String viewOrderUrl = cleanOrigin + "/account";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>%s — %s</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #080808; background-color: #FAF9F6; margin: 0; padding: 24px; }
+                    .container { max-width: 640px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #EFECE6; }
+                    .header { background: #080808; color: #FAF9F6; padding: 36px 30px; text-align: center; }
+                    .content { padding: 36px 32px; }
+                    .badge { display: inline-block; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; }
+                    .card { background: #FAF9F6; border: 1px solid #EFECE6; border-radius: 8px; padding: 18px 20px; margin: 20px 0; }
+                    .table-wrapper { width: 100%%; overflow-x: auto; margin: 20px 0; }
+                    .items-table { width: 100%%; border-collapse: collapse; min-width: 480px; }
+                    .items-table th { background: #FAF9F6; padding: 10px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #555555; border-bottom: 2px solid #EFECE6; }
+                    .totals-table { width: 100%%; border-collapse: collapse; margin-top: 14px; }
+                    .totals-table td { padding: 6px 0; font-size: 14px; }
+                    .button { display: inline-block; background: #080808; color: #ffffff !important; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; margin: 24px 0 12px; }
+                    .footer { background: #F7F5F0; padding: 24px 30px; text-align: center; font-size: 12px; color: #7A7A7A; border-top: 1px solid #EFECE6; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1 style="margin:0;font-size:26px;font-weight:300;letter-spacing:4px;color:#FAF9F6;">ODESSI.TFI</h1>
+                        <p style="margin:8px 0 0;font-size:11px;opacity:0.8;letter-spacing:2px;text-transform:uppercase;color:#FAF9F6;">Wear Your Story.</p>
+                    </div>
+                    <div class="content">
+                        <div style="text-align:center;">
+                            <span class="badge" style="background:%s;color:%s;">%s</span>
+                            <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:1px;color:#080808;text-transform:uppercase;">%s</h2>
+                            <p style="margin:0 0 20px;font-size:14px;color:#555555;">%s</p>
+                        </div>
+                        
+                        <!-- Order Status Card -->
+                        <div class="card">
+                            <table style="width:100%%;font-size:13px;border-collapse:collapse;">
+                                <tr>
+                                    <td style="color:#777777;padding:5px 0;">Order Number:</td>
+                                    <td style="font-weight:700;color:#080808;text-align:right;font-family:monospace;font-size:13px;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#777777;padding:5px 0;">Customer Name:</td>
+                                    <td style="font-weight:600;color:#080808;text-align:right;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#777777;padding:5px 0;">Status Updated:</td>
+                                    <td style="color:#080808;text-align:right;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#777777;padding:5px 0;">Current Status:</td>
+                                    <td style="font-weight:700;color:%s;text-align:right;text-transform:uppercase;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#777777;padding:5px 0;">Shipping Method:</td>
+                                    <td style="font-weight:600;color:#080808;text-align:right;text-transform:uppercase;">%s</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- Product Details Table -->
+                        <h3 style="margin:28px 0 12px;font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#080808;">Items in Order</h3>
+                        <div class="table-wrapper">
+                            <table class="items-table">
+                                <thead>
+                                    <tr>
+                                        <th style="text-align:left;">Product</th>
+                                        <th style="text-align:left;">SKU</th>
+                                        <th style="text-align:center;">Color</th>
+                                        <th style="text-align:center;">Size</th>
+                                        <th style="text-align:center;">Qty</th>
+                                        <th style="text-align:right;">Unit Price</th>
+                                        <th style="text-align:right;">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    %s
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Totals Breakdown -->
+                        <div style="border-top:2px solid #080808;padding-top:12px;margin-top:20px;">
+                            <table class="totals-table">
+                                <tr>
+                                    <td style="color:#555555;">Subtotal</td>
+                                    <td style="text-align:right;font-weight:500;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#555555;">Shipping</td>
+                                    <td style="text-align:right;font-weight:500;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#555555;">Discount</td>
+                                    <td style="text-align:right;color:#2E7D32;font-weight:500;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#555555;">Estimated Taxes (GST)</td>
+                                    <td style="text-align:right;font-weight:500;color:#555555;">%s</td>
+                                </tr>
+                                <tr style="font-size:16px;border-top:1px solid #EFECE6;">
+                                    <td style="padding-top:10px;font-weight:700;color:#080808;">Order Total</td>
+                                    <td style="padding-top:10px;text-align:right;font-weight:700;color:#080808;">%s</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- Shipping Address Card -->
+                        <div class="card" style="margin-top:20px;">
+                            <h4 style="margin:0 0 10px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#555555;">Delivery Address</h4>
+                            <div style="font-size:13px;line-height:1.6;color:#080808;">
+                                %s
+                            </div>
+                        </div>
+
+                        <div style="text-align:center;margin:32px 0 16px;">
+                            <a href="%s" class="button">VIEW YOUR ORDER</a>
+                            <p style="margin:12px 0 0;font-size:12px;color:#777777;">Questions about your order? Contact customer care at <a href="mailto:support@odessitfi.me" style="color:#080808;font-weight:600;">support@odessitfi.me</a></p>
+                        </div>
+                    </div>
+                    <div class="footer">
+                        <p style="margin:0 0 4px;font-size:12px;color:#7A7A7A;">&copy; %d Odessi.tfi. All rights reserved.</p>
+                        <p style="margin:0;font-size:11px;letter-spacing:1px;color:#999999;text-transform:uppercase;">Premium &bull; Custom &bull; Iconic</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        """.formatted(
+            headlineText,
+            orderNumber,
+            badgeBg,
+            badgeColor,
+            badgeText,
+            headlineText,
+            messageText,
+            orderNumber,
+            customerName,
+            updateDate,
+            badgeColor,
+            newStatus != null ? newStatus.name() : "UPDATED",
+            shippingMethodCode,
+            itemsRows.toString(),
+            subtotalStr,
+            shippingStr,
+            discountStr,
+            taxStr,
+            totalStr,
             addressHtml,
             viewOrderUrl,
             year

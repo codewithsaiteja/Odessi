@@ -52,6 +52,7 @@ export default function AdminOrdersPage() {
             <option value="CONFIRMED">CONFIRMED</option>
             <option value="PROCESSING">PROCESSING</option>
             <option value="SHIPPED">SHIPPED</option>
+            <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
             <option value="DELIVERED">DELIVERED</option>
             <option value="CANCELLED">CANCELLED</option>
             <option value="PAYMENT_FAILED">PAYMENT_FAILED</option>
