@@ -7,6 +7,9 @@ import { getNewDrops } from "@/lib/api/products";
 import { formatPrice, getMediaUrl } from "@/lib/product-utils";
 import { siteConfig } from "@/config/site";
 import type { Product } from "@/types";
+import ShinyText from "@/components/react-bits/text/ShinyText";
+import SplitText from "@/components/react-bits/text/SplitText";
+import SpotlightCard from "@/components/react-bits/cards/SpotlightCard";
 
 export default function NewDrop() {
   const { newDrop } = siteConfig;
@@ -34,22 +37,27 @@ export default function NewDrop() {
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[600px] lg:min-h-[680px]">
 
-        {/* ── Left: Image ── */}
+        {/* ── Left: Image with Spotlight ── */}
         <div className="relative aspect-[4/5] lg:aspect-auto overflow-hidden order-1 lg:order-1">
-          <Image
-            src={primaryImage}
-            alt={product.name}
-            fill
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            className="object-cover object-top transition-transform duration-700 ease-out hover:scale-[1.03] select-none"
-          />
-          <div
-            aria-hidden="true"
-            className="absolute inset-y-0 right-0 w-24 hidden lg:block"
-            style={{
-              background: "linear-gradient(to right, transparent, var(--color-odessi-charcoal))",
-            }}
-          />
+          <SpotlightCard
+            spotlightColor="rgba(184, 154, 90, 0.16)"
+            className="w-full h-full"
+          >
+            <Image
+              src={primaryImage}
+              alt={product.name}
+              fill
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              className="object-cover object-top transition-transform duration-700 ease-out hover:scale-[1.03] select-none"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute inset-y-0 right-0 w-24 hidden lg:block z-10"
+              style={{
+                background: "linear-gradient(to right, transparent, var(--color-odessi-charcoal))",
+              }}
+            />
+          </SpotlightCard>
         </div>
 
         {/* ── Right: Product info ── */}
@@ -57,9 +65,15 @@ export default function NewDrop() {
           <div className="w-full px-8 py-12 lg:px-14 lg:py-0 max-w-lg lg:max-w-none">
 
             {/* Eyebrow + collection */}
-            <p className="type-caption text-[var(--color-odessi-stone)] mb-2">
-              {newDrop.eyebrow}
-            </p>
+            <div className="mb-2">
+              <ShinyText
+                text={newDrop.eyebrow}
+                color="#8F8A80"
+                shineColor="#FAF9F6"
+                speed={3}
+                className="type-caption text-[var(--color-odessi-stone)]"
+              />
+            </div>
             <p className="type-caption text-[var(--color-odessi-silver)] mb-6">
               {newDrop.collectionName}
             </p>
@@ -68,13 +82,13 @@ export default function NewDrop() {
             <span className="divider bg-[var(--color-odessi-graphite)] block mb-6" aria-hidden="true" />
 
             {/* Product name */}
-            <h2
+            <SplitText
+              text={product.name}
+              tag="h2"
               id="new-drop-heading"
-              className="font-[var(--font-display)] italic text-white mb-4"
-              style={{ fontSize: "clamp(2rem, 3.5vw, 3.25rem)", fontWeight: 300, lineHeight: 1.1 }}
-            >
-              {product.name}
-            </h2>
+              splitType="words"
+              className="font-[var(--font-display)] italic text-white mb-4 text-3xl lg:text-5xl font-light"
+            />
 
             {/* Description */}
             <p className="type-body text-[var(--color-odessi-silver)] mb-8 max-w-sm">

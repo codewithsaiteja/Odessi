@@ -6,6 +6,9 @@ import Link from "next/link";
 import { ArrowDown } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { getHomepageContent, HomepageSection } from "@/lib/api/content";
+import BlurText from "@/components/react-bits/text/BlurText";
+import ShinyText from "@/components/react-bits/text/ShinyText";
+import Noise from "@/components/react-bits/backgrounds/Noise";
 
 export default function Hero() {
   const { hero: defaultHero } = siteConfig;
@@ -80,23 +83,34 @@ export default function Hero() {
               "linear-gradient(to right, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.25) 50%, transparent 100%)",
           }}
         />
+        {/* Subtle cinematic film grain */}
+        <Noise patternAlpha={4} className="z-2" />
       </div>
 
       {/* ── Content Grid: Editorial Luxury Layout ── */}
       <div className="relative z-10 container-odessi h-full flex flex-col justify-end pb-16 md:pb-20 lg:pb-24 min-h-[calc(100svh-var(--announcement-height)-var(--navbar-height))]">
         <div className="max-w-2xl flex flex-col justify-end">
           {/* Eyebrow */}
-          <p className="type-caption text-[var(--color-odessi-silver)] mb-5">
-            {eyebrow}
-          </p>
+          <div className="mb-5">
+            <ShinyText
+              text={eyebrow}
+              color="#A6A097"
+              shineColor="#FAF9F6"
+              speed={3}
+              className="type-caption text-[var(--color-odessi-silver)]"
+            />
+          </div>
 
           {/* Headline */}
           <h1 className="mb-6" aria-label={headline.replace("\n", " ")}>
             {headlineLines.map((line, i) => (
               <span key={i} className="block overflow-hidden">
-                <span className="type-display text-white block">
-                  {line}
-                </span>
+                <BlurText
+                  text={line}
+                  delay={80}
+                  animateBy="words"
+                  className="type-display text-white block"
+                />
               </span>
             ))}
           </h1>

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import SectionHeading from "@/components/ui/SectionHeading";
+import SpotlightCard from "@/components/react-bits/cards/SpotlightCard";
 import { categories as defaultCategories } from "@/data/categories";
 import { siteConfig } from "@/config/site";
 import { getCategories } from "@/lib/api/categories";
@@ -107,40 +108,45 @@ export default async function ShopByCategory() {
                   aspectRatio: "3/4",
                 }}
               >
-                {/* Category image */}
-                <Image
-                  src={src}
-                  alt={cat.name}
-                  fill
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 25vw"
-                  className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.05] select-none"
-                  unoptimized={src.includes("/api/media/")}
-                />
+                <SpotlightCard
+                  spotlightColor="rgba(255, 255, 255, 0.15)"
+                  className="w-full h-full relative"
+                >
+                  {/* Category image */}
+                  <Image
+                    src={src}
+                    alt={cat.name}
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 25vw"
+                    className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.05] select-none"
+                    unoptimized={src.includes("/api/media/")}
+                  />
 
-                {/* Dark overlay */}
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent group-hover:from-black/80 transition-all duration-400"
-                />
+                  {/* Dark overlay */}
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent group-hover:from-black/80 transition-all duration-400"
+                  />
 
-                {/* Content */}
-                <div className="absolute inset-x-0 bottom-0 p-5 lg:p-6">
-                  {cat.productCount && (
-                    <p className="type-caption text-[var(--color-odessi-silver)] mb-1">
-                      {cat.productCount} pieces
-                    </p>
-                  )}
-                  <h3 className="type-h3 text-white mb-3">
-                    {cat.name.toUpperCase()}
-                  </h3>
-                  <span
-                    className="inline-flex items-center gap-2 type-caption text-[var(--color-odessi-mist)]
-                    group-hover:text-white group-hover:gap-3 transition-all duration-300"
-                  >
-                    SHOP
-                    <ArrowRight size={11} strokeWidth={2} />
-                  </span>
-                </div>
+                  {/* Content */}
+                  <div className="absolute inset-x-0 bottom-0 p-5 lg:p-6 z-10">
+                    {cat.productCount && (
+                      <p className="type-caption text-[var(--color-odessi-silver)] mb-1">
+                        {cat.productCount} pieces
+                      </p>
+                    )}
+                    <h3 className="type-h3 text-white mb-3">
+                      {cat.name.toUpperCase()}
+                    </h3>
+                    <span
+                      className="inline-flex items-center gap-2 type-caption text-[var(--color-odessi-mist)]
+                      group-hover:text-white group-hover:gap-3 transition-all duration-300"
+                    >
+                      SHOP
+                      <ArrowRight size={11} strokeWidth={2} />
+                    </span>
+                  </div>
+                </SpotlightCard>
               </Link>
             );
           })}

@@ -6,6 +6,9 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { getHomepageContent, HomepageSection } from "@/lib/api/content";
+import BlurText from "@/components/react-bits/text/BlurText";
+import ScrollReveal from "@/components/react-bits/text/ScrollReveal";
+import Noise from "@/components/react-bits/backgrounds/Noise";
 
 export default function BrandStory() {
   const { brandStory: defaultStory } = siteConfig;
@@ -58,6 +61,7 @@ export default function BrandStory() {
               "linear-gradient(105deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.4) 100%)",
           }}
         />
+        <Noise patternAlpha={4} className="z-1" />
       </div>
 
       {/* Content */}
@@ -79,8 +83,13 @@ export default function BrandStory() {
               style={{ lineHeight: 0.95 }}
             >
               {headline.split("\n").map((line, i) => (
-                <span key={i} className="block">
-                  {line}
+                <span key={i} className="block overflow-hidden">
+                  <BlurText
+                    text={line}
+                    delay={75}
+                    animateBy="words"
+                    className="type-display text-white block"
+                  />
                 </span>
               ))}
             </h2>
@@ -88,9 +97,15 @@ export default function BrandStory() {
             {/* Body */}
             <div className="flex flex-col gap-5 mb-12">
               {bodyParagraphs.map((para, i) => (
-                <p key={i} className="type-body text-[var(--color-odessi-silver)]">
+                <ScrollReveal
+                  key={i}
+                  enableBlur={true}
+                  baseOpacity={0.25}
+                  blurStrength={3}
+                  textClassName="type-body text-[var(--color-odessi-silver)]"
+                >
                   {para}
-                </p>
+                </ScrollReveal>
               ))}
             </div>
 

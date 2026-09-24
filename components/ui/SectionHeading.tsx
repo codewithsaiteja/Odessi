@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import SplitText from "@/components/react-bits/text/SplitText";
 
 interface SectionHeadingProps {
   eyebrow?: string;
@@ -9,6 +10,7 @@ interface SectionHeadingProps {
   className?: string;
   headlineClassName?: string;
   id?: string;
+  animate?: boolean;
 }
 
 export default function SectionHeading({
@@ -20,6 +22,7 @@ export default function SectionHeading({
   className,
   headlineClassName,
   id,
+  animate = true,
 }: SectionHeadingProps) {
   const alignClass =
     align === "center"
@@ -50,9 +53,20 @@ export default function SectionHeading({
 
       <span className={cn("divider", dividerColor, align === "center" && "mx-auto")} aria-hidden="true" />
 
-      <h2 className={cn("type-h2", textColor, headlineClassName)} id={id}>
-        {headline}
-      </h2>
+      {animate ? (
+        <SplitText
+          text={headline}
+          tag="h2"
+          id={id}
+          className={cn("type-h2", textColor, headlineClassName)}
+          splitType="words"
+          delay={25}
+        />
+      ) : (
+        <h2 className={cn("type-h2", textColor, headlineClassName)} id={id}>
+          {headline}
+        </h2>
+      )}
 
       {subHeadline && (
         <p className={cn("type-body max-w-xl mt-1", subColor)}>

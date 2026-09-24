@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Heart, Plus, Star, Check, X } from "lucide-react";
+import SpotlightCard from "@/components/react-bits/cards/SpotlightCard";
 import type { Product } from "@/types";
 import { formatPrice, calculateDiscount, getMediaUrl } from "@/lib/product-utils";
 import { useWishlist } from "@/lib/wishlist-context";
@@ -75,8 +76,11 @@ export default function ProductCard({
         onMouseEnter={() => setShowSecondImage(true)}
         onMouseLeave={() => setShowSecondImage(false)}
       >
-        {/* Image Container */}
-        <div className="relative aspect-[3/4] overflow-hidden bg-[#F3F0E8] rounded-sm">
+        {/* Image Container with Luxury Cursor Spotlight */}
+        <SpotlightCard
+          spotlightColor="rgba(184, 154, 90, 0.12)"
+          className="relative aspect-[3/4] overflow-hidden bg-[#F3F0E8] rounded-sm"
+        >
           {/* Primary Image */}
           <Image
             src={showSecondImage && hasSecondImage ? secondImage : firstImage}
@@ -252,7 +256,7 @@ export default function ProductCard({
               )}
             </div>
           )}
-        </div>
+        </SpotlightCard>
 
         {/* Product Info */}
         <div className="pt-4 space-y-2">
