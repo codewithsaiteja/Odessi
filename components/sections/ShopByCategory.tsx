@@ -5,26 +5,53 @@ import SectionHeading from "@/components/ui/SectionHeading";
 import { categories as defaultCategories } from "@/data/categories";
 import { siteConfig } from "@/config/site";
 import { getCategories } from "@/lib/api/categories";
+import { getMediaUrl } from "@/lib/product-utils";
 import type { Category } from "@/types";
+
+export const revalidate = 0;
+
+/**
+ * Resolve the display image for a category card.
+ *
+ * Priority:
+ *  1. Backend `image` or `imageUrl` field (canonical /api/media/categories/... path)
+ *  2. Static fallback `coverImage` from local data (Unsplash / seeded)
+ *  3. Neutral placeholder SVG
+ */
+function resolveCoverImage(cat: Category): string {
+  const mediaRef = cat.image || cat.imageUrl;
+  if (mediaRef) {
+    return getMediaUrl(mediaRef);
+  }
+  return cat.coverImage ? getMediaUrl(cat.coverImage) : "/placeholder-product.svg";
+}
 
 export default async function ShopByCategory() {
   const { shopByCategory } = siteConfig;
+
+  // Build a slug → static-fallback lookup so we never rely on array index
+  const fallbackBySlug = new Map<string, Category>(defaultCategories.map((c) => [c.slug as string, c]));
 
   let displayCategories: Category[] = defaultCategories;
 
   try {
     const res = await getCategories();
     if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
-      displayCategories = res.data.map((cat, i) => {
-        const fallback = defaultCategories.find((c) => c.slug === cat.slug) || defaultCategories[i % defaultCategories.length];
+      displayCategories = res.data.map((cat) => {
+        // Map by slug — never by index
+        const fallback = fallbackBySlug.get(cat.slug as string);
         return {
+          // Start from fallback so static coverImage is available
           ...fallback,
+          // Overlay all backend fields (id, name, slug, description, image, productCount…)
           ...cat,
-          coverImage: cat.coverImage || fallback?.coverImage || "/placeholder-product.svg",
-        };
+          // Prefer backend image; fall back to static coverImage
+          coverImage: fallback?.coverImage ?? "/placeholder-product.svg",
+        } as Category;
       });
     }
   } catch {
+    // Network error: silently fall back to static data
     displayCategories = defaultCategories;
   }
 
@@ -46,6 +73,8 @@ export default async function ShopByCategory() {
           {displayCategories.map((cat, i) => {
             // First category gets a taller treatment
             const isFeatured = i === 0;
+            const src = resolveCoverImage(cat);
+
             return (
               <Link
                 key={cat.id || cat.slug}
@@ -56,16 +85,17 @@ export default async function ShopByCategory() {
                 `}
                 aria-label={`Shop ${cat.name}`}
                 style={{
-                  aspectRatio: isFeatured ? "3/4" : "3/4",
+                  aspectRatio: "3/4",
                 }}
               >
-                {/* Image */}
+                {/* Category image */}
                 <Image
-                  src={cat.coverImage}
+                  src={src}
                   alt={cat.name}
                   fill
                   sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 25vw"
                   className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.05] select-none"
+                  unoptimized={src.includes("/api/media/")}
                 />
 
                 {/* Dark overlay */}

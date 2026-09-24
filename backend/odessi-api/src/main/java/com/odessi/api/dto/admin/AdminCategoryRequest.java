@@ -1,5 +1,6 @@
 package com.odessi.api.dto.admin;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 
 public record AdminCategoryRequest(
@@ -10,6 +11,7 @@ public record AdminCategoryRequest(
 
     String description,
 
+    @JsonAlias({"imageUrl", "image_url"})
     String image,
 
     boolean active

@@ -20,17 +20,30 @@ public interface MediaStorageService {
     String storeSocialImage(MultipartFile file);
 
     /**
+     * Stores a category image file and returns its canonical public URL path.
+     * Path format: /api/media/categories/{filename}
+     */
+    String storeCategoryImage(MultipartFile file);
+
+    /**
      * Deletes a product image or video file from storage if present.
      */
     void deleteProductImage(String imageUrl);
 
     /**
+     * Deletes a category image from storage if present.
+     * Safe to call even when imageUrl is null or blank.
+     */
+    void deleteCategoryImage(String imageUrl);
+
+    /**
      * Loads a media asset stream by category and filename from private storage.
      *
-     * @param category media category, e.g. "products" or "social"
-     * @param filename sanitized filename within category, e.g. "prod-123.jpg"
+     * @param category media category, e.g. "products", "social", or "categories"
+     * @param filename sanitized filename within category, e.g. "cat-123.jpg"
      * @return Optional containing the MediaStream if found, empty if not found
      */
     java.util.Optional<com.odessi.api.dto.media.MediaStream> loadMedia(String category, String filename);
 }
+
 

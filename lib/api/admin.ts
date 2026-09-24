@@ -263,6 +263,29 @@ export async function toggleAdminCategoryActive(id: number): Promise<any> {
   return apiPatch<any>(`/api/admin/categories/${id}/status`);
 }
 
+/**
+ * Upload or replace the image for a category.
+ * Sends a multipart/form-data POST with field name "file".
+ * Returns the updated CategoryResponse with the new imageUrl.
+ */
+export async function uploadAdminCategoryImage(
+  categoryId: number,
+  file: File
+): Promise<any> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiPostFormData<any>(`/api/admin/categories/${categoryId}/image`, formData);
+}
+
+/**
+ * Remove the image from a category and delete the file from storage.
+ * Returns the updated CategoryResponse with image set to null.
+ */
+export async function deleteAdminCategoryImage(categoryId: number): Promise<any> {
+  return apiDelete<any>(`/api/admin/categories/${categoryId}/image`);
+}
+
+
 export async function getAdminCollections(): Promise<any[]> {
   return apiGet<any[]>("/api/admin/collections");
 }

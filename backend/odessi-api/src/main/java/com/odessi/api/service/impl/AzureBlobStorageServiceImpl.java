@@ -99,7 +99,15 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
         return uploadBlob(blobName, file, file.getContentType());
     }
 
-    // ─── Load Media Stream ────────────────────────────────────────────────────
+    // ─── Category Image ───────────────────────────────────────────────────────
+
+    @Override
+    public String storeCategoryImage(MultipartFile file) {
+        validateImage(file);
+        String blobName = "categories/" + safeCategoryFileName(file.getOriginalFilename(), resolveImageExtension(file));
+        return uploadBlob(blobName, file, file.getContentType());
+    }
+
 
     @Override
     public Optional<MediaStream> loadMedia(String category, String filename) {
@@ -108,7 +116,7 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
         }
 
         String safeCategory = category.trim().toLowerCase();
-        if (!"products".equals(safeCategory) && !"social".equals(safeCategory)) {
+        if (!"products".equals(safeCategory) && !"social".equals(safeCategory) && !"categories".equals(safeCategory)) {
             return Optional.empty();
         }
 
@@ -177,6 +185,30 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
         }
     }
 
+    // ─── Delete Category Image ────────────────────────────────────────────────
+
+    @Override
+    public void deleteCategoryImage(String imageUrl) {
+        if (imageUrl == null || imageUrl.isBlank()) return;
+
+        try {
+            String blobName = extractBlobName(imageUrl);
+            if (blobName == null) {
+                log.warn("[Azure] Cannot derive category blob name from URL: {}", imageUrl);
+                return;
+            }
+            BlobClient blobClient = containerClient.getBlobClient(blobName);
+            if (blobClient.exists()) {
+                blobClient.delete();
+                log.info("[Azure] Deleted category blob: {}", blobName);
+            } else {
+                log.warn("[Azure] Category blob not found for deletion: {}", blobName);
+            }
+        } catch (Exception e) {
+            log.warn("[Azure] Failed to delete category blob for URL {}: {}", imageUrl, e.getMessage());
+        }
+    }
+
     // ─── Internal Helpers ─────────────────────────────────────────────────────
 
     /**
@@ -203,7 +235,7 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
     }
 
     /**
-     * Generate a collision-resistant, sanitized filename.
+     * Generate a collision-resistant, sanitized filename for product media.
      * Never uses the client-provided name directly.
      *
      * @param originalFilename raw client filename (untrusted)
@@ -213,6 +245,18 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
     private String safeFileName(String originalFilename, String extension) {
         return "prod-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8) + extension;
     }
+
+    /**
+     * Generate a collision-resistant, sanitized filename for category media.
+     *
+     * @param originalFilename raw client filename (untrusted)
+     * @param extension        validated extension (.jpg, .png, etc.)
+     * @return safe filename: cat-{timestamp}-{uuid8}{extension}
+     */
+    private String safeCategoryFileName(String originalFilename, String extension) {
+        return "cat-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8) + extension;
+    }
+
 
     /**
      * Resolve and validate image extension from content type.
@@ -276,12 +320,15 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
             return decoded.substring(uploadsIdx + "/uploads/".length());
         }
 
-        // Fallback: check if path contains products/ or social/
+        // Fallback: check if path contains products/, social/, or categories/
         if (decoded.contains("products/")) {
             return decoded.substring(decoded.indexOf("products/"));
         }
         if (decoded.contains("social/")) {
             return decoded.substring(decoded.indexOf("social/"));
+        }
+        if (decoded.contains("categories/")) {
+            return decoded.substring(decoded.indexOf("categories/"));
         }
 
         return null;

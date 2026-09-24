@@ -46,6 +46,57 @@ public class AdminCategoryCollectionServiceTest {
     }
 
     @Test
+    void createCategory_withImageReference_persistsImage() {
+        String imageRef = "/api/media/categories/cat-12345-abcdef01.jpg";
+        AdminCategoryRequest req = new AdminCategoryRequest("Jackets", "jackets", "Premium jackets", imageRef, true);
+        CategoryResponse res = adminService.createCategory(admin, req);
+
+        assertEquals("Jackets", res.name());
+        assertEquals(imageRef, res.image());
+    }
+
+    @Test
+    void updateCategory_withImageReference_updatesImage() {
+        AdminCategoryRequest create = new AdminCategoryRequest("Caps", "caps", "Headwear", null, true);
+        CategoryResponse created = adminService.createCategory(admin, create);
+        assertNull(created.image());
+
+        String imageRef = "/api/media/categories/cat-99999-deadbeef.jpg";
+        AdminCategoryRequest update = new AdminCategoryRequest("Caps", "caps", "Headwear updated", imageRef, true);
+        CategoryResponse updated = adminService.updateCategory(admin, created.id(), update);
+
+        assertEquals(imageRef, updated.image());
+        assertEquals("Headwear updated", updated.description());
+    }
+
+    @Test
+    void updateCategory_removeImage_clearsImageField() {
+        String imageRef = "/api/media/categories/cat-77777-feed1234.jpg";
+        AdminCategoryRequest create = new AdminCategoryRequest("Shorts", "shorts", "Summer shorts", imageRef, true);
+        CategoryResponse created = adminService.createCategory(admin, create);
+        assertEquals(imageRef, created.image());
+
+        AdminCategoryRequest update = new AdminCategoryRequest("Shorts", "shorts", "Summer shorts", null, true);
+        CategoryResponse updated = adminService.updateCategory(admin, created.id(), update);
+
+        assertNull(updated.image());
+    }
+
+    @Test
+    void createCategory_apiResponseContainsImageField() {
+        String imageRef = "/api/media/categories/cat-11111-cafebabe.webp";
+        AdminCategoryRequest req = new AdminCategoryRequest("Active Wear", "active-wear", "Sports gear", imageRef, true);
+        CategoryResponse res = adminService.createCategory(admin, req);
+
+        // Verify all expected fields are present in the response
+        assertNotNull(res.id());
+        assertEquals("Active Wear", res.name());
+        assertEquals("active-wear", res.slug());
+        assertEquals(imageRef, res.image());
+        assertTrue(res.active());
+    }
+
+    @Test
     void createCollection_succeedsAndPreventsDuplicateSlug() {
         AdminCollectionRequest req = new AdminCollectionRequest("Summer Drop", "summer-drop", "Summer Edit", null, true, true);
         CollectionResponse res = adminService.createCollection(admin, req);

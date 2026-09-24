@@ -56,6 +56,8 @@ public interface AdminService {
     CategoryResponse createCategory(User admin, AdminCategoryRequest request);
     CategoryResponse updateCategory(User admin, Long id, AdminCategoryRequest request);
     CategoryResponse toggleCategoryActive(User admin, Long id);
+    CategoryResponse uploadCategoryImage(User admin, Long id, org.springframework.web.multipart.MultipartFile file);
+    CategoryResponse removeCategoryImage(User admin, Long id);
 
     List<CollectionResponse> getCollections();
     CollectionResponse createCollection(User admin, AdminCollectionRequest request);

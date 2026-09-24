@@ -10,10 +10,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -65,5 +67,37 @@ public class AdminCategoryController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long id) {
         return ResponseEntity.ok(adminService.toggleCategoryActive(getAdminUser(userDetails), id));
+    }
+
+    /**
+     * Upload or replace the image for an existing category.
+     *
+     * <p>Accepts multipart/form-data with a single {@code file} part containing
+     * a JPG, PNG, or WEBP image. The image is stored via the existing
+     * {@link com.odessi.api.service.MediaStorageService} under the
+     * {@code categories/} path, and the canonical
+     * {@code /api/media/categories/{filename}} URL is persisted on the category.
+     *
+     * <p>If the category already has an image, the old file is deleted from
+     * storage after the new image is successfully saved.
+     */
+    @PostMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload or replace category image")
+    public ResponseEntity<CategoryResponse> uploadCategoryImage(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(adminService.uploadCategoryImage(getAdminUser(userDetails), id, file));
+    }
+
+    /**
+     * Remove the image from a category and delete the file from storage.
+     */
+    @DeleteMapping("/{id}/image")
+    @Operation(summary = "Remove category image")
+    public ResponseEntity<CategoryResponse> removeCategoryImage(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(adminService.removeCategoryImage(getAdminUser(userDetails), id));
     }
 }

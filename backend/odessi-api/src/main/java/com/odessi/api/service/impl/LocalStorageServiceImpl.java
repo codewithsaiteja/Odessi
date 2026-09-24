@@ -41,15 +41,18 @@ public class LocalStorageServiceImpl implements MediaStorageService {
 
     private final Path uploadDirectory;
     private final Path socialUploadDirectory;
+    private final Path categoryUploadDirectory;
 
     public LocalStorageServiceImpl() {
         this.uploadDirectory = Paths.get("uploads", "products").toAbsolutePath().normalize();
         this.socialUploadDirectory = Paths.get("uploads", "social").toAbsolutePath().normalize();
+        this.categoryUploadDirectory = Paths.get("uploads", "categories").toAbsolutePath().normalize();
         try {
             Files.createDirectories(this.uploadDirectory);
             Files.createDirectories(this.socialUploadDirectory);
+            Files.createDirectories(this.categoryUploadDirectory);
         } catch (IOException e) {
-            log.error("Could not create upload directories: {} or {}", this.uploadDirectory, this.socialUploadDirectory, e);
+            log.error("Could not create upload directories: {}, {} or {}", this.uploadDirectory, this.socialUploadDirectory, this.categoryUploadDirectory, e);
         }
     }
 
@@ -173,7 +176,7 @@ public class LocalStorageServiceImpl implements MediaStorageService {
         }
 
         String safeCategory = category.trim().toLowerCase();
-        if (!"products".equals(safeCategory) && !"social".equals(safeCategory)) {
+        if (!"products".equals(safeCategory) && !"social".equals(safeCategory) && !"categories".equals(safeCategory)) {
             return Optional.empty();
         }
 
@@ -183,7 +186,14 @@ public class LocalStorageServiceImpl implements MediaStorageService {
             return Optional.empty();
         }
 
-        Path dir = "products".equals(safeCategory) ? this.uploadDirectory : this.socialUploadDirectory;
+        Path dir;
+        if ("products".equals(safeCategory)) {
+            dir = this.uploadDirectory;
+        } else if ("categories".equals(safeCategory)) {
+            dir = this.categoryUploadDirectory;
+        } else {
+            dir = this.socialUploadDirectory;
+        }
         Path filePath = dir.resolve(safeFilename).normalize();
 
         if (!filePath.startsWith(dir) || !Files.exists(filePath) || !Files.isRegularFile(filePath)) {
@@ -235,6 +245,69 @@ public class LocalStorageServiceImpl implements MediaStorageService {
                     log.info("Deleted product image file {}", filePath);
                 } catch (IOException e) {
                     log.warn("Could not delete image file {}", filePath, e);
+                }
+            }
+        }
+    }
+
+    @Override
+    public String storeCategoryImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("INVALID_FILE", "Upload file cannot be empty");
+        }
+
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new BadRequestException("FILE_TOO_LARGE", "Image size cannot exceed 5MB");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
+            throw new BadRequestException("INVALID_FILE_TYPE", "Only JPG, PNG, and WEBP images are allowed");
+        }
+
+        String originalName = file.getOriginalFilename();
+        String extension = ".jpg";
+        if (originalName != null && originalName.contains(".")) {
+            extension = originalName.substring(originalName.lastIndexOf(".")).toLowerCase();
+            if (!List.of(".jpg", ".jpeg", ".png", ".webp").contains(extension)) {
+                extension = ".jpg";
+            }
+        }
+
+        String fileName = "cat-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8) + extension;
+        Path targetPath = this.categoryUploadDirectory.resolve(fileName);
+
+        try {
+            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            log.info("Stored category image to {}", targetPath);
+            return "/api/media/categories/" + fileName;
+        } catch (IOException e) {
+            log.error("Failed to store uploaded category image {}", fileName, e);
+            throw new BadRequestException("STORAGE_ERROR", "Failed to store category image on server");
+        }
+    }
+
+    @Override
+    public void deleteCategoryImage(String imageUrl) {
+        if (imageUrl == null) {
+            return;
+        }
+
+        String fileName = null;
+        if (imageUrl.startsWith("/api/media/categories/")) {
+            fileName = imageUrl.substring("/api/media/categories/".length());
+        } else if (imageUrl.startsWith("/uploads/categories/")) {
+            fileName = imageUrl.substring("/uploads/categories/".length());
+        }
+
+        if (fileName != null && !fileName.isBlank()) {
+            Path filePath = this.categoryUploadDirectory.resolve(fileName).normalize();
+            if (filePath.startsWith(this.categoryUploadDirectory)) {
+                try {
+                    Files.deleteIfExists(filePath);
+                    log.info("Deleted category image file {}", filePath);
+                } catch (IOException e) {
+                    log.warn("Could not delete category image file {}", filePath, e);
                 }
             }
         }

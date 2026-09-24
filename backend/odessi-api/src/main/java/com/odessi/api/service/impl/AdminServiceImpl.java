@@ -1132,7 +1132,8 @@ public class AdminServiceImpl implements AdminService {
         if (categoryRepository.existsBySlug(slug)) {
             throw new BadRequestException("Category slug already exists: " + slug);
         }
-        Category cat = new Category(request.name(), slug, request.description(), request.image());
+        String image = (request.image() != null && !request.image().isBlank()) ? request.image().trim() : null;
+        Category cat = new Category(request.name(), slug, request.description(), image);
         cat.setActive(request.active());
 
         Category saved = categoryRepository.save(cat);
@@ -1147,7 +1148,8 @@ public class AdminServiceImpl implements AdminService {
             .orElseThrow(() -> new ResourceNotFoundException("CATEGORY_NOT_FOUND", "Category not found: " + id));
         cat.setName(request.name());
         cat.setDescription(request.description());
-        cat.setImage(request.image());
+        String image = (request.image() != null && !request.image().isBlank()) ? request.image().trim() : null;
+        cat.setImage(image);
         cat.setActive(request.active());
 
         Category updated = categoryRepository.save(cat);
@@ -1163,6 +1165,60 @@ public class AdminServiceImpl implements AdminService {
         cat.setActive(!cat.isActive());
         Category updated = categoryRepository.save(cat);
         auditService.logAction(admin, "CATEGORY_ACTIVATED_TOGGLED", "Category", id.toString(), "Toggled active to " + cat.isActive());
+        return categoryMapper.toResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public com.odessi.api.dto.response.CategoryResponse uploadCategoryImage(User admin, Long id, org.springframework.web.multipart.MultipartFile file) {
+        Category cat = categoryRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("CATEGORY_NOT_FOUND", "Category not found: " + id));
+
+        // 1. Store new image (validates and uploads)
+        String newImageUrl = mediaStorageService.storeCategoryImage(file);
+
+        // 2. Capture old image path before overwriting
+        String oldImageUrl = cat.getImage();
+
+        // 3. Update category with new image reference
+        cat.setImage(newImageUrl);
+        Category updated = categoryRepository.save(cat);
+
+        // 4. Delete old image ONLY after successful save
+        if (oldImageUrl != null && !oldImageUrl.isBlank()) {
+            try {
+                mediaStorageService.deleteCategoryImage(oldImageUrl);
+            } catch (Exception e) {
+                log.warn("[Admin] Could not delete old category image {}: {}", oldImageUrl, e.getMessage());
+            }
+        }
+
+        auditService.logAction(admin, "CATEGORY_IMAGE_UPLOADED", "Category", id.toString(),
+            "Uploaded category image: " + newImageUrl);
+        return categoryMapper.toResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public com.odessi.api.dto.response.CategoryResponse removeCategoryImage(User admin, Long id) {
+        Category cat = categoryRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("CATEGORY_NOT_FOUND", "Category not found: " + id));
+
+        String oldImageUrl = cat.getImage();
+        cat.setImage(null);
+        Category updated = categoryRepository.save(cat);
+
+        // Delete the image from storage after successful save
+        if (oldImageUrl != null && !oldImageUrl.isBlank()) {
+            try {
+                mediaStorageService.deleteCategoryImage(oldImageUrl);
+            } catch (Exception e) {
+                log.warn("[Admin] Could not delete category image {}: {}", oldImageUrl, e.getMessage());
+            }
+        }
+
+        auditService.logAction(admin, "CATEGORY_IMAGE_REMOVED", "Category", id.toString(),
+            "Removed category image (was: " + oldImageUrl + ")");
         return categoryMapper.toResponse(updated);
     }
 

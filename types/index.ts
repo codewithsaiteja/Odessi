@@ -113,6 +113,10 @@ export interface Category {
   slug: ProductCategory;
   description: string;
   coverImage: string;
+  /** Canonical API media path returned by the backend, e.g. /api/media/categories/cat-123.jpg */
+  image?: string | null;
+  /** Alias for canonical API media reference */
+  imageUrl?: string | null;
   productCount?: number;
 }
 
