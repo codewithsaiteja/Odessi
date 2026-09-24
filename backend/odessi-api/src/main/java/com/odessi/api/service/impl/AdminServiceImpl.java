@@ -998,7 +998,7 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional(readOnly = true)
     public OrderResponse getOrderById(Long id) {
-        Order order = orderRepository.findById(id)
+        Order order = orderRepository.findByIdWithItems(id)
             .orElseThrow(() -> new ResourceNotFoundException("ORDER_NOT_FOUND", "Order not found: " + id));
         return orderMapper.toResponse(order);
     }

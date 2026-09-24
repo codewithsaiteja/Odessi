@@ -138,13 +138,33 @@ public class OrderServiceImpl implements OrderService {
 
         // Snapshot address details
         String addressSnapshotJson;
+        String resolvedCustomerName = null;
         try {
             if (request.addressId() != null) {
                 Address address = addressRepository.findByIdAndUserId(request.addressId(), userId)
                         .orElseThrow(() -> ResourceNotFoundException.address(request.addressId()));
                 addressSnapshotJson = objectMapper.writeValueAsString(addressMapper.toResponse(address));
+                if (address.getFullName() != null && !address.getFullName().isBlank()) {
+                    resolvedCustomerName = address.getFullName().trim();
+                }
             } else if (request.addressLine1() != null && request.city() != null) {
-                addressSnapshotJson = objectMapper.writeValueAsString(request);
+                com.odessi.api.dto.response.AddressResponse inlineAddr = new com.odessi.api.dto.response.AddressResponse(
+                    null,
+                    request.fullName(),
+                    request.phone(),
+                    request.addressLine1(),
+                    request.addressLine2(),
+                    request.city(),
+                    request.state(),
+                    request.postalCode(),
+                    request.country() != null ? request.country() : "India",
+                    false,
+                    java.time.Instant.now()
+                );
+                addressSnapshotJson = objectMapper.writeValueAsString(inlineAddr);
+                if (request.fullName() != null && !request.fullName().isBlank()) {
+                    resolvedCustomerName = request.fullName().trim();
+                }
             } else {
                 throw new BadRequestException("Shipping address information is required");
             }
@@ -176,6 +196,9 @@ public class OrderServiceImpl implements OrderService {
         String customerFirst = user.getFirstName() != null ? user.getFirstName() : "";
         String customerLast = user.getLastName() != null ? user.getLastName() : "";
         String fullCustomerName = (customerFirst + " " + customerLast).trim();
+        if (fullCustomerName.isEmpty() && resolvedCustomerName != null) {
+            fullCustomerName = resolvedCustomerName;
+        }
         order.setCustomerName(fullCustomerName.isEmpty() ? null : fullCustomerName);
 
         // Create Order Items Snapshots
@@ -183,13 +206,26 @@ public class OrderServiceImpl implements OrderService {
             ProductVariant variant = cartItem.getProductVariant();
             OrderItem item = new OrderItem();
             item.setProductVariant(variant);
-            item.setProductNameSnapshot(variant.getProduct().getName());
-            item.setSkuSnapshot(variant.getSku());
-            item.setSizeSnapshot(variant.getSize());
-            item.setColorSnapshot(variant.getColor());
-            item.setUnitPrice(variant.getPrice());
-            item.setQuantity(cartItem.getQuantity());
-            item.setTotalPrice(variant.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity())));
+
+            String prodName = (variant.getProduct() != null && variant.getProduct().getName() != null)
+                ? variant.getProduct().getName() : "Odessi Garment";
+            String sku = (variant.getSku() != null && !variant.getSku().isBlank())
+                ? variant.getSku() : ("SKU-" + variant.getId());
+            String size = (variant.getSize() != null && !variant.getSize().isBlank())
+                ? variant.getSize() : "Standard";
+            String color = (variant.getColor() != null && !variant.getColor().isBlank())
+                ? variant.getColor() : "Default";
+            BigDecimal unitPrice = variant.getPrice() != null ? variant.getPrice() : BigDecimal.ZERO;
+            int qty = Math.max(1, cartItem.getQuantity());
+            BigDecimal totalPrice = unitPrice.multiply(BigDecimal.valueOf(qty));
+
+            item.setProductNameSnapshot(prodName);
+            item.setSkuSnapshot(sku);
+            item.setSizeSnapshot(size);
+            item.setColorSnapshot(color);
+            item.setUnitPrice(unitPrice);
+            item.setQuantity(qty);
+            item.setTotalPrice(totalPrice);
 
             order.addItem(item);
         }

@@ -163,6 +163,7 @@ public class ProductionEmailService implements EmailService {
         String fromFormatted = String.format("%s <%s>", fromName, fromEmail);
 
         if (resendClient != null) {
+            String messageId = null;
             try {
                 CreateEmailOptions params = CreateEmailOptions.builder()
                         .from(fromFormatted)
@@ -172,19 +173,19 @@ public class ProductionEmailService implements EmailService {
                         .build();
 
                 CreateEmailResponse response = resendClient.emails().send(params);
-                String messageId = (response != null && response.getId() != null) ? response.getId() : "ok";
-                log.info("[EMAIL] Resend success: {}", messageId);
-                return;
+                messageId = (response != null && response.getId() != null) ? response.getId() : null;
+                if (messageId != null) {
+                    log.info("[EMAIL] Resend success: {}", messageId);
+                }
             } catch (Exception e) {
-                log.error("[EMAIL] Resend failed");
-                log.error("[EMAIL] Order: {}", orderNumber);
-                log.error("[EMAIL] Error: {}", e.getMessage());
+                log.error("[EMAIL] Resend failed for order {} with sender '{}': {}", orderNumber, fromFormatted, e.getMessage());
 
                 // Fallback to verified sandbox sender if custom domain is not yet verified in Resend
                 if (!fromEmail.equals("onboarding@resend.dev") && e.getMessage() != null &&
-                        (e.getMessage().toLowerCase().contains("verify") || e.getMessage().toLowerCase().contains("domain") || e.getMessage().toLowerCase().contains("forbidden"))) {
+                        (e.getMessage().toLowerCase().contains("verify") || e.getMessage().toLowerCase().contains("domain")
+                                || e.getMessage().toLowerCase().contains("forbidden") || e.getMessage().toLowerCase().contains("not verified"))) {
                     try {
-                        log.info("[EMAIL] Retrying with verified sandbox sender: onboarding@resend.dev");
+                        log.info("[EMAIL] Retrying with verified sandbox sender: Odessi <onboarding@resend.dev>");
                         CreateEmailOptions fallbackParams = CreateEmailOptions.builder()
                                 .from("Odessi <onboarding@resend.dev>")
                                 .to(to.trim())
@@ -192,13 +193,26 @@ public class ProductionEmailService implements EmailService {
                                 .html(htmlBody)
                                 .build();
                         CreateEmailResponse fallbackResp = resendClient.emails().send(fallbackParams);
-                        String fallbackId = (fallbackResp != null && fallbackResp.getId() != null) ? fallbackResp.getId() : "ok";
-                        log.info("[EMAIL] Resend success: {}", fallbackId);
-                        return;
+                        messageId = (fallbackResp != null && fallbackResp.getId() != null) ? fallbackResp.getId() : null;
+                        if (messageId != null) {
+                            log.info("[EMAIL] Resend success: {}", messageId);
+                        }
                     } catch (Exception retryEx) {
-                        log.error("[EMAIL] Sandbox retry also failed: {}", retryEx.getMessage());
+                        log.error("[EMAIL] Sandbox retry also failed for order {}: {}", orderNumber, retryEx.getMessage());
                     }
                 }
+            }
+
+            if (messageId != null) {
+                try {
+                    com.resend.services.emails.model.Email emailRecord = resendClient.emails().get(messageId);
+                    if (emailRecord != null && emailRecord.getLastEvent() != null) {
+                        log.info("[EMAIL] Resend delivery status: id={}, last_event={}", messageId, emailRecord.getLastEvent());
+                    }
+                } catch (Exception statusEx) {
+                    log.debug("[EMAIL] Resend delivery status check skipped/unavailable for id {}: {}", messageId, statusEx.getMessage());
+                }
+                return;
             }
         }
 
@@ -512,59 +526,64 @@ public class ProductionEmailService implements EmailService {
     private String buildOrderConfirmationEmailHtml(Order order, String frontendUrl) {
         int year = Year.now().getValue();
         String orderNumber = escapeHtml(order.getOrderNumber());
-        String customerName = escapeHtml(order.getCustomerName() != null ? order.getCustomerName() : "Valued Customer");
-        String paymentStatus = order.getPaymentStatus() != null ? order.getPaymentStatus().name() : "CAPTURED";
+        String customerName = escapeHtml(order.getCustomerName() != null && !order.getCustomerName().isBlank()
+                ? order.getCustomerName() : "Valued Customer");
+        String paymentStatus = order.getPaymentStatus() != null ? order.getPaymentStatus().name() : "PAID";
 
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a").withZone(ZoneId.of("Asia/Kolkata"));
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a 'IST'").withZone(ZoneId.of("Asia/Kolkata"));
         String orderDate = dtf.format(order.getCreatedAt() != null ? order.getCreatedAt() : Instant.now());
 
-        String addressHtml = formatAddressHtml(order.getShippingAddressSnapshot());
+        String addressHtml = formatAddressHtml(order);
 
         StringBuilder itemsRows = new StringBuilder();
         if (order.getItems() != null && !order.getItems().isEmpty()) {
             for (OrderItem item : order.getItems()) {
                 String itemName = escapeHtml(item.getProductNameSnapshot() != null ? item.getProductNameSnapshot() : "Odessi Garment");
                 String sku = escapeHtml(item.getSkuSnapshot() != null ? item.getSkuSnapshot() : "—");
+                String color = escapeHtml(item.getColorSnapshot() != null && !item.getColorSnapshot().isBlank() ? item.getColorSnapshot() : "—");
+                String size = escapeHtml(item.getSizeSnapshot() != null && !item.getSizeSnapshot().isBlank() ? item.getSizeSnapshot() : "—");
 
-                String color = item.getColorSnapshot();
-                String size = item.getSizeSnapshot();
-                String variantDesc;
-                if (color != null && !color.isBlank() && size != null && !size.isBlank()) {
-                    variantDesc = escapeHtml(color + " / " + size);
-                } else if (color != null && !color.isBlank()) {
-                    variantDesc = escapeHtml(color);
-                } else if (size != null && !size.isBlank()) {
-                    variantDesc = escapeHtml(size);
-                } else {
-                    variantDesc = "Standard";
-                }
-
-                String unitPrice = item.getUnitPrice() != null ? "₹" + item.getUnitPrice().toPlainString() : "—";
-                int qty = item.getQuantity();
-                String totalPrice = item.getTotalPrice() != null ? "₹" + item.getTotalPrice().toPlainString() : "—";
+                int qty = item.getQuantity() > 0 ? item.getQuantity() : 1;
+                String unitPrice = item.getUnitPrice() != null ? "₹" + item.getUnitPrice().setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() : "—";
+                BigDecimal itemTotal = item.getTotalPrice() != null ? item.getTotalPrice()
+                        : (item.getUnitPrice() != null ? item.getUnitPrice().multiply(BigDecimal.valueOf(qty)) : BigDecimal.ZERO);
+                String subtotal = "₹" + itemTotal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
 
                 itemsRows.append("""
-                    <tr>
-                        <td style="padding:12px;border-bottom:1px solid #EFECE6;">
-                            <strong style="color:#080808;font-size:14px;">%s</strong><br>
-                            <span style="font-size:12px;color:#777777;">SKU: %s &bull; %s</span>
-                        </td>
-                        <td style="padding:12px;border-bottom:1px solid #EFECE6;text-align:center;font-size:14px;color:#080808;">%d</td>
-                        <td style="padding:12px;border-bottom:1px solid #EFECE6;text-align:right;font-size:14px;color:#080808;">%s</td>
-                        <td style="padding:12px;border-bottom:1px solid #EFECE6;text-align:right;font-size:14px;font-weight:600;color:#080808;">%s</td>
+                    <tr style="border-bottom:1px solid #EFECE6;">
+                        <td style="padding:12px 8px;font-size:13px;font-weight:600;color:#080808;">%s</td>
+                        <td style="padding:12px 8px;font-size:12px;font-family:monospace;color:#666666;">%s</td>
+                        <td style="padding:12px 8px;font-size:12px;color:#555555;text-align:center;">%s</td>
+                        <td style="padding:12px 8px;font-size:12px;color:#555555;text-align:center;">%s</td>
+                        <td style="padding:12px 8px;font-size:13px;color:#080808;text-align:center;font-weight:600;">%d</td>
+                        <td style="padding:12px 8px;font-size:13px;color:#080808;text-align:right;">%s</td>
+                        <td style="padding:12px 8px;font-size:13px;font-weight:600;color:#080808;text-align:right;">%s</td>
                     </tr>
-                """.formatted(itemName, sku, variantDesc, qty, unitPrice, totalPrice));
+                """.formatted(itemName, sku, color, size, qty, unitPrice, subtotal));
             }
         } else {
-            itemsRows.append("<tr><td colspan='4' style='padding:16px;text-align:center;color:#777777;'>Order items details recorded.</td></tr>");
+            itemsRows.append("<tr><td colspan='7' style='padding:20px;text-align:center;color:#777777;font-size:13px;'>Order items recorded in system.</td></tr>");
         }
 
-        String subtotal = order.getSubtotal() != null ? "₹" + order.getSubtotal().toPlainString() : "₹0";
-        String shipping = (order.getShippingAmount() != null && order.getShippingAmount().compareTo(BigDecimal.ZERO) > 0)
-                ? "₹" + order.getShippingAmount().toPlainString() : "FREE";
-        String discount = (order.getDiscountAmount() != null && order.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0)
-                ? "-₹" + order.getDiscountAmount().toPlainString() : "₹0";
-        String total = order.getTotalAmount() != null ? "₹" + order.getTotalAmount().toPlainString() : "₹0";
+        BigDecimal subtotalVal = order.getSubtotal() != null ? order.getSubtotal() : (order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO);
+        String subtotalStr = "₹" + subtotalVal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
+
+        BigDecimal shipVal = order.getShippingAmount() != null ? order.getShippingAmount() : BigDecimal.ZERO;
+        String shippingStr = shipVal.compareTo(BigDecimal.ZERO) > 0 ? "₹" + shipVal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() : "FREE";
+
+        BigDecimal discVal = order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO;
+        String discountStr = discVal.compareTo(BigDecimal.ZERO) > 0 ? "-₹" + discVal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() : "₹0.00";
+
+        BigDecimal taxVal = order.getTaxAmount() != null ? order.getTaxAmount() : BigDecimal.ZERO;
+        String taxStr = taxVal.compareTo(BigDecimal.ZERO) > 0 ? "₹" + taxVal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() : "Included";
+
+        BigDecimal totalVal = order.getTotalAmount() != null ? order.getTotalAmount() : subtotalVal;
+        String totalStr = "₹" + totalVal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
+
+        String razorpayOrderId = escapeHtml(order.getRazorpayOrderId() != null && !order.getRazorpayOrderId().isBlank()
+                ? order.getRazorpayOrderId() : "—");
+        String razorpayPaymentId = escapeHtml(order.getRazorpayPaymentId() != null && !order.getRazorpayPaymentId().isBlank()
+                ? order.getRazorpayPaymentId() : "—");
 
         String cleanOrigin = cleanUrl(frontendUrl);
         String viewOrderUrl = cleanOrigin + "/account";
@@ -578,14 +597,15 @@ public class ProductionEmailService implements EmailService {
                 <title>Order Confirmed — %s</title>
                 <style>
                     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #080808; background-color: #FAF9F6; margin: 0; padding: 24px; }
-                    .container { max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #EFECE6; }
+                    .container { max-width: 640px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #EFECE6; }
                     .header { background: #080808; color: #FAF9F6; padding: 36px 30px; text-align: center; }
                     .content { padding: 36px 32px; }
-                    .badge { display: inline-block; background: #E8F5E9; color: #2E7D32; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px; }
+                    .badge { display: inline-block; background: #E8F5E9; color: #2E7D32; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; }
                     .card { background: #FAF9F6; border: 1px solid #EFECE6; border-radius: 8px; padding: 18px 20px; margin: 20px 0; }
-                    .items-table { width: 100%%; border-collapse: collapse; margin: 24px 0; }
-                    .items-table th { background: #FAF9F6; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #555555; border-bottom: 2px solid #EFECE6; }
-                    .totals-table { width: 100%%; border-collapse: collapse; margin-top: 16px; }
+                    .table-wrapper { width: 100%%; overflow-x: auto; margin: 20px 0; }
+                    .items-table { width: 100%%; border-collapse: collapse; min-width: 480px; }
+                    .items-table th { background: #FAF9F6; padding: 10px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #555555; border-bottom: 2px solid #EFECE6; }
+                    .totals-table { width: 100%%; border-collapse: collapse; margin-top: 14px; }
                     .totals-table td { padding: 6px 0; font-size: 14px; }
                     .button { display: inline-block; background: #080808; color: #ffffff !important; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; margin: 24px 0 12px; }
                     .footer { background: #F7F5F0; padding: 24px 30px; text-align: center; font-size: 12px; color: #7A7A7A; border-top: 1px solid #EFECE6; }
@@ -594,46 +614,60 @@ public class ProductionEmailService implements EmailService {
             <body>
                 <div class="container">
                     <div class="header">
-                        <h1 style="margin:0;font-size:26px;font-weight:300;letter-spacing:4px;">ODESSI.TFI</h1>
-                        <p style="margin:8px 0 0;font-size:11px;opacity:0.8;letter-spacing:2px;text-transform:uppercase;">Wear Your Story</p>
+                        <h1 style="margin:0;font-size:26px;font-weight:300;letter-spacing:4px;color:#FAF9F6;">ODESSI.TFI</h1>
+                        <p style="margin:8px 0 0;font-size:11px;opacity:0.8;letter-spacing:2px;text-transform:uppercase;color:#FAF9F6;">Wear Your Story.</p>
                     </div>
                     <div class="content">
-                        <span class="badge">&bull; Payment Confirmed</span>
-                        <h2 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#080808;">Thank you for your order!</h2>
-                        <p style="margin:0 0 20px;font-size:14px;color:#555555;">Hello %s, we've received your order and our team is preparing it with meticulous care.</p>
+                        <div style="text-align:center;">
+                            <span class="badge">&bull; Payment Confirmed</span>
+                            <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:1px;color:#080808;text-transform:uppercase;">ORDER CONFIRMED</h2>
+                            <p style="margin:0 0 20px;font-size:14px;color:#555555;">Thank you for your order, %s. We are preparing your garment with the highest craftsmanship.</p>
+                        </div>
                         
+                        <!-- Order Metadata -->
                         <div class="card">
-                            <table style="width:100%%;font-size:13px;">
+                            <table style="width:100%%;font-size:13px;border-collapse:collapse;">
                                 <tr>
-                                    <td style="color:#777777;padding:4px 0;">Order Number:</td>
+                                    <td style="color:#777777;padding:5px 0;">Order Number:</td>
+                                    <td style="font-weight:700;color:#080808;text-align:right;font-family:monospace;font-size:13px;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#777777;padding:5px 0;">Customer Name:</td>
                                     <td style="font-weight:600;color:#080808;text-align:right;">%s</td>
                                 </tr>
                                 <tr>
-                                    <td style="color:#777777;padding:4px 0;">Order Date:</td>
+                                    <td style="color:#777777;padding:5px 0;">Order Date / Time:</td>
                                     <td style="color:#080808;text-align:right;">%s</td>
                                 </tr>
                                 <tr>
-                                    <td style="color:#777777;padding:4px 0;">Payment Status:</td>
-                                    <td style="font-weight:600;color:#2E7D32;text-align:right;">%s</td>
+                                    <td style="color:#777777;padding:5px 0;">Order Status:</td>
+                                    <td style="font-weight:600;color:#2E7D32;text-align:right;">CONFIRMED</td>
                                 </tr>
                             </table>
                         </div>
 
-                        <h3 style="margin:28px 0 12px;font-size:15px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:#080808;">Order Items</h3>
-                        <table class="items-table">
-                            <thead>
-                                <tr>
-                                    <th style="text-align:left;">Item</th>
-                                    <th style="text-align:center;">Qty</th>
-                                    <th style="text-align:right;">Price</th>
-                                    <th style="text-align:right;">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                %s
-                            </tbody>
-                        </table>
+                        <!-- Product Details Table -->
+                        <h3 style="margin:28px 0 12px;font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#080808;">Product Details</h3>
+                        <div class="table-wrapper">
+                            <table class="items-table">
+                                <thead>
+                                    <tr>
+                                        <th style="text-align:left;">Product</th>
+                                        <th style="text-align:left;">SKU</th>
+                                        <th style="text-align:center;">Color</th>
+                                        <th style="text-align:center;">Size</th>
+                                        <th style="text-align:center;">Qty</th>
+                                        <th style="text-align:right;">Unit Price</th>
+                                        <th style="text-align:right;">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    %s
+                                </tbody>
+                            </table>
+                        </div>
 
+                        <!-- Totals Breakdown -->
                         <div style="border-top:2px solid #080808;padding-top:12px;margin-top:20px;">
                             <table class="totals-table">
                                 <tr>
@@ -648,6 +682,10 @@ public class ProductionEmailService implements EmailService {
                                     <td style="color:#555555;">Discount</td>
                                     <td style="text-align:right;color:#2E7D32;font-weight:500;">%s</td>
                                 </tr>
+                                <tr>
+                                    <td style="color:#555555;">Estimated Taxes (GST)</td>
+                                    <td style="text-align:right;font-weight:500;color:#555555;">%s</td>
+                                </tr>
                                 <tr style="font-size:16px;border-top:1px solid #EFECE6;">
                                     <td style="padding-top:10px;font-weight:700;color:#080808;">Total Paid</td>
                                     <td style="padding-top:10px;text-align:right;font-weight:700;color:#080808;">%s</td>
@@ -655,7 +693,31 @@ public class ProductionEmailService implements EmailService {
                             </table>
                         </div>
 
-                        <div class="card" style="margin-top:28px;">
+                        <!-- Payment Details Card -->
+                        <div class="card" style="margin-top:24px;">
+                            <h4 style="margin:0 0 10px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#555555;">Payment Details</h4>
+                            <table style="width:100%%;font-size:13px;border-collapse:collapse;">
+                                <tr>
+                                    <td style="color:#777777;padding:4px 0;width:40%%;">Payment Method:</td>
+                                    <td style="font-weight:600;color:#080808;text-align:right;">Razorpay</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#777777;padding:4px 0;">Payment Status:</td>
+                                    <td style="font-weight:600;color:#2E7D32;text-align:right;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#777777;padding:4px 0;">Razorpay Order ID:</td>
+                                    <td style="font-family:monospace;font-size:12px;color:#080808;text-align:right;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="color:#777777;padding:4px 0;">Razorpay Payment ID:</td>
+                                    <td style="font-family:monospace;font-size:12px;color:#080808;text-align:right;">%s</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- Shipping Address Card -->
+                        <div class="card" style="margin-top:20px;">
                             <h4 style="margin:0 0 10px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#555555;">Shipping Address</h4>
                             <div style="font-size:13px;line-height:1.6;color:#080808;">
                                 %s
@@ -664,7 +726,7 @@ public class ProductionEmailService implements EmailService {
 
                         <div style="text-align:center;margin:32px 0 16px;">
                             <a href="%s" class="button">VIEW YOUR ORDER</a>
-                            <p style="margin:12px 0 0;font-size:12px;color:#777777;">Questions? Contact customer care at <a href="mailto:support@odessitfi.me" style="color:#080808;font-weight:600;">support@odessitfi.me</a></p>
+                            <p style="margin:12px 0 0;font-size:12px;color:#777777;">Questions about your order? Contact customer care at <a href="mailto:support@odessitfi.me" style="color:#080808;font-weight:600;">support@odessitfi.me</a></p>
                         </div>
                     </div>
                     <div class="footer">
@@ -678,45 +740,91 @@ public class ProductionEmailService implements EmailService {
             orderNumber,
             customerName,
             orderNumber,
+            customerName,
             orderDate,
-            paymentStatus,
             itemsRows.toString(),
-            subtotal,
-            shipping,
-            discount,
-            total,
+            subtotalStr,
+            shippingStr,
+            discountStr,
+            taxStr,
+            totalStr,
+            paymentStatus,
+            razorpayOrderId,
+            razorpayPaymentId,
             addressHtml,
             viewOrderUrl,
             year
         );
     }
 
-    private String formatAddressHtml(String snapshotJson) {
+    private String formatAddressHtml(Order order) {
+        String snapshotJson = order.getShippingAddressSnapshot();
+        String fallbackName = order.getCustomerName();
         if (snapshotJson == null || snapshotJson.isBlank()) {
-            return "<p style='margin:0;color:#777777;'>Address details recorded in order.</p>";
+            StringBuilder sb = new StringBuilder();
+            if (fallbackName != null && !fallbackName.isBlank()) {
+                sb.append("<strong style='color:#080808;'>").append(escapeHtml(fallbackName)).append("</strong><br>");
+            }
+            sb.append("<span style='color:#777777;'>Address details recorded in order.</span>");
+            return sb.toString();
         }
         try {
-            ObjectMapper mapper = new ObjectMapper();
+            ObjectMapper mapper = new ObjectMapper()
+                    .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
             JsonNode node = mapper.readTree(snapshotJson);
+            if (node == null || !node.isObject()) {
+                return "<span style='color:#777777;'>Address recorded on file.</span>";
+            }
             StringBuilder sb = new StringBuilder();
-            if (node.hasNonNull("fullName")) sb.append("<strong>").append(escapeHtml(node.get("fullName").asText())).append("</strong><br>");
-            if (node.hasNonNull("phone")) sb.append(escapeHtml(node.get("phone").asText())).append("<br>");
-            if (node.hasNonNull("addressLine1")) sb.append(escapeHtml(node.get("addressLine1").asText())).append("<br>");
-            if (node.hasNonNull("addressLine2") && !node.get("addressLine2").asText().isBlank()) {
-                sb.append(escapeHtml(node.get("addressLine2").asText())).append("<br>");
+            String name = getFieldText(node, "fullName", "name", "customerName");
+            if (name == null || name.isBlank()) {
+                name = fallbackName;
             }
-            String city = node.hasNonNull("city") ? node.get("city").asText() : "";
-            String state = node.hasNonNull("state") ? node.get("state").asText() : "";
-            String zip = node.hasNonNull("postalCode") ? node.get("postalCode").asText() : "";
-            String cityState = java.util.stream.Stream.of(city, state).filter(s -> !s.isBlank()).collect(java.util.stream.Collectors.joining(", "));
-            if (!cityState.isBlank() || !zip.isBlank()) {
-                sb.append(escapeHtml(cityState)).append(" ").append(escapeHtml(zip)).append("<br>");
+            if (name != null && !name.isBlank()) {
+                sb.append("<strong style='color:#080808;'>").append(escapeHtml(name)).append("</strong><br>");
             }
-            if (node.hasNonNull("country")) sb.append(escapeHtml(node.get("country").asText()));
+            String phone = getFieldText(node, "phone", "phoneNumber");
+            if (phone != null && !phone.isBlank()) {
+                sb.append("<span style='color:#555555;'>Phone: ").append(escapeHtml(phone)).append("</span><br>");
+            }
+            String line1 = getFieldText(node, "addressLine1", "address_line_1", "line1", "address");
+            if (line1 != null && !line1.isBlank()) {
+                sb.append(escapeHtml(line1)).append("<br>");
+            }
+            String line2 = getFieldText(node, "addressLine2", "address_line_2", "line2");
+            if (line2 != null && !line2.isBlank()) {
+                sb.append(escapeHtml(line2)).append("<br>");
+            }
+            String city = getFieldText(node, "city");
+            String state = getFieldText(node, "state");
+            String zip = getFieldText(node, "postalCode", "postal_code", "pincode", "zipCode", "zip");
+            String cityStateZip = java.util.stream.Stream.of(city, state, zip)
+                    .filter(s -> s != null && !s.isBlank())
+                    .collect(java.util.stream.Collectors.joining(", "));
+            if (!cityStateZip.isBlank()) {
+                sb.append(escapeHtml(cityStateZip)).append("<br>");
+            }
+            String country = getFieldText(node, "country");
+            if (country == null || country.isBlank()) {
+                country = "India";
+            }
+            sb.append("<span style='color:#555555;'>").append(escapeHtml(country)).append("</span>");
             return sb.toString();
         } catch (Exception e) {
-            return "<p style='margin:0;color:#777777;'>Address on file</p>";
+            return "<span style='color:#777777;'>Address recorded on file</span>";
         }
+    }
+
+    private static String getFieldText(JsonNode root, String... fieldNames) {
+        for (String fieldName : fieldNames) {
+            if (root.hasNonNull(fieldName)) {
+                String val = root.get(fieldName).asText();
+                if (!val.isBlank()) {
+                    return val.trim();
+                }
+            }
+        }
+        return null;
     }
 
     private String escapeHtml(String text) {

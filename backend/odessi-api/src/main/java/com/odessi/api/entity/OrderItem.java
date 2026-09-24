@@ -66,13 +66,52 @@ public class OrderItem {
     public void setOrder(Order order) { this.order = order; }
     public ProductVariant getProductVariant() { return productVariant; }
     public void setProductVariant(ProductVariant productVariant) { this.productVariant = productVariant; }
-    public String getProductNameSnapshot() { return productNameSnapshot; }
+    public String getProductNameSnapshot() {
+        if (productNameSnapshot != null && !productNameSnapshot.isBlank()) {
+            return productNameSnapshot;
+        }
+        if (productVariant != null && productVariant.getProduct() != null && productVariant.getProduct().getName() != null) {
+            return productVariant.getProduct().getName();
+        }
+        return "Odessi Garment";
+    }
+
     public void setProductNameSnapshot(String productNameSnapshot) { this.productNameSnapshot = productNameSnapshot; }
-    public String getSkuSnapshot() { return skuSnapshot; }
+
+    public String getSkuSnapshot() {
+        if (skuSnapshot != null && !skuSnapshot.isBlank()) {
+            return skuSnapshot;
+        }
+        if (productVariant != null && productVariant.getSku() != null && !productVariant.getSku().isBlank()) {
+            return productVariant.getSku();
+        }
+        return "—";
+    }
+
     public void setSkuSnapshot(String skuSnapshot) { this.skuSnapshot = skuSnapshot; }
-    public String getSizeSnapshot() { return sizeSnapshot; }
+
+    public String getSizeSnapshot() {
+        if (sizeSnapshot != null && !sizeSnapshot.isBlank()) {
+            return sizeSnapshot;
+        }
+        if (productVariant != null && productVariant.getSize() != null && !productVariant.getSize().isBlank()) {
+            return productVariant.getSize();
+        }
+        return "Standard";
+    }
+
     public void setSizeSnapshot(String sizeSnapshot) { this.sizeSnapshot = sizeSnapshot; }
-    public String getColorSnapshot() { return colorSnapshot; }
+
+    public String getColorSnapshot() {
+        if (colorSnapshot != null && !colorSnapshot.isBlank()) {
+            return colorSnapshot;
+        }
+        if (productVariant != null && productVariant.getColor() != null && !productVariant.getColor().isBlank()) {
+            return productVariant.getColor();
+        }
+        return "Default";
+    }
+
     public void setColorSnapshot(String colorSnapshot) { this.colorSnapshot = colorSnapshot; }
     public BigDecimal getUnitPrice() { return unitPrice; }
     public void setUnitPrice(BigDecimal unitPrice) { this.unitPrice = unitPrice; }

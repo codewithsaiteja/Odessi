@@ -27,7 +27,10 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
 
     Optional<Order> findByIdAndUserId(Long id, Long userId);
 
-    @Query("SELECT o FROM Order o LEFT JOIN FETCH o.items i WHERE o.orderNumber = :orderNumber")
+    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.id = :id")
+    Optional<Order> findByIdWithItems(@Param("id") Long id);
+
+    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.orderNumber = :orderNumber")
     Optional<Order> findByOrderNumberWithItems(@Param("orderNumber") String orderNumber);
 
     /** Count orders today for order number generation. */

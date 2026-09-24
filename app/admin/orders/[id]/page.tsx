@@ -154,7 +154,17 @@ export default function AdminOrderDetailPage() {
 
       {/* Order Summary & Address Snapshot Grid */}
       {(() => {
-        const shippingAddress = order.shippingAddress || (typeof order.shippingAddressSnapshot === 'string' ? (() => { try { return JSON.parse(order.shippingAddressSnapshot); } catch { return null; } })() : null);
+        let shippingAddress = order.shippingAddress;
+        if (!shippingAddress && typeof order.shippingAddressSnapshot === 'string') {
+          try {
+            shippingAddress = JSON.parse(order.shippingAddressSnapshot);
+          } catch {
+            shippingAddress = null;
+          }
+        }
+        const razorpayOrderId = order.razorpayOrderId || order.payments?.[0]?.providerOrderId || order.payments?.[0]?.razorpayOrderId || null;
+        const razorpayPaymentId = order.razorpayPaymentId || order.payments?.[0]?.providerPaymentId || order.payments?.[0]?.razorpayPaymentId || null;
+
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Shipping Address Snapshot */}
@@ -169,8 +179,8 @@ export default function AdminOrderDetailPage() {
                   {shippingAddress.phone && <p>{shippingAddress.phone}</p>}
                   {shippingAddress.addressLine1 && <p>{shippingAddress.addressLine1}</p>}
                   {shippingAddress.addressLine2 && <p>{shippingAddress.addressLine2}</p>}
-                  {(shippingAddress.city || shippingAddress.state || shippingAddress.postalCode) && (
-                    <p>{[shippingAddress.city, shippingAddress.state].filter(Boolean).join(", ")} {shippingAddress.postalCode || ""}</p>
+                  {([shippingAddress.city, shippingAddress.state].filter(Boolean).length > 0 || shippingAddress.postalCode) && (
+                    <p>{[shippingAddress.city, shippingAddress.state].filter(Boolean).join(", ")}{shippingAddress.postalCode ? ` - ${shippingAddress.postalCode}` : ""}</p>
                   )}
                   {shippingAddress.country && <p className="text-slate-500">{shippingAddress.country}</p>}
                 </div>
@@ -188,9 +198,9 @@ export default function AdminOrderDetailPage() {
               <div className="text-xs text-slate-700 space-y-1 font-mono">
                 <p>Customer: <span className="font-semibold text-slate-900">{order.customerName || "Customer"}</span></p>
                 <p>Email: <span className="font-semibold text-slate-900">{order.customerEmail || "N/A"}</span></p>
-                <p>Razorpay Order ID: <span className="font-semibold text-slate-900">{order.razorpayOrderId || "N/A"}</span></p>
-                {order.razorpayPaymentId && (
-                  <p>Razorpay Payment ID: <span className="font-semibold text-slate-900">{order.razorpayPaymentId}</span></p>
+                <p>Razorpay Order ID: <span className="font-semibold text-slate-900">{razorpayOrderId || "N/A"}</span></p>
+                {razorpayPaymentId && (
+                  <p>Razorpay Payment ID: <span className="font-semibold text-slate-900">{razorpayPaymentId}</span></p>
                 )}
                 <p>Currency: <span className="font-semibold text-slate-900">{order.currency}</span></p>
                 <p>Total Amount: <span className="text-emerald-700 font-bold text-sm">₹{order.totalAmount}</span></p>

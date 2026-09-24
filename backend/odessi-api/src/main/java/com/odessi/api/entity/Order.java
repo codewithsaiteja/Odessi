@@ -212,7 +212,15 @@ public class Order {
             String first = user.getFirstName() != null ? user.getFirstName() : "";
             String last = user.getLastName() != null ? user.getLastName() : "";
             String full = (first + " " + last).trim();
-            return full.isEmpty() ? null : full;
+            if (!full.isEmpty()) return full;
+        }
+        if (shippingAddressSnapshot != null && !shippingAddressSnapshot.isBlank()) {
+            try {
+                com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(shippingAddressSnapshot);
+                if (node.hasNonNull("fullName") && !node.get("fullName").asText().isBlank()) {
+                    return node.get("fullName").asText().trim();
+                }
+            } catch (Exception ignored) {}
         }
         return null;
     }
