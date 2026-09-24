@@ -21,7 +21,12 @@
  *   2. A valid X-XSRF-TOKEN header for CSRF protection.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+const DEFAULT_API_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://odessi-backend.onrender.com"
+    : "http://localhost:8080";
+
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL).replace(/\/+$/, "");
 
 // ─── CSRF Token Manager ─────────────────────────────────────────────────────
 

@@ -31,13 +31,14 @@ export default function Filters({ onFiltersChange, className = "" }: FiltersProp
           getCollections().catch(() => [] as import("@/types").Collection[]),
         ]);
 
-        if (catRes?.data && Array.isArray(catRes.data) && catRes.data.length > 0) {
-          setAvailableCategories(catRes.data.map(c => ({
+        const catList: any[] = Array.isArray(catRes) ? catRes : (Array.isArray(catRes?.data) ? catRes.data : []);
+        if (catList.length > 0) {
+          setAvailableCategories(catList.map(c => ({
             id: String(c.id),
             name: c.name,
             slug: c.slug as any,
             description: c.description || "",
-            coverImage: c.coverImage || ""
+            coverImage: c.image || c.imageUrl || c.coverImage || ""
           })));
         }
         if (Array.isArray(colData) && colData.length > 0) {

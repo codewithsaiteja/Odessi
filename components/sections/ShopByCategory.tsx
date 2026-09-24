@@ -19,39 +19,58 @@ export const revalidate = 0;
  *  3. Neutral placeholder SVG
  */
 function resolveCoverImage(cat: Category): string {
-  const mediaRef = cat.image || cat.imageUrl;
+  const mediaRef = cat.image || cat.imageUrl || cat.coverImage;
   if (mediaRef) {
     return getMediaUrl(mediaRef);
   }
-  return cat.coverImage ? getMediaUrl(cat.coverImage) : "/placeholder-product.svg";
+  return "/placeholder-product.svg";
 }
 
 export default async function ShopByCategory() {
   const { shopByCategory } = siteConfig;
 
-  // Build a slug → static-fallback lookup so we never rely on array index
-  const fallbackBySlug = new Map<string, Category>(defaultCategories.map((c) => [c.slug as string, c]));
-
   let displayCategories: Category[] = defaultCategories;
 
   try {
     const res = await getCategories();
-    if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
-      displayCategories = res.data.map((cat) => {
-        // Map by slug — never by index
-        const fallback = fallbackBySlug.get(cat.slug as string);
+    // Normalize response: res may be unwrapped directly by client.ts handleResponse (Array)
+    // or wrapped in an ApiResponse object ({ success: true, data: [...] })
+    const backendCategories: any[] = Array.isArray(res)
+      ? res
+      : Array.isArray((res as any)?.data)
+      ? (res as any).data
+      : [];
+
+    if (backendCategories.length > 0) {
+      // Map by slug — always preserve canonical category order (tees, hoodies, new-drops, custom)
+      displayCategories = defaultCategories.map((defaultCat) => {
+        const backendCat = backendCategories.find(
+          (b) => b.slug && b.slug.toLowerCase() === defaultCat.slug.toLowerCase()
+        );
+
+        if (!backendCat) {
+          return defaultCat;
+        }
+
+        const backendImage = backendCat.image || backendCat.imageUrl;
+
         return {
-          // Start from fallback so static coverImage is available
-          ...fallback,
-          // Overlay all backend fields (id, name, slug, description, image, productCount…)
-          ...cat,
-          // Prefer backend image; fall back to static coverImage
-          coverImage: fallback?.coverImage ?? "/placeholder-product.svg",
+          ...defaultCat,
+          ...backendCat,
+          id: String(backendCat.id || defaultCat.id),
+          name: backendCat.name || defaultCat.name,
+          slug: defaultCat.slug,
+          description: backendCat.description || defaultCat.description,
+          // CRITICAL: Backend image has highest priority over static Unsplash fallback
+          image: backendImage || defaultCat.image || null,
+          imageUrl: backendImage || defaultCat.imageUrl || null,
+          coverImage: backendImage || defaultCat.coverImage || "/placeholder-product.svg",
+          productCount: backendCat.productCount ?? defaultCat.productCount,
         } as Category;
       });
     }
-  } catch {
-    // Network error: silently fall back to static data
+  } catch (err) {
+    console.error("[ShopByCategory] Failed to fetch backend categories, using defaults:", err);
     displayCategories = defaultCategories;
   }
 

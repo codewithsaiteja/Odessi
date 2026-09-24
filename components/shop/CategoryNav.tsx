@@ -27,8 +27,9 @@ export default function CategoryNav({ className = "" }: CategoryNavProps) {
     async function loadPublicCategories() {
       try {
         const res = await getCategories();
-        if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
-          const apiCats = res.data.map(cat => ({
+        const list: any[] = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+        if (list.length > 0) {
+          const apiCats = list.map(cat => ({
             id: String(cat.id),
             name: cat.name,
             slug: cat.slug,
