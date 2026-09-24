@@ -108,6 +108,15 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
         return uploadBlob(blobName, file, file.getContentType());
     }
 
+    // ─── Storefront / Content Image ──────────────────────────────────────────
+
+    @Override
+    public String storeContentImage(MultipartFile file) {
+        validateImage(file);
+        String blobName = "content/" + safeContentFileName(file.getOriginalFilename(), resolveImageExtension(file));
+        return uploadBlob(blobName, file, file.getContentType());
+    }
+
 
     @Override
     public Optional<MediaStream> loadMedia(String category, String filename) {
@@ -116,7 +125,7 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
         }
 
         String safeCategory = category.trim().toLowerCase();
-        if (!"products".equals(safeCategory) && !"social".equals(safeCategory) && !"categories".equals(safeCategory)) {
+        if (!"products".equals(safeCategory) && !"social".equals(safeCategory) && !"categories".equals(safeCategory) && !"content".equals(safeCategory)) {
             return Optional.empty();
         }
 
@@ -257,6 +266,17 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
         return "cat-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8) + extension;
     }
 
+    /**
+     * Generate a collision-resistant, sanitized filename for storefront content media.
+     *
+     * @param originalFilename raw client filename (untrusted)
+     * @param extension        validated extension (.jpg, .png, etc.)
+     * @return safe filename: content-{timestamp}-{uuid8}{extension}
+     */
+    private String safeContentFileName(String originalFilename, String extension) {
+        return "content-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8) + extension;
+    }
+
 
     /**
      * Resolve and validate image extension from content type.
@@ -329,6 +349,9 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
         }
         if (decoded.contains("categories/")) {
             return decoded.substring(decoded.indexOf("categories/"));
+        }
+        if (decoded.contains("content/")) {
+            return decoded.substring(decoded.indexOf("content/"));
         }
 
         return null;

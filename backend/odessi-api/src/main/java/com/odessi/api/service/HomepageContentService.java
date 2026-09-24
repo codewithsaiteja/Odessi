@@ -10,4 +10,5 @@ public interface HomepageContentService {
     List<HomepageContentResponse> getAllSectionsForAdmin();
     HomepageContentResponse getSection(String sectionKey);
     HomepageContentResponse updateSection(String sectionKey, UpdateHomepageContentRequest request, String adminEmail);
+    String uploadContentMedia(org.springframework.web.multipart.MultipartFile file);
 }

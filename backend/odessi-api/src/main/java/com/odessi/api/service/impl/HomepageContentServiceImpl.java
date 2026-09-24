@@ -21,14 +21,17 @@ public class HomepageContentServiceImpl implements HomepageContentService {
     private final HomepageContentRepository repository;
     private final UserRepository userRepository;
     private final AdminAuditService auditService;
+    private final com.odessi.api.service.MediaStorageService mediaStorageService;
 
     public HomepageContentServiceImpl(
             HomepageContentRepository repository,
             UserRepository userRepository,
-            AdminAuditService auditService) {
+            AdminAuditService auditService,
+            com.odessi.api.service.MediaStorageService mediaStorageService) {
         this.repository = repository;
         this.userRepository = userRepository;
         this.auditService = auditService;
+        this.mediaStorageService = mediaStorageService;
     }
 
     private HomepageContentResponse toResponse(HomepageContent c) {
@@ -109,5 +112,11 @@ public class HomepageContentServiceImpl implements HomepageContentService {
         );
 
         return toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public String uploadContentMedia(org.springframework.web.multipart.MultipartFile file) {
+        return mediaStorageService.storeContentImage(file);
     }
 }

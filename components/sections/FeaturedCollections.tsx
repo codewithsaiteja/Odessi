@@ -7,19 +7,102 @@ import { ArrowRight } from "lucide-react";
 import SectionHeading from "@/components/ui/SectionHeading";
 import { getFeaturedCollections } from "@/lib/api/collections";
 import { siteConfig } from "@/config/site";
-import type { Collection } from "@/types";
+import {
+  getHomepageContent,
+  HomepageSection,
+  FeaturedCollectionCardItem,
+  DEFAULT_FEATURED_COLLECTION_CARDS,
+} from "@/lib/api/content";
+import { getMediaUrl } from "@/lib/product-utils";
+
+interface DisplayCard {
+  id: string;
+  name: string;
+  tagline: string;
+  url: string;
+  coverImage: string;
+  ctaLabel: string;
+}
 
 export default function FeaturedCollections() {
-  const { featuredCollection } = siteConfig;
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const { featuredCollection: defaultFeatured } = siteConfig;
+  const [sectionData, setSectionData] = useState<HomepageSection | null>(null);
+  const [cards, setCards] = useState<DisplayCard[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    getFeaturedCollections()
-      .then(setCollections)
-      .catch((err) => console.error("[FeaturedCollections] Failed to load collections:", err));
+    Promise.allSettled([getHomepageContent(), getFeaturedCollections()]).then(
+      ([contentResult, collectionsResult]) => {
+        let cmsSection: HomepageSection | null = null;
+        if (contentResult.status === "fulfilled" && Array.isArray(contentResult.value)) {
+          cmsSection = contentResult.value.find((s) => s.sectionKey === "FEATURED_COLLECTIONS") || null;
+        }
+
+        setSectionData(cmsSection);
+
+        // Parse CMS cards if available
+        let loadedCards: DisplayCard[] = [];
+        if (cmsSection && cmsSection.customPayload) {
+          try {
+            const parsed = JSON.parse(cmsSection.customPayload);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const activeCards: FeaturedCollectionCardItem[] = parsed
+                .filter((c: FeaturedCollectionCardItem) => c.active !== false)
+                .sort((a: FeaturedCollectionCardItem, b: FeaturedCollectionCardItem) => (a.displayOrder || 0) - (b.displayOrder || 0));
+
+              loadedCards = activeCards.map((c) => ({
+                id: c.id,
+                name: c.title,
+                tagline: c.description,
+                url: c.collectionUrl || `/collections/${c.id}`,
+                coverImage: getMediaUrl(c.image),
+                ctaLabel: c.ctaLabel || "EXPLORE",
+              }));
+            }
+          } catch (e) {
+            console.warn("[FeaturedCollections] Error parsing customPayload:", e);
+          }
+        }
+
+        // Fallback to collections API if CMS cards are empty
+        if (loadedCards.length === 0) {
+          if (collectionsResult.status === "fulfilled" && collectionsResult.value.length > 0) {
+            loadedCards = collectionsResult.value.map((c) => ({
+              id: c.id,
+              name: c.name,
+              tagline: c.tagline,
+              url: `/collections/${c.slug}`,
+              coverImage: getMediaUrl(c.coverImage),
+              ctaLabel: "EXPLORE",
+            }));
+          } else {
+            // Fallback to defaults
+            loadedCards = DEFAULT_FEATURED_COLLECTION_CARDS.map((c) => ({
+              id: c.id,
+              name: c.title,
+              tagline: c.description,
+              url: c.collectionUrl,
+              coverImage: getMediaUrl(c.image),
+              ctaLabel: c.ctaLabel || "EXPLORE",
+            }));
+          }
+        }
+
+        setCards(loadedCards);
+        setIsLoaded(true);
+      }
+    );
   }, []);
 
-  if (collections.length === 0) return null;
+  if (!isLoaded) return null;
+  if (sectionData && !sectionData.active) return null;
+  if (cards.length === 0) return null;
+
+  const eyebrow = sectionData?.eyebrow || defaultFeatured.eyebrow;
+  const headline = sectionData?.headline || sectionData?.title || defaultFeatured.headline;
+  const subHeadline = sectionData?.subHeadline || sectionData?.body || defaultFeatured.subHeadline;
+  const viewAllUrl = sectionData?.primaryCtaUrl || "/collections";
+  const viewAllLabel = sectionData?.primaryCtaLabel || "VIEW ALL COLLECTIONS";
 
   return (
     <section
@@ -29,20 +112,19 @@ export default function FeaturedCollections() {
     >
       <div className="container-odessi">
         <SectionHeading
-          eyebrow={featuredCollection.eyebrow}
-          headline={featuredCollection.headline}
-          subHeadline={featuredCollection.subHeadline}
+          eyebrow={eyebrow}
+          headline={headline}
+          subHeadline={subHeadline}
           className="mb-14 lg:mb-18"
           id="featured-collections-heading"
         />
 
         {/* Asymmetric editorial grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 lg:gap-5">
-
           {/* Large feature — col 1-7 */}
-          {collections[0] && (
+          {cards[0] && (
             <CollectionCard
-              collection={collections[0]}
+              card={cards[0]}
               className="lg:col-span-7 aspect-[4/5] lg:aspect-auto lg:min-h-[620px]"
               textSize="large"
             />
@@ -50,16 +132,16 @@ export default function FeaturedCollections() {
 
           {/* Right column — stacked */}
           <div className="lg:col-span-5 flex flex-col gap-4 lg:gap-5">
-            {collections[1] && (
+            {cards[1] && (
               <CollectionCard
-                collection={collections[1]}
+                card={cards[1]}
                 className="flex-1 aspect-[4/3] lg:aspect-auto"
                 textSize="small"
               />
             )}
-            {collections[2] && (
+            {cards[2] && (
               <CollectionCard
-                collection={collections[2]}
+                card={cards[2]}
                 className="flex-1 aspect-[4/3] lg:aspect-auto"
                 textSize="small"
               />
@@ -70,10 +152,10 @@ export default function FeaturedCollections() {
         {/* All collections link */}
         <div className="mt-10 flex justify-end">
           <Link
-            href="/collections"
+            href={viewAllUrl}
             className="btn-ghost text-[var(--color-odessi-black)] group flex items-center gap-2"
           >
-            <span>VIEW ALL COLLECTIONS</span>
+            <span>{viewAllLabel}</span>
             <ArrowRight
               size={14}
               strokeWidth={2}
@@ -89,22 +171,22 @@ export default function FeaturedCollections() {
 /* ── CollectionCard sub-component ── */
 
 interface CollectionCardProps {
-  collection: Collection;
+  card: DisplayCard;
   className?: string;
   textSize?: "large" | "small";
 }
 
-function CollectionCard({ collection, className = "", textSize = "small" }: CollectionCardProps) {
+function CollectionCard({ card, className = "", textSize = "small" }: CollectionCardProps) {
   return (
     <Link
-      href={`/collections/${collection.slug}`}
+      href={card.url}
       className={`relative overflow-hidden group block bg-[var(--color-odessi-graphite)] ${className}`}
-      aria-label={`Explore ${collection.name} collection`}
+      aria-label={`Explore ${card.name} collection`}
     >
       {/* Image */}
       <Image
-        src={collection.coverImage}
-        alt={collection.name}
+        src={card.coverImage}
+        alt={card.name}
         fill
         sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 60vw"
         className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.04] select-none"
@@ -125,13 +207,13 @@ function CollectionCard({ collection, className = "", textSize = "small" }: Coll
               : "text-xl lg:text-2xl font-light"
           }`}
         >
-          {collection.name}
+          {card.name}
         </h3>
         <p className="type-body-sm text-[var(--color-odessi-mist)] mb-4 line-clamp-2">
-          {collection.tagline}
+          {card.tagline}
         </p>
         <span className="inline-flex items-center gap-2 type-caption text-white group-hover:gap-3 transition-all duration-300">
-          EXPLORE
+          {card.ctaLabel}
           <ArrowRight size={12} strokeWidth={2} />
         </span>
       </div>

@@ -42,17 +42,20 @@ public class LocalStorageServiceImpl implements MediaStorageService {
     private final Path uploadDirectory;
     private final Path socialUploadDirectory;
     private final Path categoryUploadDirectory;
+    private final Path contentUploadDirectory;
 
     public LocalStorageServiceImpl() {
         this.uploadDirectory = Paths.get("uploads", "products").toAbsolutePath().normalize();
         this.socialUploadDirectory = Paths.get("uploads", "social").toAbsolutePath().normalize();
         this.categoryUploadDirectory = Paths.get("uploads", "categories").toAbsolutePath().normalize();
+        this.contentUploadDirectory = Paths.get("uploads", "content").toAbsolutePath().normalize();
         try {
             Files.createDirectories(this.uploadDirectory);
             Files.createDirectories(this.socialUploadDirectory);
             Files.createDirectories(this.categoryUploadDirectory);
+            Files.createDirectories(this.contentUploadDirectory);
         } catch (IOException e) {
-            log.error("Could not create upload directories: {}, {} or {}", this.uploadDirectory, this.socialUploadDirectory, this.categoryUploadDirectory, e);
+            log.error("Could not create upload directories: {}, {}, {} or {}", this.uploadDirectory, this.socialUploadDirectory, this.categoryUploadDirectory, this.contentUploadDirectory, e);
         }
     }
 
@@ -191,6 +194,8 @@ public class LocalStorageServiceImpl implements MediaStorageService {
             dir = this.uploadDirectory;
         } else if ("categories".equals(safeCategory)) {
             dir = this.categoryUploadDirectory;
+        } else if ("content".equals(safeCategory)) {
+            dir = this.contentUploadDirectory;
         } else {
             dir = this.socialUploadDirectory;
         }
@@ -284,6 +289,43 @@ public class LocalStorageServiceImpl implements MediaStorageService {
         } catch (IOException e) {
             log.error("Failed to store uploaded category image {}", fileName, e);
             throw new BadRequestException("STORAGE_ERROR", "Failed to store category image on server");
+        }
+    }
+
+    @Override
+    public String storeContentImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("INVALID_FILE", "Upload file cannot be empty");
+        }
+
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new BadRequestException("FILE_TOO_LARGE", "Image size cannot exceed 5MB");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
+            throw new BadRequestException("INVALID_FILE_TYPE", "Only JPG, PNG, and WEBP images are allowed");
+        }
+
+        String originalName = file.getOriginalFilename();
+        String extension = ".jpg";
+        if (originalName != null && originalName.contains(".")) {
+            extension = originalName.substring(originalName.lastIndexOf(".")).toLowerCase();
+            if (!List.of(".jpg", ".jpeg", ".png", ".webp").contains(extension)) {
+                extension = ".jpg";
+            }
+        }
+
+        String fileName = "content-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8) + extension;
+        Path targetPath = this.contentUploadDirectory.resolve(fileName);
+
+        try {
+            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            log.info("Stored content image to {}", targetPath);
+            return "/api/media/content/" + fileName;
+        } catch (IOException e) {
+            log.error("Failed to store uploaded content image {}", fileName, e);
+            throw new BadRequestException("STORAGE_ERROR", "Failed to store content image on server");
         }
     }
 

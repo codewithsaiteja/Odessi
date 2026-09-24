@@ -26,6 +26,12 @@ public interface MediaStorageService {
     String storeCategoryImage(MultipartFile file);
 
     /**
+     * Stores a storefront content or editorial image file and returns its canonical public URL path.
+     * Path format: /api/media/content/{filename}
+     */
+    String storeContentImage(MultipartFile file);
+
+    /**
      * Deletes a product image or video file from storage if present.
      */
     void deleteProductImage(String imageUrl);
