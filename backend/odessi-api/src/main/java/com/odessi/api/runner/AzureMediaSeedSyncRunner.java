@@ -47,16 +47,13 @@ public class AzureMediaSeedSyncRunner implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(AzureMediaSeedSyncRunner.class);
 
     private final AppProperties appProperties;
-    private final com.odessi.api.repository.ProductImageRepository productImageRepository;
-    private final com.odessi.api.repository.SocialPostRepository socialPostRepository;
+    private final SeedSyncDbService seedSyncDbService;
 
     public AzureMediaSeedSyncRunner(
             AppProperties appProperties,
-            com.odessi.api.repository.ProductImageRepository productImageRepository,
-            com.odessi.api.repository.SocialPostRepository socialPostRepository) {
+            SeedSyncDbService seedSyncDbService) {
         this.appProperties = appProperties;
-        this.productImageRepository = productImageRepository;
-        this.socialPostRepository = socialPostRepository;
+        this.seedSyncDbService = seedSyncDbService;
     }
 
     @Override
@@ -135,12 +132,12 @@ public class AzureMediaSeedSyncRunner implements ApplicationRunner {
                     // Update PostgreSQL references to canonical Azure Blob HTTPS URL
                     String localDbPath = "/" + localDir + "/" + filename;
                     if ("products".equals(blobPrefix)) {
-                        int updatedCount = productImageRepository.updateImageUrl(localDbPath, azureUrl);
+                        int updatedCount = seedSyncDbService.updateProductImageUrl(localDbPath, azureUrl);
                         if (updatedCount > 0) {
                             log.info("[SeedSync] Updated {} ProductImage references: {} → {}", updatedCount, localDbPath, azureUrl);
                         }
                     } else if ("social".equals(blobPrefix)) {
-                        int updatedCount = socialPostRepository.updateMediaUrl(localDbPath, azureUrl);
+                        int updatedCount = seedSyncDbService.updateSocialMediaUrl(localDbPath, azureUrl);
                         if (updatedCount > 0) {
                             log.info("[SeedSync] Updated {} SocialPost references: {} → {}", updatedCount, localDbPath, azureUrl);
                         }
