@@ -52,6 +52,7 @@ class CartServiceTest {
         Cart cart = buildCart(1L, user);
         ProductVariant variant = buildVariant(1L, "SST-WB-M", 5);  // only 5 in stock, active=true
 
+        given(userRepository.findByIdForUpdate(1L)).willReturn(Optional.of(user));
         given(cartRepository.findByUserIdWithItems(1L)).willReturn(Optional.of(cart));
         given(variantRepository.findById(1L)).willReturn(Optional.of(variant));
         // The stock check (quantity=10 > stockQty=5) is hit AFTER the active check passes,
@@ -71,6 +72,7 @@ class CartServiceTest {
         ProductVariant variant = buildVariant(1L, "SST-WB-XXL", 0);  // out of stock
         variant.setActive(false);
 
+        given(userRepository.findByIdForUpdate(1L)).willReturn(Optional.of(user));
         given(cartRepository.findByUserIdWithItems(1L)).willReturn(Optional.of(cart));
         given(variantRepository.findById(1L)).willReturn(Optional.of(variant));
 
@@ -88,6 +90,7 @@ class CartServiceTest {
         Cart cart = new Cart(user);
         ProductVariant variant = buildVariant(1L, "SST-WB-XL", 0);  // zero stock, active
 
+        given(userRepository.findByIdForUpdate(1L)).willReturn(Optional.of(user));
         given(cartRepository.findByUserIdWithItems(1L)).willReturn(Optional.of(cart));
         given(variantRepository.findById(1L)).willReturn(Optional.of(variant));
 
