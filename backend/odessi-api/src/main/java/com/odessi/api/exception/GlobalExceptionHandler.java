@@ -177,11 +177,23 @@ public class GlobalExceptionHandler {
             .body(ErrorResponse.of(HttpStatus.CONFLICT, "DATA_INTEGRITY_VIOLATION", "Database constraint violation occurred.", request.getRequestURI()));
     }
 
+    // ── Client Transport Disconnect (Broken pipe / Client abort) ─────
+    @ExceptionHandler(org.springframework.web.context.request.async.AsyncRequestNotUsableException.class)
+    public void handleAsyncRequestNotUsable(
+            org.springframework.web.context.request.async.AsyncRequestNotUsableException ex, HttpServletRequest request) {
+        log.debug("Client disconnected before async request/stream completion at {}: {}", request.getRequestURI(), ex.getMessage());
+    }
+
     // ── Unhandled exceptions (500) ────────────────────────────────
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(
             Exception ex, HttpServletRequest request) {
+        if (isClientDisconnectException(ex)) {
+            log.debug("Client connection closed during response generation at {}: {}", request.getRequestURI(), ex.getMessage());
+            return null; // Output stream is already broken; do not manufacture a 500 response
+        }
+
         log.error("Unhandled exception at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
         String msg = ex.getMessage() != null && !ex.getMessage().isBlank()
             ? ex.getMessage()
@@ -192,6 +204,32 @@ public class GlobalExceptionHandler {
                 "INTERNAL_ERROR",
                 msg,
                 request.getRequestURI()));
+    }
+
+    private boolean isClientDisconnectException(Throwable throwable) {
+        if (throwable == null) {
+            return false;
+        }
+        String className = throwable.getClass().getName();
+        String message = throwable.getMessage() != null ? throwable.getMessage().toLowerCase(java.util.Locale.ROOT) : "";
+
+        if (className.contains("AsyncRequestNotUsableException")
+                || className.contains("ClientAbortException")
+                || (throwable instanceof java.io.IOException && (
+                       message.contains("broken pipe")
+                    || message.contains("connection reset")
+                    || message.contains("connection abort")
+                    || message.contains("an established connection was aborted")
+                   ))) {
+            return true;
+        }
+
+        Throwable cause = throwable.getCause();
+        if (cause != null && cause != throwable) {
+            return isClientDisconnectException(cause);
+        }
+
+        return false;
     }
 
     // ── Error response records ────────────────────────────────────

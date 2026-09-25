@@ -45,6 +45,7 @@ let csrfCache: string | null = null;
  * they all await the same promise instead of making N parallel requests.
  */
 let csrfFetchInFlight: Promise<string> | null = null;
+let refreshFetchInFlight: Promise<boolean> | null = null;
 
 /**
  * Fetch a fresh CSRF token from GET /api/csrf and cache it in memory.
@@ -144,29 +145,42 @@ async function handleResponse<T>(response: Response, originalRequest?: () => Pro
     }
   }
 
-  // ── 401 Intercept & JWT Refresh ─────────────────────────────────────────
+  // ── 401 Intercept & JWT Refresh (Deduplicated) ─────────────────────────
   if (response.status === 401 && originalRequest) {
-    try {
-      const xsrf = await getCsrfToken();
-      const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "X-XSRF-TOKEN": xsrf,
-        },
-      });
+    if (!refreshFetchInFlight) {
+      refreshFetchInFlight = (async () => {
+        try {
+          const xsrf = await getCsrfToken();
+          const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "X-XSRF-TOKEN": xsrf,
+            },
+          });
 
-      if (refreshResponse.ok) {
-        // Invalidate CSRF cache — a new session may issue a new token
-        invalidateCsrfToken();
-        return originalRequest();
-      } else if (refreshResponse.status === 401) {
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("auth-session-expired"));
+          if (refreshResponse.ok) {
+            // Invalidate CSRF cache — a new session may issue a new token
+            invalidateCsrfToken();
+            return true;
+          } else if (refreshResponse.status === 401) {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new Event("auth-session-expired"));
+            }
+          }
+          return false;
+        } catch (e) {
+          console.error("Refresh token request failed", e);
+          return false;
+        } finally {
+          refreshFetchInFlight = null;
         }
-      }
-    } catch (e) {
-      console.error("Refresh token request failed", e);
+      })();
+    }
+
+    const refreshSuccess = await refreshFetchInFlight;
+    if (refreshSuccess) {
+      return originalRequest();
     }
   }
 

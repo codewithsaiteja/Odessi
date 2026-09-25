@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+
 import java.util.Optional;
 
 public interface CartRepository extends JpaRepository<Cart, Long> {
@@ -14,4 +17,8 @@ public interface CartRepository extends JpaRepository<Cart, Long> {
     /** Fetch cart with all items and their variants in one query. */
     @Query("SELECT c FROM Cart c LEFT JOIN FETCH c.items i LEFT JOIN FETCH i.productVariant v LEFT JOIN FETCH v.product WHERE c.user.id = :userId")
     Optional<Cart> findByUserIdWithItems(@Param("userId") Long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Cart c WHERE c.user.id = :userId")
+    Optional<Cart> findByUserIdForUpdate(@Param("userId") Long userId);
 }

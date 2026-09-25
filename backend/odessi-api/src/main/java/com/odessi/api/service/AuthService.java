@@ -147,23 +147,29 @@ public class AuthService {
         refreshTokenRepository.revokeAllByUser(user);
     }
 
+    public record TokenRefreshResult(
+        String accessToken,
+        String refreshTokenHash
+    ) {}
+
     /**
-     * Verifies a refresh token for rotation.
-     *
-     * <p>If the token is found but already revoked (replay/reuse attack):
-     * <ol>
-     *   <li>The entire session family for this user is revoked (all refresh tokens).</li>
-     *   <li>A security exception is thrown so the caller returns 401.</li>
-     * </ol>
-     * This prevents an attacker who stole an old refresh token from maintaining access.
+     * Atomically verifies, rotates, and issues new tokens in a single transaction boundary.
      */
+    @Transactional
+    public TokenRefreshResult rotateRefreshToken(String token) {
+        RefreshToken oldToken = verifyAndRotateRefreshToken(token);
+        CustomUserDetails userDetails = new CustomUserDetails(oldToken.getUser());
+        String newJwt = jwtService.generateToken(userDetails);
+        RefreshToken newRefreshToken = createRefreshToken(oldToken.getUser());
+        return new TokenRefreshResult(newJwt, newRefreshToken.getTokenHash());
+    }
+
     @Transactional
     public RefreshToken verifyAndRotateRefreshToken(String token) {
         RefreshToken refreshToken = refreshTokenRepository.findByTokenHashWithUser(token)
                 .or(() -> refreshTokenRepository.findByTokenHash(token))
                 .orElseThrow(() -> new BusinessException("INVALID_REFRESH_TOKEN", "Refresh token is invalid"));
 
-        // Eagerly initialize user properties while hibernate session is open
         if (refreshToken.getUser() != null) {
             refreshToken.getUser().getEmail();
             refreshToken.getUser().getRole();
@@ -171,10 +177,7 @@ public class AuthService {
             refreshToken.getUser().isEnabled();
         }
 
-        // ── Reuse/replay attack detection ──────────────────────────────────────
         if (refreshToken.isRevoked()) {
-            // A revoked token is being presented again — compromise detected.
-            // Invalidate ALL refresh tokens for this user (entire session family).
             refreshTokenRepository.revokeAllByUser(refreshToken.getUser());
             throw new BusinessException("REFRESH_TOKEN_REUSE", "Security violation: refresh token reuse detected. All sessions have been invalidated.");
         }
@@ -183,7 +186,6 @@ public class AuthService {
             throw new BusinessException("REFRESH_TOKEN_EXPIRED", "Refresh token has expired. Please log in again.");
         }
 
-        // ── Rotation: revoke old token, caller will issue new one ──────────────
         refreshToken.setRevoked(true);
         refreshToken.setLastUsedAt(Instant.now());
         refreshTokenRepository.save(refreshToken);

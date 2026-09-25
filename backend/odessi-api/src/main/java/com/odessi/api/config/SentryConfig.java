@@ -83,9 +83,9 @@ public class SentryConfig {
 
         Throwable throwable = event.getThrowable();
 
-        // 1. Filter out expected client-side 4xx errors
-        if (throwable != null && isExpectedClientException(throwable)) {
-            log.trace("Dropping expected client error from Sentry: {}", throwable.getClass().getSimpleName());
+        // 1. Filter out expected client-side 4xx errors and transport-level client disconnects
+        if (throwable != null && (isExpectedClientException(throwable) || isClientDisconnectException(throwable))) {
+            log.trace("Dropping expected client error/disconnect from Sentry: {}", throwable.getClass().getSimpleName());
             return null;
         }
 
@@ -131,6 +131,36 @@ public class SentryConfig {
         Throwable cause = throwable.getCause();
         if (cause != null && cause != throwable) {
             return isExpectedClientException(cause);
+        }
+
+        return false;
+    }
+
+    /**
+     * Determines whether an exception is a confirmed client transport disconnect
+     * (e.g. AsyncRequestNotUsableException, ClientAbortException, Broken pipe).
+     */
+    public boolean isClientDisconnectException(Throwable throwable) {
+        if (throwable == null) {
+            return false;
+        }
+        String className = throwable.getClass().getName();
+        String message = throwable.getMessage() != null ? throwable.getMessage().toLowerCase(Locale.ROOT) : "";
+
+        if (className.contains("AsyncRequestNotUsableException")
+                || className.contains("ClientAbortException")
+                || (throwable instanceof java.io.IOException && (
+                       message.contains("broken pipe")
+                    || message.contains("connection reset")
+                    || message.contains("connection abort")
+                    || message.contains("an established connection was aborted")
+                   ))) {
+            return true;
+        }
+
+        Throwable cause = throwable.getCause();
+        if (cause != null && cause != throwable) {
+            return isClientDisconnectException(cause);
         }
 
         return false;

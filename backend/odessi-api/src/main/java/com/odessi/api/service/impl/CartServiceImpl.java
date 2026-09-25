@@ -178,9 +178,11 @@ public class CartServiceImpl implements CartService {
     // ── Private helpers ───────────────────────────────────────────
 
     private Cart getOrCreateCart(Long userId) {
+        // Acquire pessimistic write lock on User first to serialize cart creation & item mutations per user
+        User user = userRepository.findByIdForUpdate(userId)
+            .orElseThrow(() -> ResourceNotFoundException.user(userId));
+
         return cartRepository.findByUserIdWithItems(userId).orElseGet(() -> {
-            User user = userRepository.findById(userId)
-                .orElseThrow(() -> ResourceNotFoundException.user(userId));
             Cart newCart = new Cart(user);
             return cartRepository.save(newCart);
         });

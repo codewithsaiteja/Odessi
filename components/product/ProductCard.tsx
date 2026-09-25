@@ -225,19 +225,24 @@ export default function ProductCard({
                     <button
                       key={s.label}
                       type="button"
-                      disabled={!s.available || addingSize === s.label}
+                      disabled={!s.available || addingSize !== null}
                       onClick={async (e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        if (addingSize !== null) return;
                         setAddingSize(s.label);
-                        const color = product.colors?.[0] || { name: "Signature Black", hex: "#111111" };
-                        await addToCart(product, s.label, color, 1);
-                        setJustAdded(true);
-                        setTimeout(() => {
-                          setJustAdded(false);
-                          setQuickAddOpen(false);
+                        try {
+                          const color = product.colors?.[0] || { name: "Signature Black", hex: "#111111" };
+                          await addToCart(product, s.label, color, 1);
+                          setJustAdded(true);
+                          setTimeout(() => {
+                            setJustAdded(false);
+                            setQuickAddOpen(false);
+                            setAddingSize(null);
+                          }, 1200);
+                        } catch (err) {
                           setAddingSize(null);
-                        }, 1200);
+                        }
                       }}
                       className={`
                         py-1.5 px-2 text-[11px] font-mono font-medium rounded-sm border transition-all text-center

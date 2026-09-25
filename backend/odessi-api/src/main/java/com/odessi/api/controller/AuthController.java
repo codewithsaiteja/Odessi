@@ -73,19 +73,17 @@ public class AuthController {
             return ResponseEntity.status(401).build();
         }
 
-        // Verifies token validity & revokes the old token (rotation).
-        // Throws BusinessException if token is already revoked (reuse/replay attack detected
-        // → all sessions invalidated) or if token is expired.
-        RefreshToken oldToken = authService.verifyAndRotateRefreshToken(refreshTokenStr);
-        CustomUserDetails userDetails = new CustomUserDetails(oldToken.getUser());
+        // Verifies token validity, rotates tokens, and issues new JWT & refresh token within a single transaction.
+        AuthService.TokenRefreshResult result = authService.rotateRefreshToken(refreshTokenStr);
+        if (result == null) {
+            RefreshToken oldToken = authService.verifyAndRotateRefreshToken(refreshTokenStr);
+            CustomUserDetails userDetails = new CustomUserDetails(oldToken.getUser());
+            String newJwt = jwtService.generateToken(userDetails);
+            RefreshToken newRefreshToken = authService.createRefreshToken(oldToken.getUser());
+            result = new AuthService.TokenRefreshResult(newJwt, newRefreshToken.getTokenHash());
+        }
 
-        // Issue new access token
-        String newJwt = jwtService.generateToken(userDetails);
-
-        // Issue new refresh token (rotation: old token is now revoked)
-        RefreshToken newRefreshToken = authService.createRefreshToken(oldToken.getUser());
-
-        setCookies(response, newJwt, newRefreshToken.getTokenHash());
+        setCookies(response, result.accessToken(), result.refreshTokenHash());
 
         return ResponseEntity.ok().build();
     }
