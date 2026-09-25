@@ -30,4 +30,9 @@ public interface ProductReviewRepository extends JpaRepository<ProductReview, Lo
 
     @Query("SELECT COUNT(r) FROM ProductReview r WHERE r.product.id = :productId AND r.status = com.odessi.api.entity.ReviewStatus.APPROVED AND (r.recommended IS NULL OR r.recommended = true)")
     long countRecommendedReviewsForProduct(@Param("productId") Long productId);
+
+    @Query("SELECT r.product.id, AVG(r.rating), COUNT(r) FROM ProductReview r " +
+           "WHERE r.product.id IN :productIds AND r.status = com.odessi.api.entity.ReviewStatus.APPROVED " +
+           "GROUP BY r.product.id")
+    List<Object[]> getRatingAggregatesForProducts(@Param("productIds") java.util.Collection<Long> productIds);
 }

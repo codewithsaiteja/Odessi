@@ -207,6 +207,22 @@ export default function ProductGallery({
                 <Maximize2 size={16} strokeWidth={1.5} />
               </button>
 
+              {/* Floating 360 Worn Experience Badge */}
+              {hasSpin360 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setViewMode("360");
+                  }}
+                  className="absolute bottom-4 left-4 z-10 flex items-center gap-2 px-3.5 py-1.5 bg-[#0a0a0a]/85 hover:bg-black text-white text-xs font-semibold tracking-wider uppercase rounded-full backdrop-blur-md border border-neutral-700/60 shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 group/spin"
+                  aria-label="Launch 360 degree worn view"
+                >
+                  <Layers size={13} className="text-[#D4AF37] group-hover/spin:rotate-180 transition-transform duration-500" />
+                  <span className="font-mono text-[11px] text-neutral-200 group-hover/spin:text-white">360° VIEW</span>
+                </button>
+              )}
+
               {/* Navigation Arrows - Desktop */}
               {images.length > 1 && (
                 <>

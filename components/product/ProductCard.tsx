@@ -278,13 +278,13 @@ export default function ProductCard({
           {/* Authoritative Real Rating (Shown ONLY when approved reviews exist) */}
           {product.rating && product.rating > 0 && product.reviewCount && product.reviewCount > 0 ? (
             <div className="flex items-center gap-1.5 text-xs pt-0.5">
-              <div className="flex items-center text-amber-500">
-                <Star size={11} className="fill-amber-500 text-amber-500" />
+              <div className="flex items-center text-[#D4AF37]">
+                <Star size={11} className="fill-[#D4AF37] text-[#D4AF37]" />
               </div>
-              <span className="font-semibold text-stone-800 text-[11px] font-mono">
+              <span className="font-semibold text-neutral-800 text-[11px] font-mono">
                 {product.rating.toFixed(1)}
               </span>
-              <span className="text-stone-400 text-[10px] font-mono">
+              <span className="text-neutral-400 text-[10px] font-mono">
                 ({product.reviewCount})
               </span>
             </div>

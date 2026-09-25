@@ -17,6 +17,8 @@ public interface ProductMapper {
     @Mapping(target = "variants", source = "variants")
     @Mapping(target = "images", source = "images")
     @Mapping(target = "imageUrls", expression = "java(extractImageUrls(product))")
+    @Mapping(target = "averageRating", ignore = true)
+    @Mapping(target = "reviewCount", ignore = true)
     ProductResponse toResponse(Product product);
 
     @Mapping(target = "categorySlug", expression = "java(product.getCategory() != null ? product.getCategory().getSlug() : null)")
@@ -25,6 +27,8 @@ public interface ProductMapper {
     @Mapping(target = "hasAvailableVariants", expression = "java(product.getVariants().stream().anyMatch(v -> v.isAvailable()))")
     @Mapping(target = "images", expression = "java(extractImageUrls(product))")
     @Mapping(target = "primaryImageUrl", expression = "java(extractPrimaryImageUrl(product))")
+    @Mapping(target = "averageRating", ignore = true)
+    @Mapping(target = "reviewCount", ignore = true)
     ProductSummaryResponse toSummaryResponse(Product product);
 
     default List<String> extractImageUrls(Product product) {

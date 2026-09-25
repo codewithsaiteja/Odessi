@@ -121,9 +121,9 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             </div>
           ) : (
             <div className="space-y-4">
-              {cart.map((item, index) => (
+              {cart.map((item) => (
                 <div
-                  key={`${item.product.id}-${item.selectedSize}-${item.selectedColor.name}`}
+                  key={`${item.cartItemId || item.product.id}-${item.selectedSize}-${item.selectedColor.name}`}
                   className="flex gap-4 pb-4 border-b border-[var(--color-odessi-smoke)]"
                 >
                   {/* Product Image */}
@@ -133,7 +133,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                     className="relative w-24 h-32 flex-shrink-0 bg-[var(--color-odessi-smoke)] rounded-sm overflow-hidden"
                   >
                     <Image
-                      src={item.product.thumbnail || item.product.images[0]}
+                      src={item.product.thumbnail || item.product.images[0] || "/placeholder-product.svg"}
                       alt={item.product.name}
                       fill
                       className="object-cover"

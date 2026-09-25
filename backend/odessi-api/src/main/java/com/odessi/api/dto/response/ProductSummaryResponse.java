@@ -27,8 +27,21 @@ public record ProductSummaryResponse(
     boolean hasAvailableVariants,
     List<String> images,
     String primaryImageUrl,
-    Instant createdAt
+    Instant createdAt,
+    Double averageRating,
+    Integer reviewCount
 ) {
+    public ProductSummaryResponse(
+        Long id, String name, String slug, String shortDescription,
+        BigDecimal price, BigDecimal compareAtPrice, String currency,
+        String categorySlug, String categoryName, String collectionSlug,
+        boolean featured, boolean bestseller, boolean newArrival, boolean active,
+        ProductStatus status, boolean hasAvailableVariants, List<String> images,
+        String primaryImageUrl, Instant createdAt
+    ) {
+        this(id, name, slug, shortDescription, price, compareAtPrice, currency, categorySlug, categoryName, collectionSlug, featured, bestseller, newArrival, active, status, hasAvailableVariants, images, primaryImageUrl, createdAt, null, 0);
+    }
+
     public ProductSummaryResponse(
         Long id, String name, String slug, String shortDescription,
         BigDecimal price, BigDecimal compareAtPrice, String currency,
@@ -37,6 +50,15 @@ public record ProductSummaryResponse(
         boolean hasAvailableVariants, List<String> images, String primaryImageUrl,
         Instant createdAt
     ) {
-        this(id, name, slug, shortDescription, price, compareAtPrice, currency, categorySlug, categoryName, collectionSlug, featured, bestseller, newArrival, active, active ? ProductStatus.PUBLISHED : ProductStatus.ARCHIVED, hasAvailableVariants, images, primaryImageUrl, createdAt);
+        this(id, name, slug, shortDescription, price, compareAtPrice, currency, categorySlug, categoryName, collectionSlug, featured, bestseller, newArrival, active, active ? ProductStatus.PUBLISHED : ProductStatus.ARCHIVED, hasAvailableVariants, images, primaryImageUrl, createdAt, null, 0);
+    }
+
+    public ProductSummaryResponse withRating(Double averageRating, Integer reviewCount) {
+        return new ProductSummaryResponse(
+            id, name, slug, shortDescription, price, compareAtPrice, currency,
+            categorySlug, categoryName, collectionSlug, featured, bestseller,
+            newArrival, active, status, hasAvailableVariants, images, primaryImageUrl,
+            createdAt, averageRating, reviewCount
+        );
     }
 }

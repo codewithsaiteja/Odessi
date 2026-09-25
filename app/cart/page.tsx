@@ -88,7 +88,7 @@ export default function CartPage() {
                 <div className="space-y-6">
                   {cart.map((item) => (
                     <div
-                      key={`${item.product.id}-${item.selectedSize}-${item.selectedColor.name}`}
+                      key={`${item.cartItemId || item.product.id}-${item.selectedSize}-${item.selectedColor.name}`}
                       className="flex gap-4 pb-6 border-b border-[var(--color-odessi-smoke)]"
                     >
                       {/* Product Image */}
@@ -97,7 +97,7 @@ export default function CartPage() {
                         className="relative w-32 h-40 flex-shrink-0 bg-[var(--color-odessi-smoke)] rounded-sm overflow-hidden group"
                       >
                         <Image
-                          src={item.product.thumbnail || item.product.images[0]}
+                          src={item.product.thumbnail || item.product.images[0] || "/placeholder-product.svg"}
                           alt={item.product.name}
                           fill
                           className="object-cover group-hover:scale-105 transition-transform duration-300"

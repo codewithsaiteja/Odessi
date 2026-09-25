@@ -15,6 +15,7 @@ import com.odessi.api.mapper.ProductMapper;
 import com.odessi.api.repository.CategoryRepository;
 import com.odessi.api.repository.CollectionRepository;
 import com.odessi.api.repository.ProductRepository;
+import com.odessi.api.repository.ProductReviewRepository;
 import com.odessi.api.repository.ProductSpecification;
 import com.odessi.api.repository.ProductVariantRepository;
 import com.odessi.api.service.ProductService;
@@ -27,6 +28,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 @Service
 @Transactional(readOnly = true)
 public class ProductServiceImpl implements ProductService {
@@ -37,6 +42,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductVariantRepository variantRepository;
     private final CategoryRepository categoryRepository;
     private final CollectionRepository collectionRepository;
+    private final ProductReviewRepository reviewRepository;
     private final ProductMapper productMapper;
 
     public ProductServiceImpl(
@@ -44,11 +50,13 @@ public class ProductServiceImpl implements ProductService {
             ProductVariantRepository variantRepository,
             CategoryRepository categoryRepository,
             CollectionRepository collectionRepository,
+            ProductReviewRepository reviewRepository,
             ProductMapper productMapper) {
         this.productRepository = productRepository;
         this.variantRepository = variantRepository;
         this.categoryRepository = categoryRepository;
         this.collectionRepository = collectionRepository;
+        this.reviewRepository = reviewRepository;
         this.productMapper = productMapper;
     }
 
@@ -66,8 +74,33 @@ public class ProductServiceImpl implements ProductService {
 
         log.info("Product fetch: filter={}, pageable={}, totalElements={}", filter, pageable, page.getTotalElements());
 
+        Map<Long, Double> avgRatings = new HashMap<>();
+        Map<Long, Integer> reviewCounts = new HashMap<>();
+
+        if (!page.getContent().isEmpty()) {
+            List<Long> productIds = page.getContent().stream().map(Product::getId).toList();
+            List<Object[]> aggregates = reviewRepository.getRatingAggregatesForProducts(productIds);
+            for (Object[] row : aggregates) {
+                if (row != null && row.length >= 3 && row[0] != null) {
+                    Long pId = ((Number) row[0]).longValue();
+                    Double avg = row[1] != null ? ((Number) row[1]).doubleValue() : null;
+                    Integer count = row[2] != null ? ((Number) row[2]).intValue() : 0;
+                    avgRatings.put(pId, avg);
+                    reviewCounts.put(pId, count);
+                }
+            }
+        }
+
+        List<ProductSummaryResponse> summaries = page.getContent().stream()
+            .map(productMapper::toSummaryResponse)
+            .map(summary -> summary.withRating(
+                avgRatings.get(summary.id()),
+                reviewCounts.getOrDefault(summary.id(), 0)
+            ))
+            .toList();
+
         return PagedResponse.of(
-            page.getContent().stream().map(productMapper::toSummaryResponse).toList(),
+            summaries,
             page.getNumber(),
             page.getSize(),
             page.getTotalElements()
@@ -78,7 +111,9 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponse findBySlug(String slug) {
         Product product = productRepository.findBySlugWithVariants(slug)
             .orElseThrow(() -> ResourceNotFoundException.product(slug));
-        return productMapper.toResponse(product);
+        Double avg = reviewRepository.getAverageRatingForProduct(product.getId());
+        long count = reviewRepository.countApprovedReviewsForProduct(product.getId());
+        return productMapper.toResponse(product).withRating(avg, (int) count);
     }
 
     @Override

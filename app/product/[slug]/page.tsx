@@ -735,10 +735,21 @@ export default function ProductPage() {
           </div>
 
           {/* ── Editorial Worn Trail Canvas (Interactive Lookbook) ── */}
-          {(Boolean(product.images360?.images && product.images360.images.length > 1) || Boolean(product.images && product.images.length > 1)) && (
+          {Boolean((product.images360?.images && product.images360.images.length > 0) || (product.images && product.images.length > 0)) && (
             <div className="mb-16">
               <ImageTrail
-                images={product.images360?.images && product.images360.images.length > 1 ? product.images360.images : product.images}
+                images={
+                  product.images360?.images && product.images360.images.length > 1
+                    ? product.images360.images
+                    : (product.images && product.images.length > 1
+                        ? product.images
+                        : [
+                            product.thumbnail || product.images?.[0] || "/placeholder-product.svg",
+                            ...(product.images360?.images || []),
+                            "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=1000&q=85",
+                            "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=1000&q=85",
+                          ])
+                }
                 maxTrailItems={4}
                 distanceThreshold={65}
                 className="rounded-sm border border-neutral-800"

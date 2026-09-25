@@ -6,6 +6,7 @@ import * as cartLib from "./cart";
 import { useAuth } from "./auth/AuthContext";
 import { apiGet, apiPost, apiPatch, apiDelete } from "./api/client";
 import { EVENTS } from "./events";
+import { getMediaUrl } from "@/lib/product-utils";
 
 import { products as mockProducts } from "@/data/products";
 
@@ -38,6 +39,8 @@ interface BackendCartItemResponse {
   unitPrice: number;
   quantity: number;
   lineTotal: number;
+  primaryImageUrl?: string;
+  imageUrl?: string;
 }
 
 interface BackendCartResponse {
@@ -70,9 +73,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!serverCart || !serverCart.items) return [];
     
     return serverCart.items.map((item: BackendCartItemResponse) => {
-      const mockProd = mockProducts.find((p) => p.slug === item.productSlug);
-      const thumbnail = mockProd?.thumbnail || "https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?w=400&q=85";
-      const images = mockProd?.images || [thumbnail];
+      // 1. Prefer authoritative backend primary image URL
+      let displayImage = item.primaryImageUrl || item.imageUrl;
+
+      // 2. Fallback to mock product catalogue if legacy/unseeded item
+      if (!displayImage) {
+        const mockProd = mockProducts.find((p) => p.slug === item.productSlug);
+        displayImage = mockProd?.thumbnail || mockProd?.images?.[0] || "/placeholder-product.svg";
+      }
+
+      const normalizedImageUrl = getMediaUrl(displayImage);
 
       return {
         product: {
@@ -80,9 +90,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           name: item.productName,
           slug: item.productSlug,
           price: item.unitPrice,
-          thumbnail, 
-          images,
-          category: "tees",
+          thumbnail: normalizedImageUrl,
+          images: [normalizedImageUrl],
+          category: "hoodies",
           currency: "INR",
           description: "",
           sizes: [],

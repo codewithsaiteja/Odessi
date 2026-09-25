@@ -153,6 +153,7 @@ export interface CartItem {
   selectedSize: string;
   selectedColor: ProductColor;
   quantity: number;
+  cartItemId?: number;
 }
 
 export interface Cart {

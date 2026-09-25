@@ -12,6 +12,7 @@ import com.odessi.api.mapper.ProductMapper;
 import com.odessi.api.repository.CategoryRepository;
 import com.odessi.api.repository.CollectionRepository;
 import com.odessi.api.repository.ProductRepository;
+import com.odessi.api.repository.ProductReviewRepository;
 import com.odessi.api.repository.ProductVariantRepository;
 import com.odessi.api.service.impl.ProductServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,7 @@ class ProductServiceTest {
     @Mock ProductVariantRepository variantRepository;
     @Mock CategoryRepository categoryRepository;
     @Mock CollectionRepository collectionRepository;
+    @Mock ProductReviewRepository reviewRepository;
     @Mock ProductMapper productMapper;
 
     ProductServiceImpl productService;
@@ -49,6 +51,7 @@ class ProductServiceTest {
         productService = new ProductServiceImpl(
             productRepository, variantRepository,
             categoryRepository, collectionRepository,
+            reviewRepository,
             productMapper
         );
     }
@@ -56,7 +59,7 @@ class ProductServiceTest {
     // ── findBySlug ────────────────────────────────────────────────
 
     @Test
-    @DisplayName("findBySlug — returns ProductResponse when product exists")
+    @DisplayName("findBySlug — returns ProductResponse with ratings when product exists")
     void findBySlug_found() {
         Product product = buildProduct("shadow-striker-tee");
         ProductResponse response = buildProductResponse("shadow-striker-tee");
@@ -64,11 +67,15 @@ class ProductServiceTest {
         given(productRepository.findBySlugWithVariants("shadow-striker-tee"))
             .willReturn(Optional.of(product));
         given(productMapper.toResponse(product)).willReturn(response);
+        given(reviewRepository.getAverageRatingForProduct(any())).willReturn(4.5);
+        given(reviewRepository.countApprovedReviewsForProduct(any())).willReturn(3L);
 
         ProductResponse result = productService.findBySlug("shadow-striker-tee");
 
         assertThat(result).isNotNull();
         assertThat(result.slug()).isEqualTo("shadow-striker-tee");
+        assertThat(result.averageRating()).isEqualTo(4.5);
+        assertThat(result.reviewCount()).isEqualTo(3);
     }
 
     @Test
@@ -85,18 +92,33 @@ class ProductServiceTest {
     // ── findAll (pagination) ──────────────────────────────────────
 
     @Test
-    @DisplayName("findAll — returns paged results")
+    @DisplayName("findAll — returns paged results with ratings")
     void findAll_returnsPagedResults() {
         Product p1 = buildProduct("product-1");
+        p1.setId(1L);
         Product p2 = buildProduct("product-2");
+        p2.setId(2L);
 
         given(productRepository.findAll(any(Specification.class), any(Pageable.class)))
             .willReturn(new PageImpl<>(List.of(p1, p2)));
 
         given(productMapper.toSummaryResponse(p1))
-            .willReturn(buildSummary("product-1"));
+            .willReturn(new ProductSummaryResponse(
+                1L, "Product 1", "product-1", null,
+                new BigDecimal("999.00"), null, "INR",
+                "tees", "Tees", null,
+                false, false, false, true, true, List.of(), null, null
+            ));
         given(productMapper.toSummaryResponse(p2))
-            .willReturn(buildSummary("product-2"));
+            .willReturn(new ProductSummaryResponse(
+                2L, "Product 2", "product-2", null,
+                new BigDecimal("999.00"), null, "INR",
+                "tees", "Tees", null,
+                false, false, false, true, true, List.of(), null, null
+            ));
+
+        given(reviewRepository.getRatingAggregatesForProducts(List.of(1L, 2L)))
+            .willReturn(List.<Object[]>of(new Object[]{1L, 4.8, 5L}));
 
         ProductFilterRequest filter = new ProductFilterRequest(
             null, null, null, null,
@@ -109,6 +131,10 @@ class ProductServiceTest {
 
         assertThat(result.data()).hasSize(2);
         assertThat(result.page()).isEqualTo(0);
+        assertThat(result.data().get(0).averageRating()).isEqualTo(4.8);
+        assertThat(result.data().get(0).reviewCount()).isEqualTo(5);
+        assertThat(result.data().get(1).averageRating()).isNull();
+        assertThat(result.data().get(1).reviewCount()).isEqualTo(0);
     }
 
     @Test
