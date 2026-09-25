@@ -1,10 +1,10 @@
 "use client";
 
-import { Check, Clock, PackageCheck, Truck, Home, AlertCircle } from "lucide-react";
+import { Check, PackageCheck, Truck, Home, AlertCircle, MapPin } from "lucide-react";
 
 interface OrderTrackingTimelineProps {
   status: string;
-  createdAt: string;
+  createdAt?: string;
   trackingNumber?: string | null;
   carrierName?: string | null;
   className?: string;
@@ -19,28 +19,28 @@ interface Step {
 
 const STEPS: Step[] = [
   {
-    id: "PLACED",
-    label: "Order Placed",
-    description: "Receipt confirmed",
-    icon: Clock,
-  },
-  {
     id: "CONFIRMED",
-    label: "Payment Confirmed",
+    label: "Confirmed",
     description: "Order verified",
     icon: Check,
   },
   {
     id: "PROCESSING",
-    label: "Atelier Preparation",
+    label: "Processing",
     description: "Tailored & packaged",
     icon: PackageCheck,
   },
   {
     id: "SHIPPED",
-    label: "Dispatched",
+    label: "Shipped",
     description: "Handed to courier",
     icon: Truck,
+  },
+  {
+    id: "OUT_FOR_DELIVERY",
+    label: "Out for Delivery",
+    description: "Arriving today",
+    icon: MapPin,
   },
   {
     id: "DELIVERED",
@@ -63,12 +63,13 @@ export function OrderTrackingTimeline({
     switch (currentStatus) {
       case "PENDING_PAYMENT":
       case "PENDING":
-        return 0;
       case "CONFIRMED":
-        return 1;
+        return 0;
       case "PROCESSING":
-        return 2;
+        return 1;
       case "SHIPPED":
+        return 2;
+      case "OUT_FOR_DELIVERY":
         return 3;
       case "DELIVERED":
         return 4;
@@ -125,8 +126,9 @@ export function OrderTrackingTimeline({
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 relative">
           {STEPS.map((step, idx) => {
             const Icon = step.icon;
-            const isCompleted = idx < activeIndex;
-            const isCurrent = idx === activeIndex;
+            const isDelivered = status === "DELIVERED";
+            const isCompleted = idx < activeIndex || (isDelivered && idx === activeIndex);
+            const isCurrent = idx === activeIndex && !isDelivered;
             const isUpcoming = idx > activeIndex;
 
             return (
@@ -135,13 +137,13 @@ export function OrderTrackingTimeline({
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border transition-all duration-300 z-10 ${
                     isCompleted
-                      ? "bg-[#D4AF37] border-[#D4AF37] text-neutral-950"
+                      ? "bg-[#D4AF37] border-[#D4AF37] text-neutral-950 font-bold"
                       : isCurrent
                       ? "bg-neutral-950 border-[#D4AF37] text-[#D4AF37] ring-4 ring-[#D4AF37]/20"
                       : "bg-neutral-900 border-neutral-800 text-neutral-600"
                   }`}
                 >
-                  <Icon size={16} />
+                  {isCompleted ? <Check size={16} strokeWidth={2.5} /> : <Icon size={16} />}
                 </div>
 
                 {/* Label & Description */}

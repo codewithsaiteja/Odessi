@@ -5,6 +5,7 @@ import com.odessi.api.dto.request.CreateOrderRequest;
 import com.odessi.api.dto.response.OrderResponse;
 import com.odessi.api.entity.*;
 import com.odessi.api.exception.BadRequestException;
+import com.odessi.api.exception.ResourceNotFoundException;
 import com.odessi.api.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -128,5 +129,55 @@ public class AdminOrderServiceTest {
         assertThrows(BadRequestException.class, () ->
             adminService.updateOrderStatus(admin, orderId, OrderStatus.PENDING_PAYMENT)
         );
+    }
+
+    @Test
+    void adminOrderLifecycleSynchronization_persistsAndReturnsToCustomer() {
+        Order initial = orderRepository.findById(orderId).orElseThrow();
+        String orderNumber = initial.getOrderNumber();
+        assertEquals(OrderStatus.PENDING_PAYMENT, initial.getStatus());
+
+        // 1. PENDING_PAYMENT -> CONFIRMED
+        OrderResponse res1 = adminService.updateOrderStatus(admin, orderId, OrderStatus.CONFIRMED);
+        assertEquals(OrderStatus.CONFIRMED, res1.status());
+        assertEquals(OrderStatus.CONFIRMED, orderRepository.findById(orderId).orElseThrow().getStatus());
+        assertEquals(OrderStatus.CONFIRMED, orderService.findByOrderNumber(orderNumber, customer.getId()).status());
+        assertEquals(OrderStatus.CONFIRMED, orderService.findByUser(customer.getId(), 0, 10).data().get(0).status());
+
+        // 2. CONFIRMED -> PROCESSING
+        OrderResponse res2 = adminService.updateOrderStatus(admin, orderId, OrderStatus.PROCESSING);
+        assertEquals(OrderStatus.PROCESSING, res2.status());
+        assertEquals(OrderStatus.PROCESSING, orderRepository.findById(orderId).orElseThrow().getStatus());
+        assertEquals(OrderStatus.PROCESSING, orderService.findByOrderNumber(orderNumber, customer.getId()).status());
+        assertEquals(OrderStatus.PROCESSING, orderService.findByUser(customer.getId(), 0, 10).data().get(0).status());
+
+        // 3. PROCESSING -> SHIPPED
+        OrderResponse res3 = adminService.updateOrderStatus(admin, orderId, OrderStatus.SHIPPED);
+        assertEquals(OrderStatus.SHIPPED, res3.status());
+        assertEquals(OrderStatus.SHIPPED, orderRepository.findById(orderId).orElseThrow().getStatus());
+        assertEquals(OrderStatus.SHIPPED, orderService.findByOrderNumber(orderNumber, customer.getId()).status());
+        assertEquals(OrderStatus.SHIPPED, orderService.findByUser(customer.getId(), 0, 10).data().get(0).status());
+
+        // 4. SHIPPED -> OUT_FOR_DELIVERY
+        OrderResponse res4 = adminService.updateOrderStatus(admin, orderId, OrderStatus.OUT_FOR_DELIVERY);
+        assertEquals(OrderStatus.OUT_FOR_DELIVERY, res4.status());
+        assertEquals(OrderStatus.OUT_FOR_DELIVERY, orderRepository.findById(orderId).orElseThrow().getStatus());
+        assertEquals(OrderStatus.OUT_FOR_DELIVERY, orderService.findByOrderNumber(orderNumber, customer.getId()).status());
+        assertEquals(OrderStatus.OUT_FOR_DELIVERY, orderService.findByUser(customer.getId(), 0, 10).data().get(0).status());
+
+        // 5. OUT_FOR_DELIVERY -> DELIVERED
+        OrderResponse res5 = adminService.updateOrderStatus(admin, orderId, OrderStatus.DELIVERED);
+        assertEquals(OrderStatus.DELIVERED, res5.status());
+        assertEquals(OrderStatus.DELIVERED, orderRepository.findById(orderId).orElseThrow().getStatus());
+        assertEquals(OrderStatus.DELIVERED, orderService.findByOrderNumber(orderNumber, customer.getId()).status());
+        assertEquals(OrderStatus.DELIVERED, orderService.findByUser(customer.getId(), 0, 10).data().get(0).status());
+
+        // 6. Customer Isolation: Customer B cannot retrieve Customer A's order
+        User otherCustomer = new User("Other", "User", "other.user@test.com", "hash");
+        userRepository.save(otherCustomer);
+        assertThrows(ResourceNotFoundException.class, () ->
+            orderService.findByOrderNumber(orderNumber, otherCustomer.getId())
+        );
+        assertTrue(orderService.findByUser(otherCustomer.getId(), 0, 10).data().isEmpty());
     }
 }

@@ -206,7 +206,16 @@ export type OrderStatus =
   | "out_for_delivery"
   | "delivered"
   | "cancelled"
-  | "refunded";
+  | "refunded"
+  | "PENDING"
+  | "PENDING_PAYMENT"
+  | "CONFIRMED"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "OUT_FOR_DELIVERY"
+  | "DELIVERED"
+  | "CANCELLED"
+  | "PAYMENT_FAILED";
 
 export type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
 

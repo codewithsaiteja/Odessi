@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Order, cancelOrder } from "@/lib/api/orders";
 import { useToast } from "@/components/ui/Toast";
-import { ShoppingBag, Package, MapPin, Truck, ArrowLeft, XCircle, AlertCircle, Star } from "lucide-react";
+import { ShoppingBag, Package, MapPin, Truck, ArrowLeft, XCircle, AlertCircle, Star, RefreshCw } from "lucide-react";
 import { OrderTrackingTimeline } from "./OrderTrackingTimeline";
 
 interface AccountOrdersProps {
@@ -25,6 +25,8 @@ function formatOrderStatus(status: string): string {
       return "Processing";
     case "SHIPPED":
       return "Shipped";
+    case "OUT_FOR_DELIVERY":
+      return "Out for Delivery";
     case "DELIVERED":
       return "Delivered";
     case "CANCELLED":
@@ -33,6 +35,28 @@ function formatOrderStatus(status: string): string {
       return "Payment Failed";
     default:
       return status;
+  }
+}
+
+function getStatusBadgeClass(status: string): string {
+  switch (status) {
+    case "DELIVERED":
+      return "bg-emerald-950 text-emerald-400 border border-emerald-800";
+    case "OUT_FOR_DELIVERY":
+      return "bg-indigo-950 text-indigo-300 border border-indigo-800";
+    case "SHIPPED":
+      return "bg-sky-950 text-sky-300 border border-sky-800";
+    case "PROCESSING":
+      return "bg-amber-950 text-amber-400 border border-amber-800";
+    case "CONFIRMED":
+      return "bg-emerald-950/70 text-emerald-300 border border-emerald-800/80";
+    case "CANCELLED":
+    case "PAYMENT_FAILED":
+      return "bg-red-950 text-red-400 border border-red-800";
+    case "PENDING":
+    case "PENDING_PAYMENT":
+    default:
+      return "bg-amber-950 text-amber-400 border border-amber-800";
   }
 }
 
@@ -46,12 +70,25 @@ export default function AccountOrders({
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const filteredOrders = orders.filter((order) => {
     if (statusFilter === "ALL") return true;
-    if (statusFilter === "CONFIRMED") return order.status === "CONFIRMED" || order.status === "DELIVERED";
-    if (statusFilter === "PENDING") return order.status === "PENDING_PAYMENT" || order.status === "PENDING";
-    if (statusFilter === "CANCELLED") return order.status === "CANCELLED" || order.status === "PAYMENT_FAILED";
+    if (statusFilter === "CONFIRMED") {
+      return (
+        order.status === "CONFIRMED" ||
+        order.status === "PROCESSING" ||
+        order.status === "SHIPPED" ||
+        order.status === "OUT_FOR_DELIVERY" ||
+        order.status === "DELIVERED"
+      );
+    }
+    if (statusFilter === "PENDING") {
+      return order.status === "PENDING_PAYMENT" || order.status === "PENDING";
+    }
+    if (statusFilter === "CANCELLED") {
+      return order.status === "CANCELLED" || order.status === "PAYMENT_FAILED";
+    }
     return true;
   });
 
@@ -100,14 +137,26 @@ export default function AccountOrders({
               <ArrowLeft size={16} /> Back to All Orders
             </button>
             <div className="flex items-center gap-3">
+              {onRefreshOrders && (
+                <button
+                  onClick={async () => {
+                    setRefreshing(true);
+                    try {
+                      await onRefreshOrders();
+                    } finally {
+                      setRefreshing(false);
+                    }
+                  }}
+                  disabled={refreshing}
+                  className="px-3 py-1 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 hover:text-white rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors border border-neutral-700"
+                  title="Sync latest order status"
+                >
+                  <RefreshCw size={12} className={refreshing ? "animate-spin text-amber-400" : ""} />
+                  <span>{refreshing ? "Syncing..." : "Sync Status"}</span>
+                </button>
+              )}
               <span
-                className={`text-xs uppercase font-bold px-3 py-1 rounded-full ${
-                  selectedOrder.status === "CONFIRMED" || selectedOrder.status === "DELIVERED"
-                    ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
-                    : selectedOrder.status === "PAYMENT_FAILED" || selectedOrder.status === "CANCELLED"
-                    ? "bg-red-950 text-red-400 border border-red-800"
-                    : "bg-amber-950 text-amber-400 border border-amber-800"
-                }`}
+                className={`text-xs uppercase font-bold px-3 py-1 rounded-full ${getStatusBadgeClass(selectedOrder.status)}`}
               >
                 {formatOrderStatus(selectedOrder.status)}
               </span>
@@ -177,7 +226,7 @@ export default function AccountOrders({
                       <p className="text-sm font-bold text-white">₹{(item.totalPrice || 0).toLocaleString("en-IN")}</p>
                       <p className="text-[10px] text-neutral-500">₹{(item.unitPrice || 0).toLocaleString("en-IN")} each</p>
                     </div>
-                    {item.productSlug && (selectedOrder.status === "CONFIRMED" || selectedOrder.status === "DELIVERED" || selectedOrder.status === "SHIPPED") && (
+                    {item.productSlug && (selectedOrder.status === "CONFIRMED" || selectedOrder.status === "DELIVERED" || selectedOrder.status === "SHIPPED" || selectedOrder.status === "OUT_FOR_DELIVERY") && (
                       <Link
                         href={`/product/${item.productSlug}?review=true#product-reviews`}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 rounded-sm text-[10px] font-semibold transition tracking-wide"
@@ -267,8 +316,26 @@ export default function AccountOrders({
               </p>
             </div>
 
-            {/* Filter Pills */}
-            <div className="flex gap-2">
+            {/* Filter Pills & Sync */}
+            <div className="flex items-center gap-2">
+              {onRefreshOrders && (
+                <button
+                  onClick={async () => {
+                    setRefreshing(true);
+                    try {
+                      await onRefreshOrders();
+                    } finally {
+                      setRefreshing(false);
+                    }
+                  }}
+                  disabled={refreshing}
+                  className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border border-neutral-700"
+                  title="Sync orders from server"
+                >
+                  <RefreshCw size={12} className={refreshing ? "animate-spin text-amber-400" : ""} />
+                  <span className="hidden sm:inline">{refreshing ? "Syncing..." : "Sync"}</span>
+                </button>
+              )}
               {["ALL", "CONFIRMED", "PENDING", "CANCELLED"].map((st) => (
                 <button
                   key={st}
@@ -312,13 +379,7 @@ export default function AccountOrders({
 
                     <div className="flex items-center gap-3">
                       <span
-                        className={`text-xs uppercase font-bold px-2.5 py-0.5 rounded ${
-                          order.status === "CONFIRMED" || order.status === "DELIVERED"
-                            ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
-                            : order.status === "PAYMENT_FAILED" || order.status === "CANCELLED"
-                            ? "bg-red-950 text-red-400 border border-red-800"
-                            : "bg-amber-950 text-amber-400 border border-amber-800"
-                        }`}
+                        className={`text-xs uppercase font-bold px-2.5 py-0.5 rounded ${getStatusBadgeClass(order.status)}`}
                       >
                         {formatOrderStatus(order.status)}
                       </span>

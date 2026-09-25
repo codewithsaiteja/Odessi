@@ -34,6 +34,52 @@ interface AccountOverviewProps {
   onSelectOrder: (order: Order) => void;
 }
 
+function formatOrderStatus(status: string): string {
+  switch (status) {
+    case "PENDING_PAYMENT":
+    case "PENDING":
+      return "Payment Pending";
+    case "CONFIRMED":
+      return "Confirmed";
+    case "PROCESSING":
+      return "Processing";
+    case "SHIPPED":
+      return "Shipped";
+    case "OUT_FOR_DELIVERY":
+      return "Out for Delivery";
+    case "DELIVERED":
+      return "Delivered";
+    case "CANCELLED":
+      return "Cancelled";
+    case "PAYMENT_FAILED":
+      return "Payment Failed";
+    default:
+      return status;
+  }
+}
+
+function getStatusBadgeClass(status: string): string {
+  switch (status) {
+    case "DELIVERED":
+      return "bg-emerald-950 text-emerald-400 border border-emerald-800";
+    case "OUT_FOR_DELIVERY":
+      return "bg-indigo-950 text-indigo-300 border border-indigo-800";
+    case "SHIPPED":
+      return "bg-sky-950 text-sky-300 border border-sky-800";
+    case "PROCESSING":
+      return "bg-amber-950 text-amber-400 border border-amber-800";
+    case "CONFIRMED":
+      return "bg-emerald-950/70 text-emerald-300 border border-emerald-800/80";
+    case "CANCELLED":
+    case "PAYMENT_FAILED":
+      return "bg-red-950 text-red-400 border border-red-800";
+    case "PENDING":
+    case "PENDING_PAYMENT":
+    default:
+      return "bg-amber-950 text-amber-400 border border-amber-800";
+  }
+}
+
 export default function AccountOverview({
   user,
   orders,
@@ -297,15 +343,9 @@ export default function AccountOverview({
                       ₹{order.totalAmount?.toLocaleString("en-IN")}
                     </span>
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                        order.status === "CONFIRMED" || order.status === "DELIVERED"
-                          ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
-                          : order.status === "PAYMENT_FAILED" || order.status === "CANCELLED"
-                          ? "bg-red-950 text-red-400 border border-red-800"
-                          : "bg-amber-950 text-amber-400 border border-amber-800"
-                      }`}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${getStatusBadgeClass(order.status)}`}
                     >
-                      {order.status}
+                      {formatOrderStatus(order.status)}
                     </span>
                   </div>
                 </div>

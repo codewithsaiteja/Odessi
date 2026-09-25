@@ -112,13 +112,26 @@ function AccountContent() {
     }
   }, []);
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (silent = false) => {
     try {
+      if (!silent) setIsDataLoading(true);
       const res = await getOrders(0, 50);
       const items = res?.data || res?.content || [];
-      setOrders(items);
+      const orderList = Array.isArray(items) ? items : [];
+      setOrders(orderList);
+
+      // Keep selectedOrder synchronized with fresh backend data
+      setSelectedOrder((prevSelected) => {
+        if (!prevSelected) return null;
+        const fresh = orderList.find(
+          (o) => o.id === prevSelected.id || o.orderNumber === prevSelected.orderNumber
+        );
+        return fresh || prevSelected;
+      });
     } catch {
-      setOrders([]);
+      if (!silent) setOrders([]);
+    } finally {
+      if (!silent) setIsDataLoading(false);
     }
   }, []);
 
@@ -129,7 +142,7 @@ function AccountContent() {
       await Promise.all([
         fetchAddresses(),
         fetchWishlist(),
-        fetchOrders(),
+        fetchOrders(true),
       ]);
     } catch (err: any) {
       setDataError("Unable to load complete account details. Please refresh or try again.");
@@ -144,11 +157,58 @@ function AccountContent() {
     }
   }, [user, loadAllData]);
 
+  // Revalidate orders whenever customer returns to window or tab becomes visible
+  useEffect(() => {
+    if (!user) return;
+
+    const handleRevalidate = () => {
+      if (document.visibilityState === "visible") {
+        fetchOrders(true);
+      }
+    };
+
+    window.addEventListener("focus", handleRevalidate);
+    document.addEventListener("visibilitychange", handleRevalidate);
+
+    return () => {
+      window.removeEventListener("focus", handleRevalidate);
+      document.removeEventListener("visibilitychange", handleRevalidate);
+    };
+  }, [user, fetchOrders]);
+
+  // Lightweight synchronization while viewing orders or in-flight active orders
+  useEffect(() => {
+    if (!user) return;
+
+    const hasInFlightOrders = orders.some(
+      (o) =>
+        o.status === "PENDING" ||
+        o.status === "PENDING_PAYMENT" ||
+        o.status === "CONFIRMED" ||
+        o.status === "PROCESSING" ||
+        o.status === "SHIPPED" ||
+        o.status === "OUT_FOR_DELIVERY"
+    );
+
+    if (!hasInFlightOrders && activeTab !== "orders") return;
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchOrders(true);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [user, activeTab, orders, fetchOrders]);
+
   const handleTabChange = (tabId: AccountTab) => {
     setActiveTab(tabId);
     const params = new URLSearchParams(window.location.search);
     params.set("tab", tabId);
     router.replace(`/account?${params.toString()}`, { scroll: false });
+    if (tabId === "orders" || tabId === "overview") {
+      fetchOrders(true);
+    }
   };
 
   const handleLogout = async () => {
@@ -302,7 +362,7 @@ function AccountContent() {
                 orders={orders}
                 selectedOrder={selectedOrder}
                 onSelectOrder={(ord) => setSelectedOrder(ord)}
-                onRefreshOrders={fetchOrders}
+                onRefreshOrders={() => fetchOrders(true)}
               />
             )}
             {activeTab === "addresses" && (

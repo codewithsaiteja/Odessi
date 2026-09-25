@@ -26,7 +26,7 @@ export interface Order {
   taxAmount: number;
   totalAmount: number;
   currency: string;
-  status: "PENDING" | "PENDING_PAYMENT" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "PAYMENT_FAILED";
+  status: "PENDING" | "PENDING_PAYMENT" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "OUT_FOR_DELIVERY" | "DELIVERED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentStatus: "PENDING" | "AUTHORIZED" | "CAPTURED" | "PAID" | "FAILED" | "REFUNDED";
   shippingAddressSnapshot?: string;
   shipmentTrackingNumber?: string;
