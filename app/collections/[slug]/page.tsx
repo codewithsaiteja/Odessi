@@ -12,6 +12,7 @@ import Sort from "@/components/shop/Sort";
 import { getCollectionBySlug } from "@/lib/api/collections";
 import { getProductsByCollection } from "@/lib/api/products";
 import type { Collection, Product, ProductSort } from "@/types";
+import BackButton from "@/components/navigation/BackButton";
 
 function CollectionContent() {
   const params = useParams();
@@ -123,6 +124,7 @@ function CollectionContent() {
 
         {/* Collection Description & Products */}
         <div className="container-odessi py-12">
+          <BackButton fallback="/collections" label="Back to Collections" className="mb-4" />
           {/* Breadcrumb */}
           <nav className="mb-8 text-sm" aria-label="Breadcrumb">
             <ol className="flex items-center gap-2 text-[var(--color-odessi-stone)]">

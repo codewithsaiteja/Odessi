@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { Order, getOrders } from "@/lib/api";
 import { RefreshCw } from "lucide-react";
+import BackButton from "@/components/navigation/BackButton";
 
 function formatOrderStatus(status: string): string {
   switch (status) {
@@ -152,6 +153,7 @@ export default function OrdersPage() {
   return (
     <div className="min-h-screen bg-neutral-950 text-white pt-28 pb-16 px-4 md:px-8">
       <div className="max-w-5xl mx-auto">
+        <BackButton fallback="/account" label="Back to Account" variant="light" className="mb-4" />
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold font-heading mb-2">My Orders</h1>

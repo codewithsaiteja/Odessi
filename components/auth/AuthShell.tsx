@@ -4,6 +4,7 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import BackButton from "@/components/navigation/BackButton";
 
 interface AuthShellProps {
   children: React.ReactNode;
@@ -84,13 +85,12 @@ export default function AuthShell({ children }: AuthShellProps) {
       <div className="flex-1 flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-16 bg-[#0D0D0D]">
         {/* Top Bar Navigation */}
         <div className="flex items-center justify-between mb-8 sm:mb-12">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-xs font-bold tracking-wider text-[#A3A3A3] hover:text-[#B89A5A] transition-colors uppercase font-mono"
-          >
-            <ArrowLeft size={16} className="text-[#B89A5A]" />
-            <span>Return to Store</span>
-          </Link>
+          <BackButton
+            fallback="/shop"
+            label="Return to Store"
+            variant="light"
+            className="!text-xs !font-bold tracking-wider !text-[#A3A3A3] hover:!text-[#B89A5A] uppercase font-mono"
+          />
         </div>
 
         {/* Mobile Brand Banner (<1024px) */}

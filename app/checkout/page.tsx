@@ -19,6 +19,7 @@ import { validateCoupon } from "@/lib/api/coupons";
 import AddressSelector from "@/components/checkout/AddressSelector";
 import OrderSummary from "@/components/checkout/OrderSummary";
 import Link from "next/link";
+import BackButton from "@/components/navigation/BackButton";
 
 interface RazorpayHandlerResponse {
   razorpay_payment_id: string;
@@ -274,6 +275,7 @@ export default function CheckoutPage() {
     <div className="min-h-screen bg-[var(--color-odessi-warmwhite)] text-[var(--color-odessi-black)] pt-28 pb-16 px-4 md:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
+          <BackButton fallback="/cart" label="Back to Cart" className="mb-4" />
           <h1 className="type-h2 mb-2">Checkout</h1>
           <p className="type-body text-[var(--color-odessi-stone)]">
             Review shipping details and complete your purchase securely.

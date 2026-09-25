@@ -10,6 +10,7 @@ import { useWishlist } from "@/lib/wishlist-context";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useRouter } from "next/navigation";
+import BackButton from "@/components/navigation/BackButton";
 
 export default function WishlistPage() {
   const { wishlist, removeFromWishlist, itemCount } = useWishlist();
@@ -47,6 +48,7 @@ export default function WishlistPage() {
         <div className="container-odessi py-12">
           {/* Header */}
           <div className="mb-8">
+            <BackButton fallback="/shop" label="Continue Shopping" className="mb-4" />
             <div className="flex items-center gap-3 mb-2">
               <Heart size={32} strokeWidth={1.5} className="text-[var(--color-odessi-black)]" />
               <h1 className="type-h1 text-[var(--color-odessi-black)]">

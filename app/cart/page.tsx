@@ -10,6 +10,7 @@ import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { formatPrice } from "@/lib/cart";
 import { FreeShippingMeter } from "@/components/cart/FreeShippingMeter";
+import BackButton from "@/components/navigation/BackButton";
 
 export default function CartPage() {
   const { cart, itemCount, subtotal, shipping, total, updateQuantity, removeFromCart } = useCart();
@@ -30,6 +31,7 @@ export default function CartPage() {
         <div className="container-odessi py-12">
           {/* Header */}
           <div className="mb-8">
+            <BackButton fallback="/shop" label="Continue Shopping" className="mb-4" />
             <h1 className="type-h1 text-[var(--color-odessi-black)] mb-2">
               CART
             </h1>

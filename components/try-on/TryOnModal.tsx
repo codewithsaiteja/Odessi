@@ -13,6 +13,7 @@ import {
   Lock,
   CameraOff,
   Radio,
+  ArrowLeft,
 } from "lucide-react";
 import type { Product } from "@/types";
 import { getTryOnToken, type TryOnTokenResponse } from "@/lib/api/try-on";
@@ -26,34 +27,20 @@ interface TryOnModalProps {
 
 export type TryOnStatus =
   | "idle"
-  | "checking_permissions"
   | "requesting_camera"
+  | "camera_ready"
+  | "minting_token"
+  | "fetching_garment"
+  | "connecting_vton"
+  | "waiting_for_remote_stream"
+  | "live"
   | "camera_permission_denied"
   | "camera_not_found"
   | "camera_in_use"
   | "camera_initialization_failed"
-  | "minting_token"
   | "try_on_token_failed"
-  | "connecting_vton"
   | "decart_connection_failed"
-  | "remote_stream_timeout"
-  | "live";
-
-/**
- * Check camera permission state via Permissions API if available.
- */
-async function queryCameraPermission(): Promise<"granted" | "denied" | "prompt" | "unsupported"> {
-  if (typeof navigator === "undefined" || !navigator.permissions?.query) {
-    return "unsupported";
-  }
-  try {
-    // PermissionName 'camera' is supported in Chromium-based browsers and Edge
-    const result = await navigator.permissions.query({ name: "camera" as PermissionName });
-    return result.state;
-  } catch {
-    return "unsupported";
-  }
-}
+  | "remote_stream_timeout";
 
 /**
  * Acquire camera stream using progressive constraint fallback.
@@ -115,6 +102,7 @@ export function TryOnModal({
   const [showLocalPip, setShowLocalPip] = useState<boolean>(true);
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const [tokenData, setTokenData] = useState<TryOnTokenResponse | null>(null);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -185,19 +173,13 @@ export function TryOnModal({
       return;
     }
 
-    // 2. Pre-flight check via Permissions API if available
-    setStatus("checking_permissions");
-    const permState = await queryCameraPermission();
-    if (permState === "denied") {
-      setStatus("camera_permission_denied");
-      setErrorMessage("Camera access is blocked in your browser settings. Please allow camera permissions to try on garments.");
-      return;
-    }
+    // 2. Request camera stream directly.
+    // NOTE: We do not gate on cached Permissions API state because Chrome frequently returns
+    // stale 'denied' results even after the user toggles 'Allow' in site settings until getUserMedia() is called.
+    setStatus("requesting_camera");
 
-    // 3. Request camera stream with progressive fallbacks
     let stream: MediaStream;
     try {
-      setStatus("requesting_camera");
       stream = await acquireCameraStream(cameraFacing);
       cameraStreamRef.current = stream;
 
@@ -206,6 +188,7 @@ export function TryOnModal({
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.play().catch(() => {});
       }
+      setStatus("camera_ready");
     } catch (camErr: unknown) {
       const error = camErr as { name?: string; message?: string };
       console.warn("[TryOn] Camera acquisition error:", error?.name, error?.message);
@@ -226,7 +209,7 @@ export function TryOnModal({
       return;
     }
 
-    // 4. Acquire short-lived token and garment image from Odessi backend
+    // 3. Acquire short-lived token and garment image from Odessi backend
     setStatus("minting_token");
     let tokenRes: TryOnTokenResponse;
     try {
@@ -245,6 +228,23 @@ export function TryOnModal({
       return;
     }
 
+    // 4. Fetch garment image
+    setStatus("fetching_garment");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let garmentImageInput: any = tokenRes.garmentImageUrl;
+    if (tokenRes.garmentImageUrl) {
+      try {
+        const imgResp = await fetch(tokenRes.garmentImageUrl, { mode: "cors" });
+        if (imgResp.ok) {
+          const blob = await imgResp.blob();
+          garmentImageInput = blob;
+        }
+      } catch (fetchErr) {
+        console.warn("[TryOn] Garment pre-fetch as blob failed, using direct URL:", fetchErr);
+        garmentImageInput = tokenRes.garmentImageUrl;
+      }
+    }
+
     // 5. Connect to Decart Lucy Real-Time VTON via WebRTC
     setStatus("connecting_vton");
     try {
@@ -257,21 +257,7 @@ export function TryOnModal({
       const modelName = (tokenRes.model || "lucy-vton-3.5") as Parameters<typeof models.realtime>[0];
       const modelDef = models.realtime(modelName);
 
-      // Pre-fetch garment image as Blob if possible to ensure resilience against cross-origin drops
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let garmentImageInput: any = tokenRes.garmentImageUrl;
-      if (tokenRes.garmentImageUrl) {
-        try {
-          const imgResp = await fetch(tokenRes.garmentImageUrl, { mode: "cors" });
-          if (imgResp.ok) {
-            const blob = await imgResp.blob();
-            garmentImageInput = blob;
-          }
-        } catch (fetchErr) {
-          console.warn("[TryOn] Garment pre-fetch as blob failed, using direct URL:", fetchErr);
-          garmentImageInput = tokenRes.garmentImageUrl;
-        }
-      }
+      setStatus("waiting_for_remote_stream");
 
       // 15-second safeguard timeout for remote video arrival
       streamTimeoutRef.current = setTimeout(() => {
@@ -321,6 +307,15 @@ export function TryOnModal({
       setErrorMessage(error?.message || "Failed to establish live AI try-on stream with Decart Lucy. Please try again.");
     }
   }, [cameraFacing, cleanupSession, product.id, product.name, product.slug, selectedVariantSku]);
+
+  const handleRecovery = useCallback(async () => {
+    setIsRecovering(true);
+    try {
+      await startTryOn();
+    } finally {
+      setIsRecovering(false);
+    }
+  }, [startTryOn]);
 
   // Trigger try-on when modal is opened
   useEffect(() => {
@@ -394,10 +389,12 @@ export function TryOnModal({
 
   function isLoadingState(s: TryOnStatus): boolean {
     return (
-      s === "checking_permissions" ||
       s === "requesting_camera" ||
+      s === "camera_ready" ||
       s === "minting_token" ||
-      s === "connecting_vton"
+      s === "fetching_garment" ||
+      s === "connecting_vton" ||
+      s === "waiting_for_remote_stream"
     );
   }
 
@@ -414,6 +411,16 @@ export function TryOnModal({
         {/* Top Header Bar */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800/80 bg-[#141414]">
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="p-1.5 -ml-1 text-neutral-400 hover:text-white transition-colors rounded-lg flex items-center gap-1.5 text-xs uppercase tracking-wider font-semibold"
+              aria-label="Back to Product"
+            >
+              <ArrowLeft size={16} />
+              <span className="hidden sm:inline">Back</span>
+            </button>
+            <div className="h-4 w-[1px] bg-neutral-700 mx-1 hidden sm:block" />
             <div className="p-1.5 rounded-md bg-neutral-900 border border-neutral-700/60 text-[#D4AF37]">
               <Sparkles size={16} />
             </div>
@@ -490,16 +497,20 @@ export function TryOnModal({
               </div>
 
               <h3 className="text-white text-base font-medium mb-1">
-                {status === "checking_permissions" && "Verifying Camera Access..."}
                 {status === "requesting_camera" && "Requesting Camera Access..."}
+                {status === "camera_ready" && "Camera Ready..."}
                 {status === "minting_token" && "Securing Ephemeral Lucy Token..."}
+                {status === "fetching_garment" && "Loading Garment Silhouette..."}
                 {status === "connecting_vton" && "Connecting to Decart Lucy Real-Time VTON..."}
+                {status === "waiting_for_remote_stream" && "Generating Real-Time Virtual Fit..."}
               </h3>
               <p className="text-neutral-400 text-xs max-w-sm">
-                {status === "checking_permissions" && "Checking camera availability in your browser environment."}
                 {status === "requesting_camera" && "Please allow camera access in your browser prompt."}
+                {status === "camera_ready" && "Camera active. Initializing AI transformation pipeline."}
                 {status === "minting_token" && "Generating a private 5-minute session token for this garment."}
+                {status === "fetching_garment" && "Preparing garment imagery for real-time body tracking."}
                 {status === "connecting_vton" && "Establishing 30 FPS bidirectional WebRTC stream."}
+                {status === "waiting_for_remote_stream" && "Receiving real-time AI frames from Decart Lucy."}
               </p>
             </div>
           )}
@@ -535,18 +546,20 @@ export function TryOnModal({
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={startTryOn}
-                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2"
+                  onClick={handleRecovery}
+                  disabled={isRecovering}
+                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2 cursor-pointer shadow-lg hover:shadow-[#D4AF37]/20 disabled:opacity-60"
                 >
-                  <RefreshCw size={14} />
-                  <span>I&apos;ve Allowed Access</span>
+                  <RefreshCw size={14} className={isRecovering ? "animate-spin" : ""} />
+                  <span>{isRecovering ? "Connecting..." : "I\u0027ve Allowed Access"}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors"
+                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  Close
+                  <ArrowLeft size={14} />
+                  <span>Back</span>
                 </button>
               </div>
             </div>
@@ -565,8 +578,8 @@ export function TryOnModal({
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={startTryOn}
-                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2"
+                  onClick={() => startTryOn()}
+                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <RefreshCw size={14} />
                   <span>Check Again</span>
@@ -574,9 +587,10 @@ export function TryOnModal({
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors"
+                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  Close
+                  <ArrowLeft size={14} />
+                  <span>Back</span>
                 </button>
               </div>
             </div>
@@ -595,8 +609,8 @@ export function TryOnModal({
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={startTryOn}
-                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2"
+                  onClick={() => startTryOn()}
+                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <RefreshCw size={14} />
                   <span>Retry Camera</span>
@@ -604,9 +618,10 @@ export function TryOnModal({
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors"
+                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  Close
+                  <ArrowLeft size={14} />
+                  <span>Back</span>
                 </button>
               </div>
             </div>
@@ -625,8 +640,8 @@ export function TryOnModal({
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={startTryOn}
-                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2"
+                  onClick={() => startTryOn()}
+                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <RefreshCw size={14} />
                   <span>Retry</span>
@@ -634,9 +649,10 @@ export function TryOnModal({
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors"
+                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  Close
+                  <ArrowLeft size={14} />
+                  <span>Back</span>
                 </button>
               </div>
             </div>
@@ -657,8 +673,8 @@ export function TryOnModal({
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={startTryOn}
-                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2"
+                  onClick={() => startTryOn()}
+                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <RefreshCw size={14} />
                   <span>Retry Session</span>
@@ -666,9 +682,10 @@ export function TryOnModal({
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors"
+                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  Close
+                  <ArrowLeft size={14} />
+                  <span>Back</span>
                 </button>
               </div>
             </div>
@@ -776,7 +793,7 @@ export function TryOnModal({
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white font-medium transition-colors"
+              className="px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white font-medium transition-colors cursor-pointer"
             >
               Done
             </button>
