@@ -143,6 +143,13 @@ app:
     read-timeout: 5000
     write-timeout: 5000
     primary-frontend-url: ${PRIMARY_FRONTEND_URL:https://www.odessitfi.me}
+  # ── Decart Lucy Realtime Virtual Try-On ──────────────────────────────────
+  decart:
+    api-key: ${DECART_API_KEY:}
+    model: ${DECART_MODEL:lucy-vton-3.5}
+    token-endpoint: ${DECART_TOKEN_ENDPOINT:https://api.decart.ai/v1/client/tokens}
+    token-ttl-seconds: ${DECART_TOKEN_TTL_SECONDS:300}
+    enabled: ${DECART_ENABLED:true}
 
 # ── Sentry (Backend Error Monitoring — odessi-backend) ──────
 sentry:

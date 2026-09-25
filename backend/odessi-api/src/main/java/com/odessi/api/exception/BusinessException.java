@@ -62,4 +62,8 @@ public class BusinessException extends RuntimeException {
         return new BusinessException("INVALID_QUANTITY",
             "Quantity must be at least 1");
     }
+
+    public static BusinessException tryOnUnavailable(String message) {
+        return new BusinessException("TRY_ON_UNAVAILABLE", message);
+    }
 }

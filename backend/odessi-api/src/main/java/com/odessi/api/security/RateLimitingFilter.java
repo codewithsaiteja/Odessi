@@ -50,7 +50,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             "/api/auth/register",
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
-            "/api/auth/refresh"
+            "/api/auth/refresh",
+            "/api/try-on/token"
     );
 
     /** Authenticated endpoint paths subject to user + endpoint rate limiting. */

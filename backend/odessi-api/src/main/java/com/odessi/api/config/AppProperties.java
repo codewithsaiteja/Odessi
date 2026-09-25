@@ -271,4 +271,36 @@ public class AppProperties {
             return isResendConfigured() || (host != null && !host.isBlank());
         }
     }
+
+    private Decart decart = new Decart();
+
+    public Decart getDecart() { return decart; }
+    public void setDecart(Decart decart) { this.decart = decart; }
+
+    public static class Decart {
+        private String apiKey;
+        private String model = "lucy-vton-3.5";
+        private String tokenEndpoint = "https://api.decart.ai/v1/client/tokens";
+        private int tokenTtlSeconds = 300;
+        private boolean enabled = true;
+
+        public String getApiKey() { return apiKey; }
+        public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+
+        public String getModel() { return model; }
+        public void setModel(String model) { this.model = model; }
+
+        public String getTokenEndpoint() { return tokenEndpoint; }
+        public void setTokenEndpoint(String tokenEndpoint) { this.tokenEndpoint = tokenEndpoint; }
+
+        public int getTokenTtlSeconds() { return tokenTtlSeconds; }
+        public void setTokenTtlSeconds(int tokenTtlSeconds) { this.tokenTtlSeconds = tokenTtlSeconds; }
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+        public boolean isConfigured() {
+            return apiKey != null && !apiKey.isBlank();
+        }
+    }
 }

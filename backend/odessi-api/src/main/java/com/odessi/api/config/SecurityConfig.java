@@ -94,8 +94,9 @@ public class SecurityConfig {
                     "/api/auth/login", "/api/auth/register", "/api/auth/refresh",
                     "/api/auth/forgot-password", "/api/auth/reset-password",
                     "/api/webhooks/razorpay",
-                    "/api/partnerships", "/api/custom-orders", "/api/back-in-stock/subscribe"
-                ) // public POSTs + server-to-server webhook
+                    "/api/partnerships", "/api/custom-orders", "/api/back-in-stock/subscribe",
+                    "/api/try-on/token"
+                ) // public POSTs + server-to-server webhook + try-on token
             )
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session ->
@@ -118,8 +119,8 @@ public class SecurityConfig {
                 })
                 // Content-Security-Policy — configured for Next.js, Google Fonts, Unsplash, and Razorpay
                 .contentSecurityPolicy(csp -> csp.policyDirectives(buildCsp()))
-                // Permissions-Policy — disable sensitive browser APIs not used by the application
-                .permissionsPolicy(pp -> pp.policy("camera=(), microphone=(), geolocation=()"))
+                // Permissions-Policy — allow camera for virtual try-on, disable unused browser APIs
+                .permissionsPolicy(pp -> pp.policy("microphone=(), geolocation=()"))
             )
             .authorizeHttpRequests(auth -> auth
                 // ── CORS Preflight ──────────────────────────────────────────
@@ -137,7 +138,8 @@ public class SecurityConfig {
                     "/api/homepage/content",
                     "/api/homepage/content/**",
                     "/uploads/**",
-                    "/api/media/**"
+                    "/api/media/**",
+                    "/api/try-on/**"
                 ).permitAll()
                 .requestMatchers(
                     "/api/auth/register",

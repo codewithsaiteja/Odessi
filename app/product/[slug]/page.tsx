@@ -26,6 +26,8 @@ const BackInStockModal = dynamic(() => import("@/components/product/BackInStockM
 const PincodeDeliveryEstimator = dynamic(() => import("@/components/product/PincodeDeliveryEstimator").then(mod => mod.PincodeDeliveryEstimator), { ssr: false });
 const RecentlyViewed = dynamic(() => import("@/components/product/RecentlyViewed").then(mod => mod.RecentlyViewed), { ssr: false });
 const ImageTrail = dynamic(() => import("@/components/editorial/ImageTrail"), { ssr: false });
+const TryOnModal = dynamic(() => import("@/components/try-on/TryOnModal").then(mod => mod.TryOnModal), { ssr: false });
+import { TryOnButton } from "@/components/try-on/TryOnButton";
 
 export default function ProductPage() {
   const params = useParams();
@@ -43,6 +45,7 @@ export default function ProductPage() {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showSizeAssistant, setShowSizeAssistant] = useState(false);
   const [showBackInStockModal, setShowBackInStockModal] = useState(false);
+  const [showTryOnModal, setShowTryOnModal] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>("description");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -558,6 +561,12 @@ export default function ProductPage() {
 
               {/* Actions */}
               <div className="space-y-3 mb-8">
+                {/* Decart Lucy VTON: Real-Time Virtual Try-On */}
+                <TryOnButton
+                  onClick={() => setShowTryOnModal(true)}
+                  className="mb-1"
+                />
+
                 {!hasVariants ? (
                   <div className="space-y-2">
                     <button
@@ -831,6 +840,16 @@ export default function ProductPage() {
         variantId={Number(selectedVariant?.id) || 1}
         variantSku={selectedVariant?.sku || `${product.slug}-${selectedSize || 'OS'}`}
       />
+
+      {/* Decart Lucy VTON: Real-Time Virtual Try-On Modal */}
+      {showTryOnModal && (
+        <TryOnModal
+          isOpen={showTryOnModal}
+          onClose={() => setShowTryOnModal(false)}
+          product={product}
+          selectedVariantSku={selectedVariant?.sku}
+        />
+      )}
     </>
   );
 }

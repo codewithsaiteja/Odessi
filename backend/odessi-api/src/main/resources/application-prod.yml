@@ -23,6 +23,12 @@ app:
     from-email: ${MAIL_FROM:${EMAIL_FROM_ADDRESS:orders@odessitfi.me}}
     from-name: ${MAIL_FROM_NAME:${EMAIL_FROM_NAME:Odessi}}
     primary-frontend-url: ${PRIMARY_FRONTEND_URL:https://www.odessitfi.me}
+  decart:
+    api-key: ${DECART_API_KEY:}
+    model: ${DECART_MODEL:lucy-vton-3.5}
+    token-endpoint: ${DECART_TOKEN_ENDPOINT:https://api.decart.ai/v1/client/tokens}
+    token-ttl-seconds: ${DECART_TOKEN_TTL_SECONDS:300}
+    enabled: ${DECART_ENABLED:true}
 
 logging:
   level:
