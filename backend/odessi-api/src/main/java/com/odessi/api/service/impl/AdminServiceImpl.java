@@ -675,7 +675,13 @@ public class AdminServiceImpl implements AdminService {
 
         String imageUrl = mediaStorageService.storeProductImage(file);
 
-        boolean makePrimary = Boolean.TRUE.equals(isPrimary) || (product.getImages().isEmpty() && (mediaType == null || "IMAGE".equalsIgnoreCase(mediaType)));
+        String normalizedType = (mediaType != null && !mediaType.isBlank()) ? mediaType.toUpperCase().trim() : "IMAGE";
+        boolean isSpin360 = "SPIN_360".equalsIgnoreCase(normalizedType);
+        boolean isImageTrail = "IMAGE_TRAIL".equalsIgnoreCase(normalizedType);
+        boolean isVideo = "VIDEO".equalsIgnoreCase(normalizedType);
+
+        boolean makePrimary = !isSpin360 && !isImageTrail && !isVideo
+            && (Boolean.TRUE.equals(isPrimary) || (product.getImages().isEmpty()));
         if (makePrimary) {
             productImageRepository.clearPrimaryForProduct(productId);
         }
@@ -684,9 +690,7 @@ public class AdminServiceImpl implements AdminService {
         com.odessi.api.entity.ProductImage productImage = new com.odessi.api.entity.ProductImage(
             product, imageUrl, altText, sortOrder, makePrimary
         );
-        if (mediaType != null && !mediaType.isBlank()) {
-            productImage.setMediaType(mediaType.toUpperCase().trim());
-        }
+        productImage.setMediaType(normalizedType);
 
         com.odessi.api.entity.ProductImage savedImage = productImageRepository.save(productImage);
         product.addImage(savedImage);
@@ -744,9 +748,15 @@ public class AdminServiceImpl implements AdminService {
         mediaStorageService.deleteProductImage(imageUrl);
 
         if (wasPrimary && !product.getImages().isEmpty()) {
-            com.odessi.api.entity.ProductImage newPrimary = product.getImages().get(0);
-            newPrimary.setPrimary(true);
-            productImageRepository.save(newPrimary);
+            product.getImages().stream()
+                .filter(img -> img.getMediaType() == null 
+                        || "IMAGE".equalsIgnoreCase(img.getMediaType()) 
+                        || "DEFAULT".equalsIgnoreCase(img.getMediaType()))
+                .findFirst()
+                .ifPresent(newPrimary -> {
+                    newPrimary.setPrimary(true);
+                    productImageRepository.save(newPrimary);
+                });
         }
 
         auditService.logAction(admin, "PRODUCT_IMAGE_DELETED", "ProductImage", imageId.toString(),
@@ -764,6 +774,11 @@ public class AdminServiceImpl implements AdminService {
 
         if (!image.getProduct().getId().equals(productId)) {
             throw new BadRequestException("INVALID_IMAGE_PRODUCT", "Image does not belong to product: " + productId);
+        }
+
+        String mediaType = image.getMediaType();
+        if ("SPIN_360".equalsIgnoreCase(mediaType) || "IMAGE_TRAIL".equalsIgnoreCase(mediaType) || "VIDEO".equalsIgnoreCase(mediaType)) {
+            throw new BadRequestException("INVALID_MEDIA_TYPE", "Cannot set non-IMAGE media type as primary product image");
         }
 
         productImageRepository.clearPrimaryForProduct(productId);

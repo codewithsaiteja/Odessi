@@ -36,6 +36,9 @@ public interface ProductMapper {
             return List.of();
         }
         return product.getImages().stream()
+                .filter(img -> img.getMediaType() == null 
+                        || "IMAGE".equalsIgnoreCase(img.getMediaType()) 
+                        || "DEFAULT".equalsIgnoreCase(img.getMediaType()))
                 .map(ProductImage::getImageUrl)
                 .toList();
     }
@@ -45,9 +48,18 @@ public interface ProductMapper {
             return null;
         }
         return product.getImages().stream()
+                .filter(img -> img.getMediaType() == null 
+                        || "IMAGE".equalsIgnoreCase(img.getMediaType()) 
+                        || "DEFAULT".equalsIgnoreCase(img.getMediaType()))
                 .filter(ProductImage::isPrimary)
                 .map(ProductImage::getImageUrl)
                 .findFirst()
-                .orElseGet(() -> product.getImages().get(0).getImageUrl());
+                .orElseGet(() -> product.getImages().stream()
+                        .filter(img -> img.getMediaType() == null 
+                                || "IMAGE".equalsIgnoreCase(img.getMediaType()) 
+                                || "DEFAULT".equalsIgnoreCase(img.getMediaType()))
+                        .map(ProductImage::getImageUrl)
+                        .findFirst()
+                        .orElse(null));
     }
 }

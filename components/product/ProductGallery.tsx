@@ -116,7 +116,13 @@ export default function ProductGallery({
     };
   }, [isFullscreen]);
 
-  const hasSpin360 = Boolean(images360?.images && images360.images.length > 1);
+  const hasSpin360 = Boolean(images360?.images && images360.images.length >= 4);
+
+  useEffect(() => {
+    if (!hasSpin360 && viewMode === "360") {
+      setViewMode("2d");
+    }
+  }, [hasSpin360, viewMode]);
 
   return (
     <>

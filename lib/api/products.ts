@@ -179,32 +179,17 @@ function mapBackendProductToFrontend(backendProduct: BackendProductResponse): Pr
   // Extract 360 Spin sequence if provided by backend product media
   let images360: import("@/types").Product360Sequence | undefined = undefined;
   const spinMedia = rawMediaList
-    .filter((img: any) => img.mediaType === "SPIN_360")
+    .filter((img: any) => 
+      img.mediaType === "SPIN_360" && 
+      img.imageUrl && 
+      !img.imageUrl.includes("unsplash.com")
+    )
     .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  if (spinMedia.length > 1) {
+
+  if (spinMedia.length >= 4) {
     images360 = {
       images: spinMedia.map((m: any) => getMediaUrl(m.imageUrl)),
       totalFrames: spinMedia.length,
-    };
-  } else if (resolvedImages.length >= 2) {
-    images360 = {
-      images: resolvedImages,
-      totalFrames: resolvedImages.length,
-    };
-  } else {
-    // Graceful fallback for single-image products:
-    // provide an editorial worn angle sequence starting from the piece's primary image
-    const primaryImg = resolvedImages[0] || getMediaUrl(undefined);
-    images360 = {
-      images: [
-        primaryImg,
-        "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=1000&q=85",
-        "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=1000&q=85",
-        "https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?w=1000&q=85",
-        "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=1000&q=85",
-        "https://images.unsplash.com/photo-1605518216938-7c31b7b14ad0?w=1000&q=85",
-      ],
-      totalFrames: 6,
     };
   }
 

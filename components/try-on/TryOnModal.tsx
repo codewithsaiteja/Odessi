@@ -1,7 +1,19 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { X, Camera, RefreshCw, AlertCircle, Sparkles, Check, Download, Video, ShieldCheck } from "lucide-react";
+import {
+  X,
+  Camera,
+  RefreshCw,
+  AlertCircle,
+  Sparkles,
+  Download,
+  Video,
+  ShieldCheck,
+  Lock,
+  CameraOff,
+  Radio,
+} from "lucide-react";
 import type { Product } from "@/types";
 import { getTryOnToken, type TryOnTokenResponse } from "@/lib/api/try-on";
 
@@ -12,13 +24,84 @@ interface TryOnModalProps {
   selectedVariantSku?: string;
 }
 
-type TryOnStatus =
+export type TryOnStatus =
   | "idle"
+  | "checking_permissions"
   | "requesting_camera"
+  | "camera_permission_denied"
+  | "camera_not_found"
+  | "camera_in_use"
+  | "camera_initialization_failed"
   | "minting_token"
+  | "try_on_token_failed"
   | "connecting_vton"
-  | "live"
-  | "error";
+  | "decart_connection_failed"
+  | "remote_stream_timeout"
+  | "live";
+
+/**
+ * Check camera permission state via Permissions API if available.
+ */
+async function queryCameraPermission(): Promise<"granted" | "denied" | "prompt" | "unsupported"> {
+  if (typeof navigator === "undefined" || !navigator.permissions?.query) {
+    return "unsupported";
+  }
+  try {
+    // PermissionName 'camera' is supported in Chromium-based browsers and Edge
+    const result = await navigator.permissions.query({ name: "camera" as PermissionName });
+    return result.state;
+  } catch {
+    return "unsupported";
+  }
+}
+
+/**
+ * Acquire camera stream using progressive constraint fallback.
+ */
+async function acquireCameraStream(facingMode: "user" | "environment"): Promise<MediaStream> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    throw new Error("CAMERA_UNSUPPORTED");
+  }
+
+  // Attempt 1: Standard high definition
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode,
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 30, max: 30 },
+      },
+      audio: false,
+    });
+  } catch (err1: unknown) {
+    const error1 = err1 as { name?: string };
+    if (error1?.name === "NotAllowedError" || error1?.name === "PermissionDeniedError") {
+      throw err1;
+    }
+    console.warn("[TryOn] HD constraint failed, falling back to facingMode only:", error1?.name || err1);
+  }
+
+  // Attempt 2: Basic facing mode without strict resolution
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      video: { facingMode },
+      audio: false,
+    });
+  } catch (err2: unknown) {
+    const error2 = err2 as { name?: string };
+    if (error2?.name === "NotAllowedError" || error2?.name === "PermissionDeniedError") {
+      throw err2;
+    }
+    console.warn("[TryOn] facingMode constraint failed, falling back to basic video:", error2?.name || err2);
+  }
+
+  // Attempt 3: Minimal generic video constraint
+  return await navigator.mediaDevices.getUserMedia({
+    video: true,
+    audio: false,
+  });
+}
 
 export function TryOnModal({
   isOpen,
@@ -36,12 +119,23 @@ export function TryOnModal({
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
-  // Using any for the realtime client reference to support dynamic import of @decartai/sdk
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const realtimeClientRef = useRef<any>(null);
+  const streamTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const statusRef = useRef<TryOnStatus>("idle");
+
+  // Keep statusRef synchronized with state for asynchronous timers
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   // Safe and thorough cleanup of all camera tracks and WebRTC connections
   const cleanupSession = useCallback(() => {
+    if (streamTimeoutRef.current) {
+      clearTimeout(streamTimeoutRef.current);
+      streamTimeoutRef.current = null;
+    }
+
     if (realtimeClientRef.current) {
       try {
         realtimeClientRef.current.disconnect?.();
@@ -86,49 +180,80 @@ export function TryOnModal({
 
     // 1. Verify browser support for getUserMedia
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-      setStatus("error");
+      setStatus("camera_initialization_failed");
       setErrorMessage("Camera access is not supported by your browser. Please try Chrome, Safari, or Edge.");
       return;
     }
 
-    try {
-      // 2. Request Camera permission and stream
-      setStatus("requesting_camera");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: cameraFacing,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      });
+    // 2. Pre-flight check via Permissions API if available
+    setStatus("checking_permissions");
+    const permState = await queryCameraPermission();
+    if (permState === "denied") {
+      setStatus("camera_permission_denied");
+      setErrorMessage("Camera access is blocked in your browser settings. Please allow camera permissions to try on garments.");
+      return;
+    }
 
+    // 3. Request camera stream with progressive fallbacks
+    let stream: MediaStream;
+    try {
+      setStatus("requesting_camera");
+      stream = await acquireCameraStream(cameraFacing);
       cameraStreamRef.current = stream;
 
-      // Attach stream to local preview video
+      // Attach stream to local preview video element
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.play().catch(() => {});
       }
+    } catch (camErr: unknown) {
+      const error = camErr as { name?: string; message?: string };
+      console.warn("[TryOn] Camera acquisition error:", error?.name, error?.message);
 
-      // 3. Acquire short-lived token and garment image from Odessi backend
-      setStatus("minting_token");
-      const tokenRes = await getTryOnToken({
+      if (error?.name === "NotAllowedError" || error?.name === "PermissionDeniedError") {
+        setStatus("camera_permission_denied");
+        setErrorMessage("Camera permission was denied. Please allow camera access in your browser settings to try on garments.");
+      } else if (error?.name === "NotFoundError" || error?.name === "DevicesNotFoundError") {
+        setStatus("camera_not_found");
+        setErrorMessage("No camera detected on this device. Please connect a webcam or open this page on your mobile device.");
+      } else if (error?.name === "NotReadableError" || error?.name === "TrackStartError") {
+        setStatus("camera_in_use");
+        setErrorMessage("Your camera is currently in use by another app or browser tab. Please close other camera apps and retry.");
+      } else {
+        setStatus("camera_initialization_failed");
+        setErrorMessage(error?.message || "Failed to initialize camera. Please check your device settings.");
+      }
+      return;
+    }
+
+    // 4. Acquire short-lived token and garment image from Odessi backend
+    setStatus("minting_token");
+    let tokenRes: TryOnTokenResponse;
+    try {
+      tokenRes = await getTryOnToken({
         productId: product.id,
         productSlug: product.slug,
         selectedVariantSku,
       });
       setTokenData(tokenRes);
+    } catch (tokErr: unknown) {
+      const error = tokErr as { message?: string };
+      console.error("[TryOn] Failed to acquire try-on token:", tokErr);
+      cleanupSession();
+      setStatus("try_on_token_failed");
+      setErrorMessage(error?.message || "Virtual Try-On service is temporarily unavailable. Please try again in a few moments.");
+      return;
+    }
 
-      // 4. Dynamically import @decartai/sdk on-demand
-      setStatus("connecting_vton");
+    // 5. Connect to Decart Lucy Real-Time VTON via WebRTC
+    setStatus("connecting_vton");
+    try {
       const { createDecartClient, models } = await import("@decartai/sdk");
 
       const decartClient = createDecartClient({
         apiKey: tokenRes.clientToken,
       });
 
-      // Use the canonical or configured Lucy model
       const modelName = (tokenRes.model || "lucy-vton-3.5") as Parameters<typeof models.realtime>[0];
       const modelDef = models.realtime(modelName);
 
@@ -148,6 +273,16 @@ export function TryOnModal({
         }
       }
 
+      // 15-second safeguard timeout for remote video arrival
+      streamTimeoutRef.current = setTimeout(() => {
+        if (statusRef.current !== "live") {
+          console.warn("[TryOn] Decart remote video stream timed out after 15s");
+          cleanupSession();
+          setStatus("remote_stream_timeout");
+          setErrorMessage("Decart Lucy VTON is taking longer than expected to start video generation. Please check your network and try again.");
+        }
+      }, 15000);
+
       const realtimeSession = await decartClient.realtime.connect(stream, {
         model: modelDef,
         initialState: {
@@ -160,6 +295,10 @@ export function TryOnModal({
         mirror: cameraFacing === "user" ? "auto" : false,
         speed: "fast",
         onRemoteStream: (remoteStream: MediaStream) => {
+          if (streamTimeoutRef.current) {
+            clearTimeout(streamTimeoutRef.current);
+            streamTimeoutRef.current = null;
+          }
           if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = remoteStream;
             remoteVideoRef.current.play().catch(() => {});
@@ -174,21 +313,12 @@ export function TryOnModal({
       });
 
       realtimeClientRef.current = realtimeSession;
-    } catch (err: unknown) {
-      console.error("[TryOn] Encountered error during Virtual Try-On startup:", err);
+    } catch (decartErr: unknown) {
+      const error = decartErr as { message?: string };
+      console.error("[TryOn] Decart connection failed:", decartErr);
       cleanupSession();
-      setStatus("error");
-
-      const error = err as { name?: string; message?: string };
-      if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
-        setErrorMessage("Camera permission was denied. Please allow camera access in your browser settings to try on garments.");
-      } else if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
-        setErrorMessage("No camera was detected on this device. Please connect a webcam.");
-      } else if (error.message?.includes("unavailable") || error.message?.includes("503")) {
-        setErrorMessage(error.message || "Virtual Try-On is currently undergoing maintenance. Please try again soon.");
-      } else {
-        setErrorMessage(error.message || "Failed to initialize live virtual try-on. Please check your network connection and try again.");
-      }
+      setStatus("decart_connection_failed");
+      setErrorMessage(error?.message || "Failed to establish live AI try-on stream with Decart Lucy. Please try again.");
     }
   }, [cameraFacing, cleanupSession, product.id, product.name, product.slug, selectedVariantSku]);
 
@@ -206,6 +336,17 @@ export function TryOnModal({
     };
   }, [isOpen, startTryOn, cleanupSession]);
 
+  // Keyboard navigation: Escape key closes modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        handleClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, handleClose]);
+
   // Flip camera (front/back)
   const toggleCameraFacing = () => {
     setCameraFacing((prev) => (prev === "user" ? "environment" : "user"));
@@ -213,7 +354,7 @@ export function TryOnModal({
 
   // Re-run startTryOn when camera facing mode is changed if already opened
   useEffect(() => {
-    if (isOpen && status !== "idle" && status !== "error") {
+    if (isOpen && status !== "idle" && !isErrorState(status)) {
       startTryOn();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -238,6 +379,27 @@ export function TryOnModal({
       console.error("[TryOn] Failed to capture snapshot:", err);
     }
   };
+
+  function isErrorState(s: TryOnStatus): boolean {
+    return (
+      s === "camera_permission_denied" ||
+      s === "camera_not_found" ||
+      s === "camera_in_use" ||
+      s === "camera_initialization_failed" ||
+      s === "try_on_token_failed" ||
+      s === "decart_connection_failed" ||
+      s === "remote_stream_timeout"
+    );
+  }
+
+  function isLoadingState(s: TryOnStatus): boolean {
+    return (
+      s === "checking_permissions" ||
+      s === "requesting_camera" ||
+      s === "minting_token" ||
+      s === "connecting_vton"
+    );
+  }
 
   if (!isOpen) return null;
 
@@ -291,7 +453,7 @@ export function TryOnModal({
           />
 
           {/* Local Camera Fallback / Connecting View */}
-          {status !== "live" && status !== "error" && (
+          {status !== "live" && !isErrorState(status) && (
             <video
               ref={localVideoRef}
               autoPlay
@@ -318,8 +480,8 @@ export function TryOnModal({
           )}
 
           {/* Loading States Overlay */}
-          {status !== "live" && status !== "error" && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10 bg-black/40">
+          {isLoadingState(status) && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10 bg-black/50 backdrop-blur-xs">
               <div className="relative mb-4">
                 <div className="w-16 h-16 rounded-full border-2 border-[#D4AF37]/30 border-t-[#D4AF37] animate-spin" />
                 <div className="absolute inset-0 flex items-center justify-center text-[#D4AF37]">
@@ -328,11 +490,13 @@ export function TryOnModal({
               </div>
 
               <h3 className="text-white text-base font-medium mb-1">
+                {status === "checking_permissions" && "Verifying Camera Access..."}
                 {status === "requesting_camera" && "Requesting Camera Access..."}
                 {status === "minting_token" && "Securing Ephemeral Lucy Token..."}
                 {status === "connecting_vton" && "Connecting to Decart Lucy Real-Time VTON..."}
               </h3>
               <p className="text-neutral-400 text-xs max-w-sm">
+                {status === "checking_permissions" && "Checking camera availability in your browser environment."}
                 {status === "requesting_camera" && "Please allow camera access in your browser prompt."}
                 {status === "minting_token" && "Generating a private 5-minute session token for this garment."}
                 {status === "connecting_vton" && "Establishing 30 FPS bidirectional WebRTC stream."}
@@ -340,18 +504,159 @@ export function TryOnModal({
             </div>
           )}
 
-          {/* Error State Overlay */}
-          {status === "error" && (
+          {/* Camera Permission Denied Overlay */}
+          {status === "camera_permission_denied" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-[#0F0F0F]/95">
+              <div className="p-3 rounded-full bg-amber-500/10 border border-amber-500/20 text-[#D4AF37] mb-4">
+                <Lock size={32} />
+              </div>
+              <h3 className="text-white text-lg font-semibold mb-2">Camera Access Blocked</h3>
+              <p className="text-neutral-300 text-xs sm:text-sm max-w-md mb-4 leading-relaxed">
+                Your browser has blocked camera access for <strong className="text-white">odessitfi.me</strong>.
+                To experience Decart Lucy Virtual Try-On, please enable your camera:
+              </p>
+
+              {/* Step by step browser instructions */}
+              <div className="w-full max-w-sm bg-neutral-900/80 border border-neutral-800 rounded-lg p-3 text-left text-xs text-neutral-300 mb-6 space-y-1.5 font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-[#D4AF37] text-black font-bold flex items-center justify-center text-[10px]">1</span>
+                  <span>Click the <strong>Lock / Settings</strong> icon in the address bar</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-[#D4AF37] text-black font-bold flex items-center justify-center text-[10px]">2</span>
+                  <span>Set <strong>Camera</strong> to <strong>&ldquo;Allow&rdquo;</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-[#D4AF37] text-black font-bold flex items-center justify-center text-[10px]">3</span>
+                  <span>Click <strong>&ldquo;I&apos;ve Allowed Access&rdquo;</strong> below</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={startTryOn}
+                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2"
+                >
+                  <RefreshCw size={14} />
+                  <span>I&apos;ve Allowed Access</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Camera Not Found Overlay */}
+          {status === "camera_not_found" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-[#0F0F0F]/95">
+              <div className="p-3 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 mb-4">
+                <CameraOff size={32} />
+              </div>
+              <h3 className="text-white text-lg font-semibold mb-2">No Camera Detected</h3>
+              <p className="text-neutral-300 text-sm max-w-md mb-6 leading-relaxed">
+                {errorMessage || "We could not detect a webcam on this device. Please connect a webcam or try this on your mobile smartphone."}
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={startTryOn}
+                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2"
+                >
+                  <RefreshCw size={14} />
+                  <span>Check Again</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Camera In Use / Hardware Busy */}
+          {status === "camera_in_use" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-[#0F0F0F]/95">
+              <div className="p-3 rounded-full bg-amber-500/10 border border-amber-500/20 text-[#D4AF37] mb-4">
+                <Radio size={32} />
+              </div>
+              <h3 className="text-white text-lg font-semibold mb-2">Camera In Use</h3>
+              <p className="text-neutral-300 text-sm max-w-md mb-6 leading-relaxed">
+                {errorMessage || "Your camera is currently being used by another application (Zoom, Teams, or another tab)."}
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={startTryOn}
+                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2"
+                >
+                  <RefreshCw size={14} />
+                  <span>Retry Camera</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Token Acquisition Failed */}
+          {status === "try_on_token_failed" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-[#0F0F0F]/95">
               <div className="p-3 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 mb-4">
                 <AlertCircle size={32} />
               </div>
-              <h3 className="text-white text-lg font-semibold mb-2">Unable to Start Try-On</h3>
+              <h3 className="text-white text-lg font-semibold mb-2">Unable to Start Session</h3>
+              <p className="text-neutral-300 text-sm max-w-md mb-6 leading-relaxed">
+                {errorMessage || "Could not initialize try-on session. The service may be undergoing maintenance."}
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={startTryOn}
+                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2"
+                >
+                  <RefreshCw size={14} />
+                  <span>Retry</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Decart Connection Failed or Timeout */}
+          {(status === "decart_connection_failed" || status === "remote_stream_timeout" || status === "camera_initialization_failed") && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-[#0F0F0F]/95">
+              <div className="p-3 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 mb-4">
+                <AlertCircle size={32} />
+              </div>
+              <h3 className="text-white text-lg font-semibold mb-2">
+                {status === "remote_stream_timeout" ? "Stream Timed Out" : "Try-On Connection Issue"}
+              </h3>
               <p className="text-neutral-300 text-sm max-w-md mb-6 leading-relaxed">
                 {errorMessage || "An unexpected error occurred while initiating the virtual try-on session."}
               </p>
               <div className="flex items-center gap-3">
                 <button
+                  type="button"
                   onClick={startTryOn}
                   className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2"
                 >
@@ -359,6 +664,7 @@ export function TryOnModal({
                   <span>Retry Session</span>
                 </button>
                 <button
+                  type="button"
                   onClick={handleClose}
                   className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors"
                 >
@@ -412,6 +718,7 @@ export function TryOnModal({
                       <span>Save</span>
                     </a>
                     <button
+                      type="button"
                       onClick={() => setSnapshotUrl(null)}
                       className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-medium transition-colors"
                     >
