@@ -84,7 +84,6 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
   } = props;
 
   const letterRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const interpolatedSettingsRef = useRef<string[]>([]);
   const mousePositionRef = useMousePositionRef(containerRef);
   const lastPositionRef = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
 
@@ -109,6 +108,16 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
       toValue: toSettings.get(axis) ?? fromValue,
     }));
   }, [fromFontVariationSettings, toFontVariationSettings]);
+
+  const wordsWithIndices = useMemo(() => {
+    let index = 0;
+    return label.split(" ").map((word) => {
+      return word.split("").map((letter) => ({
+        letter,
+        index: index++,
+      }));
+    });
+  }, [label]);
 
   const calculateDistance = (x1: number, y1: number, x2: number, y2: number) =>
     Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
@@ -135,7 +144,7 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
     lastPositionRef.current = { x, y };
     const containerRect = containerRef.current.getBoundingClientRect();
 
-    letterRefs.current.forEach((letterRef, index) => {
+    letterRefs.current.forEach((letterRef) => {
       if (!letterRef) return;
 
       const rect = letterRef.getBoundingClientRect();
@@ -162,13 +171,9 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
         })
         .join(", ");
 
-      interpolatedSettingsRef.current[index] = newSettings;
       letterRef.style.fontVariationSettings = newSettings;
     });
   });
-
-  const words = label.split(" ");
-  let letterIndex = 0;
 
   return (
     <span
@@ -181,27 +186,24 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
       className={className}
       {...restProps}
     >
-      {words.map((word, wordIndex) => (
+      {wordsWithIndices.map((wordLetters, wordIndex) => (
         <span key={wordIndex} className="inline-block whitespace-nowrap">
-          {word.split("").map((letter) => {
-            const currentLetterIndex = letterIndex++;
-            return (
-              <motion.span
-                key={currentLetterIndex}
-                ref={(el) => {
-                  letterRefs.current[currentLetterIndex] = el;
-                }}
-                style={{
-                  display: "inline-block",
-                  fontVariationSettings: interpolatedSettingsRef.current[currentLetterIndex],
-                }}
-                aria-hidden="true"
-              >
-                {letter}
-              </motion.span>
-            );
-          })}
-          {wordIndex < words.length - 1 && <span className="inline-block">&nbsp;</span>}
+          {wordLetters.map(({ letter, index: currentLetterIndex }) => (
+            <motion.span
+              key={currentLetterIndex}
+              ref={(el) => {
+                letterRefs.current[currentLetterIndex] = el;
+              }}
+              style={{
+                display: "inline-block",
+                fontVariationSettings: fromFontVariationSettings,
+              }}
+              aria-hidden="true"
+            >
+              {letter}
+            </motion.span>
+          ))}
+          {wordIndex < wordsWithIndices.length - 1 && <span className="inline-block">&nbsp;</span>}
         </span>
       ))}
       <span className="sr-only">{label}</span>

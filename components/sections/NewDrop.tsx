@@ -10,6 +10,7 @@ import type { Product } from "@/types";
 import ShinyText from "@/components/react-bits/text/ShinyText";
 import SplitText from "@/components/react-bits/text/SplitText";
 import SpotlightCard from "@/components/react-bits/cards/SpotlightCard";
+import { ImageTrail } from "@/components/editorial/ImageTrail";
 
 export default function NewDrop() {
   const { newDrop } = siteConfig;
@@ -29,13 +30,15 @@ export default function NewDrop() {
 
   const availableSizes = product.sizes.filter((s) => s.available);
   const primaryImage = getMediaUrl(product.images?.[0] || product.thumbnail);
+  const trailImages = (product.images || [primaryImage]).map(getMediaUrl);
 
   return (
     <section
       aria-labelledby="new-drop-heading"
       className="bg-[var(--color-odessi-charcoal)] overflow-hidden"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[600px] lg:min-h-[680px]">
+      <ImageTrail images={trailImages} maxTrailItems={4} distanceThreshold={70}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[600px] lg:min-h-[680px]">
 
         {/* ── Left: Image with Spotlight ── */}
         <div className="relative aspect-[4/5] lg:aspect-auto overflow-hidden order-1 lg:order-1">
@@ -147,6 +150,7 @@ export default function NewDrop() {
           </div>
         </div>
       </div>
+      </ImageTrail>
     </section>
   );
 }

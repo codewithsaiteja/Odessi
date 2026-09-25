@@ -138,7 +138,7 @@ export default function ProductGallery({
               PHOTOS (2D)
             </button>
 
-            {/* 360° SPIN */}
+            {/* 360° WORN VIEW */}
             <button
               type="button"
               onClick={() => setViewMode("360")}
@@ -148,10 +148,10 @@ export default function ProductGallery({
                   : "bg-white border border-[var(--color-odessi-smoke)] text-[var(--color-odessi-stone)] hover:text-black"
               }`}
               aria-pressed={viewMode === "360"}
-              aria-label="View 360 degree spin sequence"
+              aria-label="View 360 degree worn product experience"
             >
               <Layers size={13} className="text-[var(--color-odessi-gold)]" />
-              360° SPIN
+              360° WORN VIEW
             </button>
           </div>
         )}
