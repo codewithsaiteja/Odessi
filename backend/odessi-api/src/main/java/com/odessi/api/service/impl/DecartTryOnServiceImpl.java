@@ -80,13 +80,17 @@ public class DecartTryOnServiceImpl implements DecartTryOnService {
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("x-api-key", appProperties.getDecart().getApiKey());
 
+            List<String> allowedModels = new ArrayList<>();
+            if (appProperties.getDecart().getModel() != null && !appProperties.getDecart().getModel().isBlank()) {
+                allowedModels.add(appProperties.getDecart().getModel());
+            }
+            allowedModels.add("lucy-vton-3.5");
+            allowedModels.add("lucy-vton-latest");
+            allowedModels.add("lucy-2.5");
+
             Map<String, Object> body = new HashMap<>();
             body.put("expiresIn", appProperties.getDecart().getTokenTtlSeconds());
-            body.put("allowedModels", List.of(
-                    appProperties.getDecart().getModel(),
-                    "lucy-vton-3.5",
-                    "lucy-vton-latest"
-            ));
+            body.put("allowedModels", allowedModels.stream().distinct().toList());
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 

@@ -39,51 +39,38 @@ export type TryOnStatus =
   | "camera_in_use"
   | "camera_initialization_failed"
   | "try_on_token_failed"
+  | "garment_fetch_failed"
   | "decart_connection_failed"
   | "remote_stream_timeout";
 
 /**
- * Acquire camera stream using progressive constraint fallback.
+ * Direct browser camera test & progressive fallback.
+ * Emits [TryOn] getUserMedia called and tests hardware access.
  */
 async function acquireCameraStream(facingMode: "user" | "environment"): Promise<MediaStream> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
     throw new Error("CAMERA_UNSUPPORTED");
   }
 
-  // Attempt 1: Standard high definition
-  try {
-    return await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode,
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        frameRate: { ideal: 30, max: 30 },
-      },
-      audio: false,
-    });
-  } catch (err1: unknown) {
-    const error1 = err1 as { name?: string };
-    if (error1?.name === "NotAllowedError" || error1?.name === "PermissionDeniedError") {
-      throw err1;
+  console.log("[TryOn] getUserMedia called");
+
+  // Attempt 1: FacingMode if requested
+  if (facingMode) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: { facingMode },
+        audio: false,
+      });
+    } catch (err1: unknown) {
+      const error1 = err1 as { name?: string };
+      if (error1?.name === "NotAllowedError" || error1?.name === "PermissionDeniedError") {
+        throw err1;
+      }
+      console.warn("[TryOn] facingMode failed, falling back to minimal video: true:", error1?.name);
     }
-    console.warn("[TryOn] HD constraint failed, falling back to facingMode only:", error1?.name || err1);
   }
 
-  // Attempt 2: Basic facing mode without strict resolution
-  try {
-    return await navigator.mediaDevices.getUserMedia({
-      video: { facingMode },
-      audio: false,
-    });
-  } catch (err2: unknown) {
-    const error2 = err2 as { name?: string };
-    if (error2?.name === "NotAllowedError" || error2?.name === "PermissionDeniedError") {
-      throw err2;
-    }
-    console.warn("[TryOn] facingMode constraint failed, falling back to basic video:", error2?.name || err2);
-  }
-
-  // Attempt 3: Minimal generic video constraint
+  // Attempt 2: Minimal generic video constraint (guaranteed to not fail on constraint mismatches)
   return await navigator.mediaDevices.getUserMedia({
     video: true,
     audio: false,
@@ -177,10 +164,17 @@ export function TryOnModal({
       return;
     }
 
-    // 2. Request camera stream directly.
-    // NOTE: We do not gate on cached Permissions API state because Chrome frequently returns
-    // stale 'denied' results even after the user toggles 'Allow' in site settings until getUserMedia() is called.
-    console.log("[TryOn] requesting camera");
+    // 2. Query camera permission state for telemetry (non-blocking)
+    try {
+      if (typeof navigator !== "undefined" && navigator.permissions?.query) {
+        const perm = await navigator.permissions.query({ name: "camera" as PermissionName });
+        console.log("[TryOn] camera permission state", perm.state);
+      }
+    } catch {
+      console.log("[TryOn] camera permission state", "query_unsupported");
+    }
+
+    // Direct Browser Camera Test
     setStatus("requesting_camera");
 
     let stream: MediaStream;
@@ -217,7 +211,7 @@ export function TryOnModal({
     }
 
     // 3. Acquire short-lived token and garment image from Odessi backend
-    console.log("[TryOn] requesting VTON token");
+    console.log("[TryOn] requesting token");
     setStatus("minting_token");
     let tokenRes: TryOnTokenResponse;
     try {
@@ -233,53 +227,62 @@ export function TryOnModal({
       console.error("[TryOn] Failed to acquire try-on token:", tokErr);
       cleanupSession();
       setStatus("try_on_token_failed");
-      setErrorMessage(error?.message || "Virtual Try-On service is temporarily unavailable. Please try again in a few moments.");
+      setErrorMessage(error?.message || "Virtual Try-On service is temporarily unavailable. Please try again later.");
       return;
     }
 
-    // 4. Fetch garment image
+    // 4. Model selection
+    const modelName = (tokenRes.model || "lucy-vton-3.5") as Parameters<typeof models.realtime>[0];
+    console.log("[TryOn] model selected", modelName);
+
+    // 5. Fetch garment image
     setStatus("fetching_garment");
+    if (!tokenRes.garmentImageUrl) {
+      console.warn("[TryOn] Garment image URL is missing");
+      cleanupSession();
+      setStatus("garment_fetch_failed");
+      setErrorMessage("Product garment image is unavailable for virtual try-on.");
+      return;
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let garmentImageInput: any = tokenRes.garmentImageUrl;
-    if (tokenRes.garmentImageUrl) {
-      try {
-        const imgResp = await fetch(tokenRes.garmentImageUrl, { mode: "cors" });
-        if (imgResp.ok) {
-          const blob = await imgResp.blob();
-          garmentImageInput = blob;
-        }
-      } catch (fetchErr) {
-        console.warn("[TryOn] Garment pre-fetch as blob failed, using direct URL:", fetchErr);
-        garmentImageInput = tokenRes.garmentImageUrl;
+    try {
+      const imgResp = await fetch(tokenRes.garmentImageUrl, { mode: "cors" });
+      if (imgResp.ok) {
+        const blob = await imgResp.blob();
+        garmentImageInput = blob;
       }
+    } catch (fetchErr) {
+      console.warn("[TryOn] Garment pre-fetch as blob failed, using direct URL:", fetchErr);
+      garmentImageInput = tokenRes.garmentImageUrl;
     }
     console.log("[TryOn] garment loaded");
 
-    // 5. Connect to Decart Lucy Real-Time VTON via WebRTC
-    console.log("[TryOn] connecting Decart");
+    // 6. Connect to Decart Lucy Real-Time VTON via WebRTC
+    const { createDecartClient, models } = await import("@decartai/sdk");
+
+    const decartClient = createDecartClient({
+      apiKey: tokenRes.clientToken,
+    });
+    console.log("[TryOn] Decart client created");
+
+    const modelDef = models.realtime(modelName);
+    console.log("[TryOn] realtime connect started");
     setStatus("connecting_vton");
+    setStatus("waiting_for_remote_stream");
+
+    // 15-second safeguard timeout for remote video arrival
+    streamTimeoutRef.current = setTimeout(() => {
+      if (statusRef.current !== "live") {
+        console.warn("[TryOn] Decart remote video stream timed out after 15s");
+        cleanupSession();
+        setStatus("remote_stream_timeout");
+        setErrorMessage("Live try-on stream timed out. Please check your network connection and retry.");
+      }
+    }, 15000);
+
     try {
-      const { createDecartClient, models } = await import("@decartai/sdk");
-
-      const decartClient = createDecartClient({
-        apiKey: tokenRes.clientToken,
-      });
-
-      const modelName = (tokenRes.model || "lucy-vton-3.5") as Parameters<typeof models.realtime>[0];
-      const modelDef = models.realtime(modelName);
-
-      setStatus("waiting_for_remote_stream");
-
-      // 15-second safeguard timeout for remote video arrival
-      streamTimeoutRef.current = setTimeout(() => {
-        if (statusRef.current !== "live") {
-          console.warn("[TryOn] Decart remote video stream timed out after 15s");
-          cleanupSession();
-          setStatus("remote_stream_timeout");
-          setErrorMessage("Decart Lucy VTON is taking longer than expected to start video generation. Please check your network and try again.");
-        }
-      }, 15000);
-
       const realtimeSession = await decartClient.realtime.connect(stream, {
         model: modelDef,
         initialState: {
@@ -304,19 +307,36 @@ export function TryOnModal({
           setStatus("live");
         },
         onConnectionChange: (state) => {
+          console.log("[TryOn] realtime connection state", state);
           if (state === "disconnected" || state === "reconnecting") {
             console.warn("[TryOn] Realtime session connection state:", state);
           }
         },
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      realtimeSession.on("error", (err: any) => {
+        console.error("[TryOn] Decart error", err);
+        cleanupSession();
+        setStatus("decart_connection_failed");
+        setErrorMessage(err?.message || "Virtual try-on connection failed.");
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      realtimeSession.on("sessionEnded", (reason: any) => {
+        console.warn("[TryOn] Decart session ended:", reason);
+        cleanupSession();
+        setStatus("decart_connection_failed");
+        setErrorMessage("Virtual try-on session concluded.");
+      });
+
       realtimeClientRef.current = realtimeSession;
     } catch (decartErr: unknown) {
       const error = decartErr as { message?: string };
-      console.error("[TryOn] Decart connection failed:", decartErr);
+      console.error("[TryOn] Decart error", decartErr);
       cleanupSession();
       setStatus("decart_connection_failed");
-      setErrorMessage(error?.message || "Failed to establish live AI try-on stream with Decart Lucy. Please try again.");
+      setErrorMessage(error?.message || "Virtual try-on connection failed.");
     }
   }, [cameraFacing, cleanupSession, product.id, product.name, product.slug, selectedVariantSku]);
 
@@ -405,6 +425,7 @@ export function TryOnModal({
       s === "camera_in_use" ||
       s === "camera_initialization_failed" ||
       s === "try_on_token_failed" ||
+      s === "garment_fetch_failed" ||
       s === "decart_connection_failed" ||
       s === "remote_stream_timeout"
     );
@@ -479,6 +500,9 @@ export function TryOnModal({
             autoPlay
             playsInline
             muted
+            onLoadedMetadata={() => console.log("[TryOn] remote video loaded")}
+            onLoadedData={() => console.log("[TryOn] remote video loaded")}
+            onPlaying={() => console.log("[TryOn] remote video playing")}
             className={`w-full h-full object-contain ${status === "live" ? "block" : "hidden"}`}
           />
 
@@ -658,9 +682,9 @@ export function TryOnModal({
               <div className="p-3 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 mb-4">
                 <AlertCircle size={32} />
               </div>
-              <h3 className="text-white text-lg font-semibold mb-2">Unable to Start Session</h3>
+              <h3 className="text-white text-lg font-semibold mb-2">Try-On Service Unavailable</h3>
               <p className="text-neutral-300 text-sm max-w-md mb-6 leading-relaxed">
-                {errorMessage || "Could not initialize try-on session. The service may be undergoing maintenance."}
+                {errorMessage || "Virtual Try-On service is temporarily unavailable. Please try again later."}
               </p>
               <div className="flex items-center gap-3">
                 <button
@@ -683,17 +707,46 @@ export function TryOnModal({
             </div>
           )}
 
-          {/* Decart Connection Failed or Timeout */}
-          {(status === "decart_connection_failed" || status === "remote_stream_timeout" || status === "camera_initialization_failed") && (
+          {/* Garment Image Failed */}
+          {status === "garment_fetch_failed" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-[#0F0F0F]/95">
+              <div className="p-3 rounded-full bg-amber-500/10 border border-amber-500/20 text-[#D4AF37] mb-4">
+                <AlertCircle size={32} />
+              </div>
+              <h3 className="text-white text-lg font-semibold mb-2">Product Garment Unavailable</h3>
+              <p className="text-neutral-300 text-sm max-w-md mb-6 leading-relaxed">
+                {errorMessage || "Could not load the garment silhouette for virtual try-on."}
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => startTryOn()}
+                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <RefreshCw size={14} />
+                  <span>Retry</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Back</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Decart Connection Failed */}
+          {status === "decart_connection_failed" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-[#0F0F0F]/95">
               <div className="p-3 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 mb-4">
                 <AlertCircle size={32} />
               </div>
-              <h3 className="text-white text-lg font-semibold mb-2">
-                {status === "remote_stream_timeout" ? "Stream Timed Out" : "Try-On Connection Issue"}
-              </h3>
+              <h3 className="text-white text-lg font-semibold mb-2">Virtual Try-On Connection Failed</h3>
               <p className="text-neutral-300 text-sm max-w-md mb-6 leading-relaxed">
-                {errorMessage || "An unexpected error occurred while initiating the virtual try-on session."}
+                {errorMessage || "Unable to connect to virtual try-on. Please try again."}
               </p>
               <div className="flex items-center gap-3">
                 <button
@@ -703,6 +756,68 @@ export function TryOnModal({
                 >
                   <RefreshCw size={14} />
                   <span>Retry Session</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Back</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Remote Stream Timed Out */}
+          {status === "remote_stream_timeout" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-[#0F0F0F]/95">
+              <div className="p-3 rounded-full bg-amber-500/10 border border-amber-500/20 text-[#D4AF37] mb-4">
+                <AlertCircle size={32} />
+              </div>
+              <h3 className="text-white text-lg font-semibold mb-2">Live Try-On Stream Unavailable</h3>
+              <p className="text-neutral-300 text-sm max-w-md mb-6 leading-relaxed">
+                {errorMessage || "Live try-on stream timed out. Please check your network connection and retry."}
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => startTryOn()}
+                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <RefreshCw size={14} />
+                  <span>Retry Session</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-5 py-2.5 rounded-sm bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Back</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Camera Initialization Failed */}
+          {status === "camera_initialization_failed" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-[#0F0F0F]/95">
+              <div className="p-3 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 mb-4">
+                <AlertCircle size={32} />
+              </div>
+              <h3 className="text-white text-lg font-semibold mb-2">Camera Initialization Failed</h3>
+              <p className="text-neutral-300 text-sm max-w-md mb-6 leading-relaxed">
+                {errorMessage || "Failed to initialize camera. Please check your device settings."}
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => startTryOn()}
+                  className="px-5 py-2.5 rounded-sm bg-[#D4AF37] hover:bg-[#B89A5A] text-black font-semibold text-xs tracking-wider uppercase transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <RefreshCw size={14} />
+                  <span>Retry Camera</span>
                 </button>
                 <button
                   type="button"

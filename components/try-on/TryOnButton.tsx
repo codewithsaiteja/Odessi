@@ -13,7 +13,10 @@ export function TryOnButton({ onClick, disabled = false, className = "" }: TryOn
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(e) => {
+        console.log("[TryOn] button clicked");
+        onClick();
+      }}
       disabled={disabled}
       aria-label="Real-time virtual try-on with Lucy VTON"
       className={`

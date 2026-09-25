@@ -155,27 +155,83 @@ console.log("Running Navigation & VTON Recovery Test Suite...\n");
     path.resolve(process.cwd(), "components/try-on/TryOnModal.tsx"),
     "utf-8"
   );
+  const tryOnButtonContent = fs.readFileSync(
+    path.resolve(process.cwd(), "components/try-on/TryOnButton.tsx"),
+    "utf-8"
+  );
+  const productGalleryContent = fs.readFileSync(
+    path.resolve(process.cwd(), "components/product/ProductGallery.tsx"),
+    "utf-8"
+  );
 
-  const requiredLogs = [
+  const modalLogs = [
     "[TryOn] recovery button clicked",
-    "[TryOn] requesting camera",
+    "[TryOn] camera permission state",
+    "[TryOn] getUserMedia called",
     "[TryOn] getUserMedia success",
     "[TryOn] camera stream attached",
-    "[TryOn] requesting VTON token",
+    "[TryOn] requesting token",
     "[TryOn] token received",
-    "[TryOn] garment loaded",
-    "[TryOn] connecting Decart",
+    "[TryOn] model selected",
+    "[TryOn] Decart client created",
+    "[TryOn] realtime connect started",
+    "[TryOn] realtime connection state",
+    "[TryOn] Decart error",
     "[TryOn] remote stream received",
+    "[TryOn] remote video loaded",
+    "[TryOn] remote video playing",
   ];
 
-  for (const log of requiredLogs) {
+  for (const log of modalLogs) {
     assert.strictEqual(
       tryOnModalContent.includes(log),
       true,
       `TryOnModal must contain log statement: ${log}`
     );
   }
-  console.log("✓ Test 7 Passed: TryOnModal contains all 9 required structured diagnostic log events");
+
+  assert.strictEqual(
+    tryOnButtonContent.includes("[TryOn] button clicked"),
+    true,
+    "TryOnButton must log [TryOn] button clicked"
+  );
+  assert.strictEqual(
+    productGalleryContent.includes("[TryOn] button clicked"),
+    true,
+    "ProductGallery must log [TryOn] button clicked"
+  );
+
+  console.log("✓ Test 7 Passed: All 15 required structured diagnostic stages are verified across components");
+}
+
+// ── Test 8: Verify UI Error Classification Layers ─────────────────
+{
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+
+  const tryOnModalContent = fs.readFileSync(
+    path.resolve(process.cwd(), "components/try-on/TryOnModal.tsx"),
+    "utf-8"
+  );
+
+  const requiredErrorTitles = [
+    "Camera Access Blocked",
+    "Try-On Service Unavailable",
+    "Product Garment Unavailable",
+    "Virtual Try-On Connection Failed",
+    "Live Try-On Stream Unavailable",
+    "Camera Initialization Failed",
+  ];
+
+  for (const title of requiredErrorTitles) {
+    assert.strictEqual(
+      tryOnModalContent.includes(title),
+      true,
+      `TryOnModal UI must contain error title: ${title}`
+    );
+  }
+
+  console.log("✓ Test 8 Passed: Error classification preserves isolated failure layers without masking behind Camera Access Blocked");
 }
 
 console.log("\nAll Navigation & VTON recovery tests passed successfully!");

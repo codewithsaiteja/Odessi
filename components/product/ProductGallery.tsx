@@ -169,7 +169,10 @@ export default function ProductGallery({
             {onOpenTryOn && (
               <button
                 type="button"
-                onClick={onOpenTryOn}
+                onClick={() => {
+                  console.log("[TryOn] button clicked");
+                  onOpenTryOn();
+                }}
                 className="px-3.5 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all bg-gradient-to-r from-amber-500/10 via-[#D4AF37]/20 to-amber-500/10 border border-[#D4AF37]/60 text-[#8C6D1F] hover:text-[#0A0A0A] hover:border-[#D4AF37] hover:bg-[#D4AF37]/30 shadow-sm ml-auto"
                 aria-label="Try this piece on yourself with live camera"
               >
