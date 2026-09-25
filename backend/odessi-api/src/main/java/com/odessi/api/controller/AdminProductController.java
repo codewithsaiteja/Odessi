@@ -161,9 +161,10 @@ public class AdminProductController {
             @PathVariable Long productId,
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
             @RequestParam(required = false) String altText,
-            @RequestParam(required = false) Boolean isPrimary) {
+            @RequestParam(required = false) Boolean isPrimary,
+            @RequestParam(required = false) String mediaType) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
-            adminService.uploadProductImage(getAdminUser(userDetails), productId, file, altText, isPrimary)
+            adminService.uploadProductImage(getAdminUser(userDetails), productId, file, altText, isPrimary, mediaType)
         );
     }
 

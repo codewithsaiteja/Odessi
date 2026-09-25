@@ -174,7 +174,9 @@ function mapBackendProductToFrontend(backendProduct: BackendProductResponse): Pr
 
   // Extract 360 Spin sequence if provided by backend product media
   let images360: import("@/types").Product360Sequence | undefined = undefined;
-  const spinMedia = rawMediaList.filter((img: any) => img.mediaType === "SPIN_360");
+  const spinMedia = rawMediaList
+    .filter((img: any) => img.mediaType === "SPIN_360")
+    .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   if (spinMedia.length > 1) {
     images360 = {
       images: spinMedia.map((m: any) => getMediaUrl(m.imageUrl)),

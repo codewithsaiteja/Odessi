@@ -28,6 +28,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
@@ -130,7 +131,26 @@ public class AuthService {
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(user);
         refreshToken.setTokenHash(UUID.randomUUID().toString()); // Secure random string
-        refreshToken.setExpiresAt(Instant.now().plusMillis(appProperties.getAuth().getJwtRefreshExpiration()));
+        Instant now = Instant.now();
+        refreshToken.setCreatedAt(now);
+        refreshToken.setLastActivityAt(now);
+        long maxLifetimeMillis = (long) appProperties.getSession().getAbsoluteSessionLifetimeDays() * 24 * 60 * 60 * 1000L;
+        refreshToken.setExpiresAt(now.plusMillis(maxLifetimeMillis));
+        return refreshTokenRepository.save(refreshToken);
+    }
+
+    @Transactional
+    public RefreshToken createRotatedRefreshToken(User user, Instant originalExpiresAt) {
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setUser(user);
+        refreshToken.setTokenHash(UUID.randomUUID().toString());
+        Instant now = Instant.now();
+        refreshToken.setCreatedAt(now);
+        refreshToken.setLastActivityAt(now);
+        // Retain absolute maximum lifetime of the original session
+        refreshToken.setExpiresAt(originalExpiresAt != null ? originalExpiresAt : now.plusMillis(
+            (long) appProperties.getSession().getAbsoluteSessionLifetimeDays() * 24 * 60 * 60 * 1000L
+        ));
         return refreshTokenRepository.save(refreshToken);
     }
 
@@ -152,15 +172,27 @@ public class AuthService {
         String refreshTokenHash
     ) {}
 
+    public record SessionStatusResponse(
+        boolean active,
+        String role,
+        long idleTimeoutSeconds,
+        long remainingSeconds,
+        long warningThresholdSeconds
+    ) {}
+
     /**
-     * Atomically verifies, rotates, and issues new tokens in a single transaction boundary.
+     * Atomically verifies, rotates, and issues new tokens within a single transactional boundary.
+     * Guaranteed to load full user entity to avoid any Hibernate proxy LazyInitializationException.
      */
     @Transactional
     public TokenRefreshResult rotateRefreshToken(String token) {
         RefreshToken oldToken = verifyAndRotateRefreshToken(token);
-        CustomUserDetails userDetails = new CustomUserDetails(oldToken.getUser());
+        // Explicitly load the user inside transaction boundary to avoid lazy proxy issues
+        User user = userRepository.findById(oldToken.getUser().getId())
+                .orElseThrow(() -> new BusinessException("USER_NOT_FOUND", "User associated with session not found"));
+        CustomUserDetails userDetails = new CustomUserDetails(user);
         String newJwt = jwtService.generateToken(userDetails);
-        RefreshToken newRefreshToken = createRefreshToken(oldToken.getUser());
+        RefreshToken newRefreshToken = createRotatedRefreshToken(user, oldToken.getExpiresAt());
         return new TokenRefreshResult(newJwt, newRefreshToken.getTokenHash());
     }
 
@@ -170,27 +202,134 @@ public class AuthService {
                 .or(() -> refreshTokenRepository.findByTokenHash(token))
                 .orElseThrow(() -> new BusinessException("INVALID_REFRESH_TOKEN", "Refresh token is invalid"));
 
-        if (refreshToken.getUser() != null) {
-            refreshToken.getUser().getEmail();
-            refreshToken.getUser().getRole();
-            refreshToken.getUser().getPasswordHash();
-            refreshToken.getUser().isEnabled();
-        }
+        User user = userRepository.findById(refreshToken.getUser().getId())
+                .orElseThrow(() -> new BusinessException("USER_NOT_FOUND", "User associated with token not found"));
 
         if (refreshToken.isRevoked()) {
-            refreshTokenRepository.revokeAllByUser(refreshToken.getUser());
+            refreshTokenRepository.revokeAllByUser(user);
             throw new BusinessException("REFRESH_TOKEN_REUSE", "Security violation: refresh token reuse detected. All sessions have been invalidated.");
         }
 
-        if (refreshToken.getExpiresAt().isBefore(Instant.now())) {
+        Instant now = Instant.now();
+
+        // 1. Absolute session lifetime enforcement
+        if (refreshToken.getExpiresAt().isBefore(now)) {
+            refreshToken.setRevoked(true);
+            refreshTokenRepository.save(refreshToken);
             throw new BusinessException("REFRESH_TOKEN_EXPIRED", "Refresh token has expired. Please log in again.");
         }
 
+        // 2. Server-authoritative idle timeout enforcement
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+        int idleTimeoutMinutes = isAdmin
+                ? appProperties.getSession().getAdminIdleTimeoutMinutes()
+                : appProperties.getSession().getCustomerIdleTimeoutMinutes();
+
+        Instant lastActive = refreshToken.getLastActivityAt() != null
+                ? refreshToken.getLastActivityAt()
+                : (refreshToken.getLastUsedAt() != null ? refreshToken.getLastUsedAt() : refreshToken.getCreatedAt());
+
+        if (lastActive != null && now.isAfter(lastActive.plus(idleTimeoutMinutes, ChronoUnit.MINUTES))) {
+            refreshToken.setRevoked(true);
+            refreshTokenRepository.save(refreshToken);
+            throw new BusinessException("SESSION_IDLE_TIMEOUT", "Session expired due to inactivity (" + idleTimeoutMinutes + " minutes). Please log in again.");
+        }
+
+        // Ensure user is eagerly attached so callers accessing oldToken.getUser() never hit LazyInitializationException
+        refreshToken.setUser(user);
         refreshToken.setRevoked(true);
-        refreshToken.setLastUsedAt(Instant.now());
+        refreshToken.setLastUsedAt(now);
+        refreshToken.setLastActivityAt(now);
         refreshTokenRepository.save(refreshToken);
 
         return refreshToken;
+    }
+
+    /**
+     * Extends the session's lastActivityAt timestamp if valid and unexpired.
+     */
+    @Transactional
+    public SessionStatusResponse extendSession(String token) {
+        if (token == null || token.isBlank()) {
+            throw new BusinessException("NOT_AUTHENTICATED", "No active session token");
+        }
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenHashWithUser(token)
+                .or(() -> refreshTokenRepository.findByTokenHash(token))
+                .orElseThrow(() -> new BusinessException("INVALID_REFRESH_TOKEN", "Session not found"));
+
+        User user = userRepository.findById(refreshToken.getUser().getId())
+                .orElseThrow(() -> new BusinessException("USER_NOT_FOUND", "User not found"));
+
+        if (refreshToken.isRevoked() || refreshToken.getExpiresAt().isBefore(Instant.now())) {
+            throw new BusinessException("SESSION_EXPIRED", "Session expired. Please log in again.");
+        }
+
+        Instant now = Instant.now();
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+        int idleTimeoutMinutes = isAdmin
+                ? appProperties.getSession().getAdminIdleTimeoutMinutes()
+                : appProperties.getSession().getCustomerIdleTimeoutMinutes();
+
+        Instant lastActive = refreshToken.getLastActivityAt() != null
+                ? refreshToken.getLastActivityAt()
+                : (refreshToken.getLastUsedAt() != null ? refreshToken.getLastUsedAt() : refreshToken.getCreatedAt());
+
+        if (lastActive != null && now.isAfter(lastActive.plus(idleTimeoutMinutes, ChronoUnit.MINUTES))) {
+            refreshToken.setRevoked(true);
+            refreshTokenRepository.save(refreshToken);
+            throw new BusinessException("SESSION_IDLE_TIMEOUT", "Session expired due to inactivity. Please log in again.");
+        }
+
+        refreshToken.setLastActivityAt(now);
+        refreshTokenRepository.save(refreshToken);
+
+        long idleSeconds = idleTimeoutMinutes * 60L;
+        return new SessionStatusResponse(
+            true,
+            user.getRole().name(),
+            idleSeconds,
+            idleSeconds,
+            120L // 2 minute warning threshold
+        );
+    }
+
+    /**
+     * Authoritatively calculates remaining idle seconds for active session.
+     */
+    @Transactional(readOnly = true)
+    public SessionStatusResponse getSessionStatus(User user, String token) {
+        if (token == null || token.isBlank()) {
+            throw new BusinessException("NOT_AUTHENTICATED", "No active session token");
+        }
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenHashWithUser(token)
+                .or(() -> refreshTokenRepository.findByTokenHash(token))
+                .orElseThrow(() -> new BusinessException("INVALID_REFRESH_TOKEN", "Session not found"));
+
+        if (refreshToken.isRevoked() || refreshToken.getExpiresAt().isBefore(Instant.now())) {
+            return new SessionStatusResponse(false, user.getRole().name(), 0, 0, 120L);
+        }
+
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+        int idleTimeoutMinutes = isAdmin
+                ? appProperties.getSession().getAdminIdleTimeoutMinutes()
+                : appProperties.getSession().getCustomerIdleTimeoutMinutes();
+
+        Instant now = Instant.now();
+        Instant lastActive = refreshToken.getLastActivityAt() != null
+                ? refreshToken.getLastActivityAt()
+                : (refreshToken.getLastUsedAt() != null ? refreshToken.getLastUsedAt() : refreshToken.getCreatedAt());
+
+        long elapsedSeconds = Duration.between(lastActive, now).getSeconds();
+        long totalSeconds = idleTimeoutMinutes * 60L;
+        long remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds);
+
+        return new SessionStatusResponse(
+            remainingSeconds > 0,
+            user.getRole().name(),
+            totalSeconds,
+            remainingSeconds,
+            120L
+        );
     }
 
     @Transactional

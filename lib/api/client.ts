@@ -308,6 +308,22 @@ export async function apiDelete<T = void>(path: string, options?: RequestOptions
   return executeFetch<T>("DELETE", path, undefined, options);
 }
 
+export interface SessionStatus {
+  active: boolean;
+  role: "CUSTOMER" | "ADMIN";
+  idleTimeoutSeconds: number;
+  remainingSeconds: number;
+  warningThresholdSeconds: number;
+}
+
+export async function extendSessionApi(): Promise<SessionStatus> {
+  return apiPost<SessionStatus>("/api/auth/extend");
+}
+
+export async function getSessionStatusApi(): Promise<SessionStatus> {
+  return apiGet<SessionStatus>("/api/auth/session-status");
+}
+
 // ─── Multipart Upload ─────────────────────────────────────────────────────────
 
 /**

@@ -3,25 +3,29 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Heart, Truck, RotateCcw, Shield, ChevronDown, Bell, Ruler } from "lucide-react";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ProductGallery from "@/components/product/ProductGallery";
 import ProductGrid from "@/components/product/ProductGrid";
-import ProductReviewsSection from "@/components/product/ProductReviewsSection";
-import SizeGuide from "@/components/product/SizeGuide";
-import { SizeAssistantModal } from "@/components/product/SizeAssistantModal";
-import { BackInStockModal } from "@/components/product/BackInStockModal";
-import { PincodeDeliveryEstimator } from "@/components/product/PincodeDeliveryEstimator";
 import { MobileStickyBar } from "@/components/product/MobileStickyBar";
-import { RecentlyViewed } from "@/components/product/RecentlyViewed";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useWishlist } from "@/lib/wishlist-context";
 import { formatPrice, calculateDiscount } from "@/lib/product-utils";
 import { getProductBySlug as getProductBySlugFromAPI, getProducts } from "@/lib/api/products";
 import type { Product, ProductColor } from "@/types";
+
+// Dynamic imports for code splitting & bundle reduction
+const ProductReviewsSection = dynamic(() => import("@/components/product/ProductReviewsSection"), { ssr: false });
+const SizeGuide = dynamic(() => import("@/components/product/SizeGuide"), { ssr: false });
+const SizeAssistantModal = dynamic(() => import("@/components/product/SizeAssistantModal").then(mod => mod.SizeAssistantModal), { ssr: false });
+const BackInStockModal = dynamic(() => import("@/components/product/BackInStockModal").then(mod => mod.BackInStockModal), { ssr: false });
+const PincodeDeliveryEstimator = dynamic(() => import("@/components/product/PincodeDeliveryEstimator").then(mod => mod.PincodeDeliveryEstimator), { ssr: false });
+const RecentlyViewed = dynamic(() => import("@/components/product/RecentlyViewed").then(mod => mod.RecentlyViewed), { ssr: false });
+const ImageTrail = dynamic(() => import("@/components/editorial/ImageTrail"), { ssr: false });
 
 export default function ProductPage() {
   const params = useParams();
@@ -729,6 +733,34 @@ export default function ProductPage() {
               </div>
             </div>
           </div>
+
+          {/* ── Editorial Worn Trail Canvas (Interactive Lookbook) ── */}
+          {(Boolean(product.images360?.images && product.images360.images.length > 1) || Boolean(product.images && product.images.length > 1)) && (
+            <div className="mb-16">
+              <ImageTrail
+                images={product.images360?.images && product.images360.images.length > 1 ? product.images360.images : product.images}
+                maxTrailItems={4}
+                distanceThreshold={65}
+                className="rounded-sm border border-neutral-800"
+              >
+                <div className="py-16 px-6 text-center bg-[#0d0d0d] text-white select-none cursor-crosshair relative overflow-hidden">
+                  <span className="text-[11px] uppercase tracking-widest text-[#B89A5A] font-semibold mb-2 block font-mono">
+                    EDITORIAL WORN PERSPECTIVE
+                  </span>
+                  <h3 className="type-h2 text-white mb-3">
+                    THE SILHOUETTE IN MOTION
+                  </h3>
+                  <p className="text-sm text-neutral-400 max-w-md mx-auto mb-6">
+                    Move your cursor across this canvas to reveal dynamic worn perspectives of {product.name}.
+                  </p>
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs text-neutral-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#B89A5A] animate-pulse" />
+                    <span>INTERACTIVE TRAIL ACTIVE</span>
+                  </div>
+                </div>
+              </ImageTrail>
+            </div>
+          )}
 
           {/* Verified Customer Reviews */}
           <ProductReviewsSection

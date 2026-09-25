@@ -182,6 +182,34 @@ class AdminProductMediaServiceTest {
     }
 
     @Test
+    @DisplayName("Upload image — supports SPIN_360 mediaType for 360 sequence frames")
+    void uploadImage_360SpinMedia_preservesMediaType() {
+        Product product = new Product();
+        product.setId(100L);
+        product.setImages(new ArrayList<>());
+
+        MockMultipartFile file = new MockMultipartFile(
+            "file", "frame-1.webp", "image/webp", "webp frame content".getBytes()
+        );
+
+        given(productRepository.findById(100L)).willReturn(Optional.of(product));
+        given(mediaStorageService.storeProductImage(any(MultipartFile.class))).willReturn("/uploads/products/frame-1.webp");
+        given(productImageRepository.save(any())).willAnswer(inv -> {
+            ProductImage img = inv.getArgument(0);
+            img.setId(5L);
+            return img;
+        });
+
+        ProductImageResponse imgResp = new ProductImageResponse(5L, 100L, "/uploads/products/frame-1.webp", "frame 1", 0, false, "SPIN_360", null, null, null);
+        given(productImageMapper.toResponse(any())).willReturn(imgResp);
+
+        ProductImageResponse result = adminService.uploadProductImage(mockAdmin, 100L, file, "frame 1", false, "SPIN_360");
+        assertThat(result).isNotNull();
+        assertThat(result.mediaType()).isEqualTo("SPIN_360");
+        assertThat(result.isPrimary()).isFalse();
+    }
+
+    @Test
     @DisplayName("Set primary image — clears previous primary and sets new primary")
     void setPrimaryImage_success() {
         Product product = new Product();

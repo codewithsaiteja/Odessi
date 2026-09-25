@@ -30,7 +30,10 @@ public interface AdminService {
     List<ProductResponse> bulkProductAction(User admin, AdminBulkProductRequest request);
     List<AdminAuditLogResponse> getProductActivity(Long id);
 
-    ProductImageResponse uploadProductImage(User admin, Long productId, org.springframework.web.multipart.MultipartFile file, String altText, Boolean isPrimary);
+    default ProductImageResponse uploadProductImage(User admin, Long productId, org.springframework.web.multipart.MultipartFile file, String altText, Boolean isPrimary) {
+        return uploadProductImage(admin, productId, file, altText, isPrimary, null);
+    }
+    ProductImageResponse uploadProductImage(User admin, Long productId, org.springframework.web.multipart.MultipartFile file, String altText, Boolean isPrimary, String mediaType);
     ProductImageResponse uploadProductVideo(User admin, Long productId, org.springframework.web.multipart.MultipartFile videoFile, org.springframework.web.multipart.MultipartFile posterFile, String altText);
     void deleteProductImage(User admin, Long productId, Long imageId);
     ProductResponse setPrimaryProductImage(User admin, Long productId, Long imageId);

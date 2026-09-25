@@ -169,7 +169,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/addresses/**").authenticated()
                 .requestMatchers("/api/orders/**").authenticated()
                 .requestMatchers("/api/reviews/**").authenticated()
-                .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
+                .requestMatchers("/api/auth/me", "/api/auth/logout", "/api/auth/extend", "/api/auth/session-status").authenticated()
                 .requestMatchers("/api/users/me/**").authenticated()
                 // ── Admin ────────────────────────────────────────────────
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")

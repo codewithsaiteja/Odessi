@@ -103,6 +103,10 @@ app:
     cookie-secure: ${AUTH_COOKIE_SECURE:false}
     cookie-same-site: ${AUTH_COOKIE_SAME_SITE:Lax}
     require-email-verification: ${AUTH_REQUIRE_EMAIL_VERIFICATION:false}
+  session:
+    customer-idle-timeout-minutes: ${CUSTOMER_IDLE_TIMEOUT_MINUTES:30}
+    admin-idle-timeout-minutes: ${ADMIN_IDLE_TIMEOUT_MINUTES:15}
+    absolute-session-lifetime-days: ${ABSOLUTE_SESSION_LIFETIME_DAYS:7}
   razorpay:
     key-id: ${RAZORPAY_KEY_ID:rzp_test_dummykeyid123}
     key-secret: ${RAZORPAY_KEY_SECRET:dummysecretkey1234567890}

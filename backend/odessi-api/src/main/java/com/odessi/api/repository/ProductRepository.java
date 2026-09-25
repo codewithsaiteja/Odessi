@@ -32,9 +32,9 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     Page<Product> findAllByActiveTrueAndNewArrivalTrue(Pageable pageable);
 
     /**
-     * Fetch a product with all its variants in one query to avoid N+1.
+     * Fetch a product with all its variants, category, and collection in one query to avoid N+1.
      */
-    @Query("SELECT p FROM Product p LEFT JOIN FETCH p.variants v WHERE p.slug = :slug AND p.active = true")
+    @Query("SELECT p FROM Product p LEFT JOIN FETCH p.variants v LEFT JOIN FETCH p.category c LEFT JOIN FETCH p.collection col WHERE p.slug = :slug AND p.active = true")
     Optional<Product> findBySlugWithVariants(@Param("slug") String slug);
 
     @Query("SELECT p FROM Product p LEFT JOIN FETCH p.variants v WHERE p.id = :id")

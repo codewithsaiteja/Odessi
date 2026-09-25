@@ -33,6 +33,9 @@ public class RefreshToken {
     @Column(name = "last_used_at")
     private Instant lastUsedAt;
 
+    @Column(name = "last_activity_at")
+    private Instant lastActivityAt;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public User getUser() { return user; }
@@ -47,4 +50,6 @@ public class RefreshToken {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getLastUsedAt() { return lastUsedAt; }
     public void setLastUsedAt(Instant lastUsedAt) { this.lastUsedAt = lastUsedAt; }
+    public Instant getLastActivityAt() { return lastActivityAt; }
+    public void setLastActivityAt(Instant lastActivityAt) { this.lastActivityAt = lastActivityAt; }
 }

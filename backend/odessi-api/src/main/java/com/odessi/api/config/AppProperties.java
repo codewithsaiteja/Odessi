@@ -14,11 +14,15 @@ public class AppProperties {
     private Pagination pagination = new Pagination();
     private Seed seed = new Seed();
     private Auth auth = new Auth();
+    private Session session = new Session();
     private Razorpay razorpay = new Razorpay();
     private Checkout checkout = new Checkout();
     private RateLimit rateLimit = new RateLimit();
     private Mail mail = new Mail();
     private AzureStorage azureStorage = new AzureStorage();
+
+    public Session getSession() { return session; }
+    public void setSession(Session session) { this.session = session; }
 
     public Auth getAuth() { return auth; }
     public void setAuth(Auth auth) { this.auth = auth; }
@@ -97,6 +101,21 @@ public class AppProperties {
 
         public boolean isRequireEmailVerification() { return requireEmailVerification; }
         public void setRequireEmailVerification(boolean requireEmailVerification) { this.requireEmailVerification = requireEmailVerification; }
+    }
+
+    public static class Session {
+        private int customerIdleTimeoutMinutes = 30;
+        private int adminIdleTimeoutMinutes = 15;
+        private int absoluteSessionLifetimeDays = 7;
+
+        public int getCustomerIdleTimeoutMinutes() { return customerIdleTimeoutMinutes; }
+        public void setCustomerIdleTimeoutMinutes(int customerIdleTimeoutMinutes) { this.customerIdleTimeoutMinutes = customerIdleTimeoutMinutes; }
+
+        public int getAdminIdleTimeoutMinutes() { return adminIdleTimeoutMinutes; }
+        public void setAdminIdleTimeoutMinutes(int adminIdleTimeoutMinutes) { this.adminIdleTimeoutMinutes = adminIdleTimeoutMinutes; }
+
+        public int getAbsoluteSessionLifetimeDays() { return absoluteSessionLifetimeDays; }
+        public void setAbsoluteSessionLifetimeDays(int absoluteSessionLifetimeDays) { this.absoluteSessionLifetimeDays = absoluteSessionLifetimeDays; }
     }
 
     public static class Razorpay {

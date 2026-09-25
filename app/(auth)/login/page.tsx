@@ -141,6 +141,18 @@ function LoginContent() {
           </p>
         </div>
 
+        {/* Inactivity Alert */}
+        {searchParams.get("reason") === "inactivity" && !error && (
+          <div
+            className="bg-amber-950/60 text-amber-200 border border-amber-800/80 px-4 py-3.5 rounded-xl text-xs font-semibold flex items-center gap-2.5 shadow-xs"
+            role="alert"
+            aria-live="polite"
+          >
+            <AlertCircle size={16} className="text-amber-400 flex-shrink-0" />
+            <span>Your session expired due to inactivity. Please sign in again.</span>
+          </div>
+        )}
+
         {/* Error Alert */}
         {error && (
           <div

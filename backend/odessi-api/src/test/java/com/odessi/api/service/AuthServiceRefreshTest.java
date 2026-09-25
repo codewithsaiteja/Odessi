@@ -65,9 +65,12 @@ class AuthServiceRefreshTest {
         token.setTokenHash("valid-hash");
         token.setUser(user);
         token.setExpiresAt(Instant.now().plusSeconds(3600));
+        token.setCreatedAt(Instant.now().minusSeconds(300));
+        token.setLastActivityAt(Instant.now().minusSeconds(60));
         token.setRevoked(false);
 
         given(refreshTokenRepository.findByTokenHashWithUser("valid-hash")).willReturn(Optional.of(token));
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
         given(jwtService.generateToken(any())).willReturn("mock-jwt-token");
         given(refreshTokenRepository.save(any(RefreshToken.class))).willAnswer(inv -> inv.getArgument(0));
 
@@ -91,6 +94,7 @@ class AuthServiceRefreshTest {
         token.setRevoked(true); // Already revoked
 
         given(refreshTokenRepository.findByTokenHashWithUser("revoked-hash")).willReturn(Optional.of(token));
+        given(userRepository.findById(2L)).willReturn(Optional.of(user));
 
         assertThatThrownBy(() -> authService.rotateRefreshToken("revoked-hash"))
                 .isInstanceOf(BusinessException.class)
@@ -112,9 +116,86 @@ class AuthServiceRefreshTest {
         token.setRevoked(false);
 
         given(refreshTokenRepository.findByTokenHashWithUser("expired-hash")).willReturn(Optional.of(token));
+        given(userRepository.findById(3L)).willReturn(Optional.of(user));
 
         assertThatThrownBy(() -> authService.rotateRefreshToken("expired-hash"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("expired");
+    }
+
+    @Test
+    @DisplayName("rotateRefreshToken — rejects customer session inactive for more than 30 minutes")
+    void rotateRefreshToken_customerIdleTimeout_rejected() {
+        User user = new User("Customer", "User", "customer@example.com", "hash");
+        user.setId(4L);
+        user.setRole(Role.CUSTOMER);
+
+        RefreshToken token = new RefreshToken();
+        token.setTokenHash("customer-idle-hash");
+        token.setUser(user);
+        token.setExpiresAt(Instant.now().plusSeconds(86400));
+        token.setCreatedAt(Instant.now().minusSeconds(3600));
+        token.setLastActivityAt(Instant.now().minusSeconds(1860)); // 31 minutes ago (>30m)
+        token.setRevoked(false);
+
+        given(refreshTokenRepository.findByTokenHashWithUser("customer-idle-hash")).willReturn(Optional.of(token));
+        given(userRepository.findById(4L)).willReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.rotateRefreshToken("customer-idle-hash"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("inactivity");
+
+        assertThat(token.isRevoked()).isTrue();
+    }
+
+    @Test
+    @DisplayName("rotateRefreshToken — rejects admin session inactive for more than 15 minutes")
+    void rotateRefreshToken_adminIdleTimeout_rejected() {
+        User user = new User("Admin", "User", "admin@example.com", "hash");
+        user.setId(5L);
+        user.setRole(Role.ADMIN);
+
+        RefreshToken token = new RefreshToken();
+        token.setTokenHash("admin-idle-hash");
+        token.setUser(user);
+        token.setExpiresAt(Instant.now().plusSeconds(86400));
+        token.setCreatedAt(Instant.now().minusSeconds(1800));
+        token.setLastActivityAt(Instant.now().minusSeconds(960)); // 16 minutes ago (>15m)
+        token.setRevoked(false);
+
+        given(refreshTokenRepository.findByTokenHashWithUser("admin-idle-hash")).willReturn(Optional.of(token));
+        given(userRepository.findById(5L)).willReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.rotateRefreshToken("admin-idle-hash"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("inactivity");
+
+        assertThat(token.isRevoked()).isTrue();
+    }
+
+    @Test
+    @DisplayName("extendSession — updates lastActivityAt when session is valid and active")
+    void extendSession_success() {
+        User user = new User("Active", "User", "active@example.com", "hash");
+        user.setId(6L);
+        user.setRole(Role.CUSTOMER);
+
+        RefreshToken token = new RefreshToken();
+        token.setTokenHash("extend-hash");
+        token.setUser(user);
+        token.setExpiresAt(Instant.now().plusSeconds(86400));
+        token.setCreatedAt(Instant.now().minusSeconds(600));
+        token.setLastActivityAt(Instant.now().minusSeconds(300));
+        token.setRevoked(false);
+
+        given(refreshTokenRepository.findByTokenHashWithUser("extend-hash")).willReturn(Optional.of(token));
+        given(userRepository.findById(6L)).willReturn(Optional.of(user));
+        given(refreshTokenRepository.save(any(RefreshToken.class))).willAnswer(inv -> inv.getArgument(0));
+
+        AuthService.SessionStatusResponse response = authService.extendSession("extend-hash");
+
+        assertThat(response.active()).isTrue();
+        assertThat(response.role()).isEqualTo("CUSTOMER");
+        assertThat(response.remainingSeconds()).isEqualTo(1800);
     }
 }

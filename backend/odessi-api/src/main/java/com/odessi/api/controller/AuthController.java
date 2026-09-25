@@ -59,47 +59,47 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<Void> refresh(HttpServletRequest request, HttpServletResponse response) {
-        String refreshTokenStr = null;
-        if (request.getCookies() != null) {
-            for (Cookie cookie : request.getCookies()) {
-                if ("refresh_token".equals(cookie.getName())) {
-                    refreshTokenStr = cookie.getValue();
-                    break;
-                }
-            }
-        }
-
+        String refreshTokenStr = extractRefreshToken(request);
         if (refreshTokenStr == null) {
             return ResponseEntity.status(401).build();
         }
 
-        // Verifies token validity, rotates tokens, and issues new JWT & refresh token within a single transaction.
-        AuthService.TokenRefreshResult result = authService.rotateRefreshToken(refreshTokenStr);
-        if (result == null) {
-            RefreshToken oldToken = authService.verifyAndRotateRefreshToken(refreshTokenStr);
-            CustomUserDetails userDetails = new CustomUserDetails(oldToken.getUser());
-            String newJwt = jwtService.generateToken(userDetails);
-            RefreshToken newRefreshToken = authService.createRefreshToken(oldToken.getUser());
-            result = new AuthService.TokenRefreshResult(newJwt, newRefreshToken.getTokenHash());
-        }
+        RefreshToken oldToken = authService.verifyAndRotateRefreshToken(refreshTokenStr);
+        User user = oldToken.getUser();
+        CustomUserDetails userDetails = new CustomUserDetails(user);
 
-        setCookies(response, result.accessToken(), result.refreshTokenHash());
+        String newJwt = jwtService.generateToken(userDetails);
+        RefreshToken newRefreshToken = authService.createRefreshToken(user);
+
+        setCookies(response, newJwt, newRefreshToken.getTokenHash());
 
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/extend")
+    public ResponseEntity<AuthService.SessionStatusResponse> extendSession(HttpServletRequest request) {
+        String refreshTokenStr = extractRefreshToken(request);
+        if (refreshTokenStr == null) {
+            return ResponseEntity.status(401).build();
+        }
+        AuthService.SessionStatusResponse status = authService.extendSession(refreshTokenStr);
+        return ResponseEntity.ok(status);
+    }
+
+    @GetMapping("/session-status")
+    public ResponseEntity<AuthService.SessionStatusResponse> getSessionStatus(HttpServletRequest request) {
+        String refreshTokenStr = extractRefreshToken(request);
+        if (refreshTokenStr == null) {
+            return ResponseEntity.status(401).build();
+        }
+        User user = authService.getCurrentUser();
+        AuthService.SessionStatusResponse status = authService.getSessionStatus(user, refreshTokenStr);
+        return ResponseEntity.ok(status);
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
-        String refreshTokenStr = null;
-        if (request.getCookies() != null) {
-            for (Cookie cookie : request.getCookies()) {
-                if ("refresh_token".equals(cookie.getName())) {
-                    refreshTokenStr = cookie.getValue();
-                    break;
-                }
-            }
-        }
-        
+        String refreshTokenStr = extractRefreshToken(request);
         if (refreshTokenStr != null) {
             authService.revokeRefreshToken(refreshTokenStr);
         }
@@ -189,5 +189,16 @@ public class AuthController {
 
         response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+    }
+
+    private String extractRefreshToken(HttpServletRequest request) {
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("refresh_token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
     }
 }

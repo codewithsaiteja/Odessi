@@ -669,13 +669,13 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
-    public ProductImageResponse uploadProductImage(User admin, Long productId, org.springframework.web.multipart.MultipartFile file, String altText, Boolean isPrimary) {
+    public ProductImageResponse uploadProductImage(User admin, Long productId, org.springframework.web.multipart.MultipartFile file, String altText, Boolean isPrimary, String mediaType) {
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new ResourceNotFoundException("PRODUCT_NOT_FOUND", "Product not found: " + productId));
 
         String imageUrl = mediaStorageService.storeProductImage(file);
 
-        boolean makePrimary = Boolean.TRUE.equals(isPrimary) || product.getImages().isEmpty();
+        boolean makePrimary = Boolean.TRUE.equals(isPrimary) || (product.getImages().isEmpty() && (mediaType == null || "IMAGE".equalsIgnoreCase(mediaType)));
         if (makePrimary) {
             productImageRepository.clearPrimaryForProduct(productId);
         }
@@ -684,12 +684,15 @@ public class AdminServiceImpl implements AdminService {
         com.odessi.api.entity.ProductImage productImage = new com.odessi.api.entity.ProductImage(
             product, imageUrl, altText, sortOrder, makePrimary
         );
+        if (mediaType != null && !mediaType.isBlank()) {
+            productImage.setMediaType(mediaType.toUpperCase().trim());
+        }
 
         com.odessi.api.entity.ProductImage savedImage = productImageRepository.save(productImage);
         product.addImage(savedImage);
 
         auditService.logAction(admin, "PRODUCT_IMAGE_UPLOADED", "ProductImage", savedImage.getId().toString(),
-            "Uploaded image for product " + product.getName() + " (" + imageUrl + ")");
+            "Uploaded " + productImage.getMediaType() + " for product " + product.getName() + " (" + imageUrl + ")");
 
         return productImageMapper.toResponse(savedImage);
     }
