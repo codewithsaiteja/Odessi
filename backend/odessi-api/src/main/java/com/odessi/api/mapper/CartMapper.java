@@ -40,27 +40,58 @@ public interface CartMapper {
             return null;
         }
 
-        // 1. Prefer product's explicitly designated primary normal IMAGE
+        // 1. Variant-matching normal image by color if altText matches variant color
+        String variantColor = item.getProductVariant().getColor();
+        if (variantColor != null && !variantColor.isBlank()) {
+            String colorLower = variantColor.trim().toLowerCase();
+            var colorMatch = images.stream()
+                .filter(img -> isNormalImage(img.getMediaType()))
+                .filter(img -> img.getAltText() != null && img.getAltText().toLowerCase().contains(colorLower))
+                .findFirst();
+            if (colorMatch.isPresent()) {
+                return colorMatch.get().getImageUrl();
+            }
+        }
+
+        // 2. Prefer product's explicitly designated primary normal IMAGE
         return images.stream()
-                .filter(img -> img.getMediaType() == null || "IMAGE".equalsIgnoreCase(img.getMediaType()) || "DEFAULT".equalsIgnoreCase(img.getMediaType()))
+                .filter(img -> isNormalImage(img.getMediaType()))
                 .filter(ProductImage::isPrimary)
                 .map(ProductImage::getImageUrl)
                 .findFirst()
-                // 2. Otherwise use deterministic product media ordering by sortOrder ASC (normal IMAGE)
+                // 3. Otherwise use deterministic product media ordering by sortOrder ASC (normal IMAGE)
                 .orElseGet(() -> images.stream()
-                        .filter(img -> img.getMediaType() == null || "IMAGE".equalsIgnoreCase(img.getMediaType()) || "DEFAULT".equalsIgnoreCase(img.getMediaType()))
+                        .filter(img -> isNormalImage(img.getMediaType()))
                         .min(Comparator.comparingInt(ProductImage::getSortOrder))
                         .map(ProductImage::getImageUrl)
-                        // 3. Fallback to any designated primary image
+                        // 4. Fallback to any designated primary image (excluding non-normal media)
                         .orElseGet(() -> images.stream()
+                                .filter(img -> isNotSpecialMedia(img.getMediaType()))
                                 .filter(ProductImage::isPrimary)
                                 .map(ProductImage::getImageUrl)
                                 .findFirst()
-                                // 4. Deterministic fallback to lowest sortOrder
+                                // 5. Deterministic fallback to lowest sortOrder excluding non-normal media
                                 .orElseGet(() -> images.stream()
+                                        .filter(img -> isNotSpecialMedia(img.getMediaType()))
                                         .min(Comparator.comparingInt(ProductImage::getSortOrder))
                                         .map(ProductImage::getImageUrl)
                                         .orElse(null))));
+    }
+
+    private static boolean isNormalImage(String mediaType) {
+        return mediaType == null 
+            || "IMAGE".equalsIgnoreCase(mediaType) 
+            || "DEFAULT".equalsIgnoreCase(mediaType);
+    }
+
+    private static boolean isNotSpecialMedia(String mediaType) {
+        if (mediaType == null) return true;
+        String mt = mediaType.toUpperCase();
+        return !mt.contains("SPIN") 
+            && !mt.contains("360") 
+            && !mt.contains("TRAIL") 
+            && !mt.contains("DECART") 
+            && !mt.contains("VIDEO");
     }
 
     default CartResponse toResponse(Cart cart) {

@@ -76,10 +76,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
       // 1. Prefer authoritative backend primary image URL
       let displayImage = item.primaryImageUrl || item.imageUrl;
 
-      // 2. Fallback to mock product catalogue if legacy/unseeded item
-      if (!displayImage) {
+      // 2. Fallback to mock product catalogue only if product slug matches and displayImage is absent
+      if (!displayImage && item.productSlug) {
         const mockProd = mockProducts.find((p) => p.slug === item.productSlug);
-        displayImage = mockProd?.thumbnail || mockProd?.images?.[0] || "/placeholder-product.svg";
+        if (mockProd) {
+          displayImage = mockProd.thumbnail || mockProd.images?.[0];
+        }
+      }
+
+      if (!displayImage) {
+        displayImage = "/placeholder-product.svg";
       }
 
       const normalizedImageUrl = getMediaUrl(displayImage);
@@ -103,8 +109,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         selectedSize: item.size,
         selectedColor: { name: item.color, hex: item.colorHex || "#000" },
         quantity: item.quantity,
-        // We add this dynamically to identify the item for DELETE/PATCH requests
-        cartItemId: item.id 
+        cartItemId: item.id,
+        imageUrl: normalizedImageUrl,
+        primaryImageUrl: normalizedImageUrl,
       } as CartItem;
     });
   }, []);

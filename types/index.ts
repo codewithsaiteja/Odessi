@@ -154,6 +154,8 @@ export interface CartItem {
   selectedColor: ProductColor;
   quantity: number;
   cartItemId?: number;
+  imageUrl?: string;
+  primaryImageUrl?: string;
 }
 
 export interface Cart {

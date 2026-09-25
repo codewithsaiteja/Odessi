@@ -122,10 +122,12 @@ public class Product {
     // ── Relationships ──────────────────────────────────────────────
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 25)
     private List<ProductVariant> variants = new ArrayList<>();
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @OrderBy("sortOrder ASC")
+    @org.hibernate.annotations.BatchSize(size = 25)
     private List<ProductImage> images = new ArrayList<>();
 
     // ── Helpers ───────────────────────────────────────────────────

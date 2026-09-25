@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { Camera } from "lucide-react";
 import { formatPrice, getMediaUrl } from "@/lib/product-utils";
 import type { Product } from "@/types";
 
@@ -12,6 +13,7 @@ interface MobileStickyBarProps {
   onAddToCart: () => void;
   onNotifyMe: () => void;
   addedToCart: boolean;
+  onOpenTryOn?: () => void;
 }
 
 export function MobileStickyBar({
@@ -21,6 +23,7 @@ export function MobileStickyBar({
   onAddToCart,
   onNotifyMe,
   addedToCart,
+  onOpenTryOn,
 }: MobileStickyBarProps) {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -74,8 +77,20 @@ export function MobileStickyBar({
           </div>
         </div>
 
-        {/* Action button */}
-        <div className="shrink-0">
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 shrink-0">
+          {onOpenTryOn && (
+            <button
+              type="button"
+              onClick={onOpenTryOn}
+              className="p-2.5 bg-neutral-900 border border-[#D4AF37]/60 text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black rounded-sm transition-colors flex items-center justify-center shadow-sm"
+              title="Virtual Try-On with Camera"
+              aria-label="Virtual Try-On with Camera"
+            >
+              <Camera size={16} />
+            </button>
+          )}
+
           {isOutOfStock ? (
             <button
               onClick={onNotifyMe}

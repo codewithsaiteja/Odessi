@@ -335,6 +335,7 @@ export default function ProductPage() {
                 selectedColorHex={selectedColor?.hex}
                 model3D={product.model3D}
                 images360={product.images360}
+                onOpenTryOn={() => setShowTryOnModal(true)}
               />
             </div>
 
@@ -815,6 +816,7 @@ export default function ProductPage() {
         onAddToCart={handleAddToCart}
         onNotifyMe={() => setShowBackInStockModal(true)}
         addedToCart={addedToCart}
+        onOpenTryOn={() => setShowTryOnModal(true)}
       />
 
       {/* Size Guide Modal */}

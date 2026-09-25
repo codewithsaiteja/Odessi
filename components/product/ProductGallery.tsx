@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { ChevronLeft, ChevronRight, X, Maximize2, Layers, Image as ImageIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Maximize2, Layers, Image as ImageIcon, Camera } from "lucide-react";
 import type { Product3DAsset, Product360Sequence } from "@/types";
 
 const Interactive360Viewer = dynamic(() => import("@/components/product/Interactive360Viewer"), {
@@ -25,6 +25,7 @@ interface ProductGalleryProps {
   selectedColorHex?: string;
   model3D?: Product3DAsset;
   images360?: Product360Sequence;
+  onOpenTryOn?: () => void;
 }
 
 export default function ProductGallery({ 
@@ -32,6 +33,7 @@ export default function ProductGallery({
   productName, 
   className = "",
   images360,
+  onOpenTryOn,
 }: ProductGalleryProps) {
   const [viewMode, setViewMode] = useState<"2d" | "360">("2d");
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -119,40 +121,57 @@ export default function ProductGallery({
   return (
     <>
       <div className={className}>
-        {/* Experience Selector Tabs (Shown only if 360 Spin sequence exists) */}
-        {hasSpin360 && (
+        {/* Experience Selector Tabs */}
+        {(hasSpin360 || onOpenTryOn) && (
           <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1">
-            {/* PHOTOS (2D) */}
-            <button
-              type="button"
-              onClick={() => setViewMode("2d")}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all ${
-                viewMode === "2d"
-                  ? "bg-[var(--color-odessi-black)] text-white shadow-sm"
-                  : "bg-white border border-[var(--color-odessi-smoke)] text-[var(--color-odessi-stone)] hover:text-black"
-              }`}
-              aria-pressed={viewMode === "2d"}
-              aria-label="View 2D photos gallery"
-            >
-              <ImageIcon size={13} />
-              PHOTOS (2D)
-            </button>
+            {hasSpin360 && (
+              <>
+                {/* PHOTOS (2D) */}
+                <button
+                  type="button"
+                  onClick={() => setViewMode("2d")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all ${
+                    viewMode === "2d"
+                      ? "bg-[var(--color-odessi-black)] text-white shadow-sm"
+                      : "bg-white border border-[var(--color-odessi-smoke)] text-[var(--color-odessi-stone)] hover:text-black"
+                  }`}
+                  aria-pressed={viewMode === "2d"}
+                  aria-label="View 2D photos gallery"
+                >
+                  <ImageIcon size={13} />
+                  PHOTOS (2D)
+                </button>
 
-            {/* 360° WORN VIEW */}
-            <button
-              type="button"
-              onClick={() => setViewMode("360")}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all ${
-                viewMode === "360"
-                  ? "bg-[var(--color-odessi-black)] text-white shadow-sm"
-                  : "bg-white border border-[var(--color-odessi-smoke)] text-[var(--color-odessi-stone)] hover:text-black"
-              }`}
-              aria-pressed={viewMode === "360"}
-              aria-label="View 360 degree worn product experience"
-            >
-              <Layers size={13} className="text-[var(--color-odessi-gold)]" />
-              360° WORN VIEW
-            </button>
+                {/* 360° WORN VIEW */}
+                <button
+                  type="button"
+                  onClick={() => setViewMode("360")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all ${
+                    viewMode === "360"
+                      ? "bg-[var(--color-odessi-black)] text-white shadow-sm"
+                      : "bg-white border border-[var(--color-odessi-smoke)] text-[var(--color-odessi-stone)] hover:text-black"
+                  }`}
+                  aria-pressed={viewMode === "360"}
+                  aria-label="View 360 degree worn product experience"
+                >
+                  <Layers size={13} className="text-[var(--color-odessi-gold)]" />
+                  360° WORN VIEW
+                </button>
+              </>
+            )}
+
+            {onOpenTryOn && (
+              <button
+                type="button"
+                onClick={onOpenTryOn}
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all bg-gradient-to-r from-amber-500/10 via-[#D4AF37]/20 to-amber-500/10 border border-[#D4AF37]/60 text-[#8C6D1F] hover:text-[#0A0A0A] hover:border-[#D4AF37] hover:bg-[#D4AF37]/30 shadow-sm ml-auto"
+                aria-label="Try this piece on yourself with live camera"
+              >
+                <Camera size={13} className="text-[#B89A5A]" />
+                <span>TRY IT ON</span>
+                <span className="text-[9px] px-1 py-0.2 bg-[#D4AF37] text-black font-extrabold rounded-sm uppercase tracking-wider">LIVE</span>
+              </button>
+            )}
           </div>
         )}
 

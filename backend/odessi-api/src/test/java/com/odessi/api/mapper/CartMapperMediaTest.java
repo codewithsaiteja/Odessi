@@ -124,4 +124,52 @@ class CartMapperMediaTest {
         String resolvedImage = cartMapper.extractItemImageUrl(cartItem);
         assertThat(resolvedImage).isNull();
     }
+
+    @Test
+    @DisplayName("extractItemImageUrl — matches image based on variant color")
+    void extractItemImageUrl_matchesVariantColor() {
+        Product product = new Product();
+        product.setId(40L);
+
+        ProductImage redImg = new ProductImage(product, "/images/hoodie-red.jpg", "Crimson Red Edition", 0, false);
+        redImg.setMediaType("IMAGE");
+        ProductImage blueImg = new ProductImage(product, "/images/hoodie-blue.jpg", "Royal Blue Edition", 1, true);
+        blueImg.setMediaType("IMAGE");
+
+        product.setImages(new ArrayList<>(List.of(blueImg, redImg)));
+
+        ProductVariant redVariant = new ProductVariant();
+        redVariant.setColor("Crimson Red");
+        redVariant.setProduct(product);
+
+        Cart cart = new Cart();
+        CartItem item = new CartItem(cart, redVariant, 1);
+
+        String resolvedImage = cartMapper.extractItemImageUrl(item);
+        assertThat(resolvedImage).isEqualTo("/images/hoodie-red.jpg");
+    }
+
+    @Test
+    @DisplayName("extractItemImageUrl — ignores IMAGE_TRAIL media type")
+    void extractItemImageUrl_ignoresImageTrail() {
+        Product product = new Product();
+        product.setId(50L);
+
+        ProductImage trailImg = new ProductImage(product, "/images/trail-lookbook.jpg", "Lookbook editorial", 0, true);
+        trailImg.setMediaType("IMAGE_TRAIL");
+
+        ProductImage normalImg = new ProductImage(product, "/images/standard-hoodie.jpg", "Standard front", 1, false);
+        normalImg.setMediaType("IMAGE");
+
+        product.setImages(new ArrayList<>(List.of(trailImg, normalImg)));
+
+        ProductVariant variant = new ProductVariant();
+        variant.setProduct(product);
+
+        Cart cart = new Cart();
+        CartItem item = new CartItem(cart, variant, 1);
+
+        String resolvedImage = cartMapper.extractItemImageUrl(item);
+        assertThat(resolvedImage).isEqualTo("/images/standard-hoodie.jpg");
+    }
 }

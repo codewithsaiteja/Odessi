@@ -132,6 +132,22 @@ export function TryOnModal({
       const modelName = (tokenRes.model || "lucy-vton-3.5") as Parameters<typeof models.realtime>[0];
       const modelDef = models.realtime(modelName);
 
+      // Pre-fetch garment image as Blob if possible to ensure resilience against cross-origin drops
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let garmentImageInput: any = tokenRes.garmentImageUrl;
+      if (tokenRes.garmentImageUrl) {
+        try {
+          const imgResp = await fetch(tokenRes.garmentImageUrl, { mode: "cors" });
+          if (imgResp.ok) {
+            const blob = await imgResp.blob();
+            garmentImageInput = blob;
+          }
+        } catch (fetchErr) {
+          console.warn("[TryOn] Garment pre-fetch as blob failed, using direct URL:", fetchErr);
+          garmentImageInput = tokenRes.garmentImageUrl;
+        }
+      }
+
       const realtimeSession = await decartClient.realtime.connect(stream, {
         model: modelDef,
         initialState: {
@@ -139,7 +155,7 @@ export function TryOnModal({
             text: `Wearing ${tokenRes.productName || product.name}`,
             enhance: false,
           },
-          image: tokenRes.garmentImageUrl,
+          image: garmentImageInput,
         },
         mirror: cameraFacing === "user" ? "auto" : false,
         speed: "fast",

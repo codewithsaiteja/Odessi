@@ -97,7 +97,7 @@ export default function CartPage() {
                         className="relative w-32 h-40 flex-shrink-0 bg-[var(--color-odessi-smoke)] rounded-sm overflow-hidden group"
                       >
                         <Image
-                          src={item.product.thumbnail || item.product.images[0] || "/placeholder-product.svg"}
+                          src={item.imageUrl || item.primaryImageUrl || item.product.thumbnail || item.product.images[0] || "/placeholder-product.svg"}
                           alt={item.product.name}
                           fill
                           className="object-cover group-hover:scale-105 transition-transform duration-300"
