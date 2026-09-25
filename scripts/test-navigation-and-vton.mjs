@@ -92,4 +92,90 @@ console.log("Running Navigation & VTON Recovery Test Suite...\n");
   console.log("✓ Test 4 Passed: VTON re-denial returns to guided recovery UI");
 }
 
+// ── Test 5: Verify Product Detail Navigation Cleanup ──────────────
+{
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+
+  const productPageContent = fs.readFileSync(
+    path.resolve(process.cwd(), "app/product/[slug]/page.tsx"),
+    "utf-8"
+  );
+
+  assert.strictEqual(
+    productPageContent.includes("<BackButton"),
+    false,
+    "Product page should NOT contain <BackButton />"
+  );
+  assert.strictEqual(
+    productPageContent.includes("Back to Collection"),
+    false,
+    "Product page should NOT contain 'Back to Collection'"
+  );
+  assert.strictEqual(
+    productPageContent.includes('aria-label="Breadcrumb"'),
+    true,
+    "Product page must preserve breadcrumb navigation"
+  );
+  console.log("✓ Test 5 Passed: Product detail page has no redundant BackButton and preserves clean breadcrumbs");
+}
+
+// ── Test 6: Verify Other Pages Preserve Back Navigation ───────────
+{
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+
+  const auditedFiles = [
+    "app/checkout/page.tsx",
+    "app/cart/page.tsx",
+    "app/orders/page.tsx",
+    "app/wishlist/page.tsx",
+    "app/collections/[slug]/page.tsx",
+    "components/auth/AuthShell.tsx",
+  ];
+
+  for (const relPath of auditedFiles) {
+    const fullPath = path.resolve(process.cwd(), relPath);
+    const content = fs.readFileSync(fullPath, "utf-8");
+    assert.strictEqual(
+      content.includes("BackButton"),
+      true,
+      `${relPath} must preserve BackButton navigation`
+    );
+  }
+  console.log("✓ Test 6 Passed: Global back navigation preserved across Checkout, Cart, Orders, Wishlist, Collections, and Auth");
+}
+
+// ── Test 7: Verify TryOnModal Diagnostic Logging & Recovery ───────
+{
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+
+  const tryOnModalContent = fs.readFileSync(
+    path.resolve(process.cwd(), "components/try-on/TryOnModal.tsx"),
+    "utf-8"
+  );
+
+  const requiredLogs = [
+    "[TryOn] recovery button clicked",
+    "[TryOn] requesting camera",
+    "[TryOn] getUserMedia success",
+    "[TryOn] camera stream attached",
+    "[TryOn] requesting VTON token",
+    "[TryOn] token received",
+    "[TryOn] garment loaded",
+    "[TryOn] connecting Decart",
+    "[TryOn] remote stream received",
+  ];
+
+  for (const log of requiredLogs) {
+    assert.strictEqual(
+      tryOnModalContent.includes(log),
+      true,
+      `TryOnModal must contain log statement: ${log}`
+    );
+  }
+  console.log("✓ Test 7 Passed: TryOnModal contains all 9 required structured diagnostic log events");
+}
+
 console.log("\nAll Navigation & VTON recovery tests passed successfully!");

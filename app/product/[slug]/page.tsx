@@ -28,7 +28,6 @@ const RecentlyViewed = dynamic(() => import("@/components/product/RecentlyViewed
 const ImageTrail = dynamic(() => import("@/components/editorial/ImageTrail"), { ssr: false });
 const TryOnModal = dynamic(() => import("@/components/try-on/TryOnModal").then(mod => mod.TryOnModal), { ssr: false });
 import { TryOnButton } from "@/components/try-on/TryOnButton";
-import { BackButton } from "@/components/navigation/BackButton";
 
 export default function ProductPage() {
   const params = useParams();
@@ -298,53 +297,46 @@ export default function ProductPage() {
       {/* ── Main Content ── */}
       <main className="pt-[calc(var(--announcement-height)+var(--navbar-height))] bg-[#FAF9F6] min-h-screen text-[#080808]">
         <div className="container-odessi py-8">
-          {/* Back Navigation & Breadcrumb */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-            <BackButton
-              fallback={product.collection ? `/collections/${product.collection}` : `/shop?category=${product.category}`}
-              label={product.collection ? "Back to Collection" : "Back to Shop"}
-            />
-            {/* Breadcrumb */}
-            <nav className="text-xs sm:text-sm" aria-label="Breadcrumb">
-              <ol className="flex items-center gap-2 text-[var(--color-odessi-stone)]">
-                <li>
-                  <Link href="/" className="hover:text-[var(--color-odessi-black)] transition-colors">
-                    Home
-                  </Link>
-                </li>
-                <li>/</li>
-                <li>
-                  <Link href="/shop" className="hover:text-[var(--color-odessi-black)] transition-colors">
-                    Shop
-                  </Link>
-                </li>
-                {product.collection && (
-                  <>
-                    <li>/</li>
-                    <li>
-                      <Link
-                        href={`/collections/${product.collection}`}
-                        className="hover:text-[var(--color-odessi-black)] transition-colors capitalize"
-                      >
-                        {product.collection.replace("-", " ")}
-                      </Link>
-                    </li>
-                  </>
-                )}
-                <li>/</li>
-                <li>
-                  <Link 
-                    href={`/shop?category=${product.category}`}
-                    className="hover:text-[var(--color-odessi-black)] transition-colors capitalize"
-                  >
-                    {product.category.replace("-", " ")}
-                  </Link>
-                </li>
-                <li>/</li>
-                <li className="text-[var(--color-odessi-black)] line-clamp-1">{product.name}</li>
-              </ol>
-            </nav>
-          </div>
+          {/* Breadcrumb */}
+          <nav className="mb-6 text-xs sm:text-sm" aria-label="Breadcrumb">
+            <ol className="flex items-center gap-2 text-[var(--color-odessi-stone)]">
+              <li>
+                <Link href="/" className="hover:text-[var(--color-odessi-black)] transition-colors">
+                  Home
+                </Link>
+              </li>
+              <li>/</li>
+              <li>
+                <Link href="/shop" className="hover:text-[var(--color-odessi-black)] transition-colors">
+                  Shop
+                </Link>
+              </li>
+              {product.collection && (
+                <>
+                  <li>/</li>
+                  <li>
+                    <Link
+                      href={`/collections/${product.collection}`}
+                      className="hover:text-[var(--color-odessi-black)] transition-colors capitalize"
+                    >
+                      {product.collection.replace("-", " ")}
+                    </Link>
+                  </li>
+                </>
+              )}
+              <li>/</li>
+              <li>
+                <Link 
+                  href={`/shop?category=${product.category}`}
+                  className="hover:text-[var(--color-odessi-black)] transition-colors capitalize"
+                >
+                  {product.category.replace("-", " ")}
+                </Link>
+              </li>
+              <li>/</li>
+              <li className="text-[var(--color-odessi-black)] line-clamp-1">{product.name}</li>
+            </ol>
+          </nav>
 
           {/* Product Content */}
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 mb-16">

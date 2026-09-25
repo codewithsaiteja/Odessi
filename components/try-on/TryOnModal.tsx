@@ -105,6 +105,7 @@ export function TryOnModal({
   const [isRecovering, setIsRecovering] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const pipVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -147,6 +148,9 @@ export function TryOnModal({
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
     }
+    if (pipVideoRef.current) {
+      pipVideoRef.current.srcObject = null;
+    }
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
@@ -176,18 +180,21 @@ export function TryOnModal({
     // 2. Request camera stream directly.
     // NOTE: We do not gate on cached Permissions API state because Chrome frequently returns
     // stale 'denied' results even after the user toggles 'Allow' in site settings until getUserMedia() is called.
+    console.log("[TryOn] requesting camera");
     setStatus("requesting_camera");
 
     let stream: MediaStream;
     try {
       stream = await acquireCameraStream(cameraFacing);
       cameraStreamRef.current = stream;
+      console.log("[TryOn] getUserMedia success");
 
       // Attach stream to local preview video element
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.play().catch(() => {});
       }
+      console.log("[TryOn] camera stream attached");
       setStatus("camera_ready");
     } catch (camErr: unknown) {
       const error = camErr as { name?: string; message?: string };
@@ -210,6 +217,7 @@ export function TryOnModal({
     }
 
     // 3. Acquire short-lived token and garment image from Odessi backend
+    console.log("[TryOn] requesting VTON token");
     setStatus("minting_token");
     let tokenRes: TryOnTokenResponse;
     try {
@@ -218,6 +226,7 @@ export function TryOnModal({
         productSlug: product.slug,
         selectedVariantSku,
       });
+      console.log("[TryOn] token received");
       setTokenData(tokenRes);
     } catch (tokErr: unknown) {
       const error = tokErr as { message?: string };
@@ -244,8 +253,10 @@ export function TryOnModal({
         garmentImageInput = tokenRes.garmentImageUrl;
       }
     }
+    console.log("[TryOn] garment loaded");
 
     // 5. Connect to Decart Lucy Real-Time VTON via WebRTC
+    console.log("[TryOn] connecting Decart");
     setStatus("connecting_vton");
     try {
       const { createDecartClient, models } = await import("@decartai/sdk");
@@ -281,6 +292,7 @@ export function TryOnModal({
         mirror: cameraFacing === "user" ? "auto" : false,
         speed: "fast",
         onRemoteStream: (remoteStream: MediaStream) => {
+          console.log("[TryOn] remote stream received");
           if (streamTimeoutRef.current) {
             clearTimeout(streamTimeoutRef.current);
             streamTimeoutRef.current = null;
@@ -309,13 +321,24 @@ export function TryOnModal({
   }, [cameraFacing, cleanupSession, product.id, product.name, product.slug, selectedVariantSku]);
 
   const handleRecovery = useCallback(async () => {
+    console.log("[TryOn] recovery button clicked");
     setIsRecovering(true);
     try {
       await startTryOn();
+    } catch (err) {
+      console.error("[TryOn] Recovery error:", err);
     } finally {
       setIsRecovering(false);
     }
   }, [startTryOn]);
+
+  // Synchronize camera stream with picture-in-picture video element when live
+  useEffect(() => {
+    if (status === "live" && showLocalPip && pipVideoRef.current && cameraStreamRef.current) {
+      pipVideoRef.current.srcObject = cameraStreamRef.current;
+      pipVideoRef.current.play().catch(() => {});
+    }
+  }, [status, showLocalPip]);
 
   // Trigger try-on when modal is opened
   useEffect(() => {
@@ -460,21 +483,23 @@ export function TryOnModal({
           />
 
           {/* Local Camera Fallback / Connecting View */}
-          {status !== "live" && !isErrorState(status) && (
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-contain opacity-40 blur-sm scale-x-[-1]"
-            />
-          )}
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className={`w-full h-full object-contain scale-x-[-1] transition-opacity duration-300 ${
+              status !== "live" && !isErrorState(status)
+                ? "block opacity-40 blur-sm"
+                : "hidden opacity-0 pointer-events-none"
+            }`}
+          />
 
           {/* Corner PIP for Local Camera Feed during Live Session */}
           {status === "live" && showLocalPip && (
             <div className="absolute bottom-5 right-5 w-36 sm:w-44 aspect-video rounded-lg overflow-hidden border border-white/20 shadow-2xl bg-black/60 z-20 transition-transform duration-200 hover:scale-105">
               <video
-                ref={localVideoRef}
+                ref={pipVideoRef}
                 autoPlay
                 playsInline
                 muted
