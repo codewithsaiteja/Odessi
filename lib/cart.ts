@@ -12,12 +12,14 @@ import type { CartItem, Product } from "@/types";
 /* ── Cart Calculations ── */
 
 export function getCartItemCount(cart: CartItem[]): number {
-  return cart.reduce((total, item) => total + item.quantity, 0);
+  if (!Array.isArray(cart)) return 0;
+  return cart.reduce((total, item) => total + (item?.quantity || 0), 0);
 }
 
 export function getCartSubtotal(cart: CartItem[]): number {
+  if (!Array.isArray(cart)) return 0;
   return cart.reduce(
-    (total, item) => total + item.product.price * item.quantity,
+    (total, item) => total + ((item?.product?.price ?? 0) * (item?.quantity ?? 1)),
     0
   );
 }
@@ -46,10 +48,11 @@ export function isProductInCart(
   size?: string,
   colorName?: string
 ): boolean {
+  if (!Array.isArray(cart)) return false;
   return cart.some((item) => {
-    const matchesProduct = item.product.id === productId;
-    const matchesSize = !size || item.selectedSize === size;
-    const matchesColor = !colorName || item.selectedColor.name === colorName;
+    const matchesProduct = item?.product?.id === productId;
+    const matchesSize = !size || item?.selectedSize === size;
+    const matchesColor = !colorName || item?.selectedColor?.name === colorName;
     return matchesProduct && matchesSize && matchesColor;
   });
 }
@@ -60,11 +63,12 @@ export function getCartItem(
   size: string,
   colorName: string
 ): CartItem | undefined {
+  if (!Array.isArray(cart)) return undefined;
   return cart.find(
     (item) =>
-      item.product.id === productId &&
-      item.selectedSize === size &&
-      item.selectedColor.name === colorName
+      item?.product?.id === productId &&
+      item?.selectedSize === size &&
+      item?.selectedColor?.name === colorName
   );
 }
 

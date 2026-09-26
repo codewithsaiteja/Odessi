@@ -99,10 +99,10 @@ const nextConfig: NextConfig = {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
           },
-          // Disable sensitive browser APIs not used by the application
+          // Security Permissions-Policy: allow camera for Virtual Try-On on self origin
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
+            value: "camera=(self), microphone=(), geolocation=()",
           },
           // Note: Strict-Transport-Security (HSTS) is intentionally omitted here.
           // It must only be set over HTTPS and is configured at the CDN/reverse proxy

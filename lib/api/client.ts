@@ -26,7 +26,7 @@ const DEFAULT_API_URL =
     ? "https://odessi-backend.onrender.com"
     : "http://localhost:8080";
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL).replace(/\/+$/, "");
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL).trim().replace(/\/+$/, "");
 
 // ─── CSRF Token Manager ─────────────────────────────────────────────────────
 

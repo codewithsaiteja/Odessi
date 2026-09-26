@@ -284,7 +284,7 @@ export function getMediaUrl(urlInput?: any): string {
     process.env.NODE_ENV === "production"
       ? "https://odessi-backend.onrender.com"
       : "http://localhost:8080";
-  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || defaultApiUrl).replace(/\/+$/, "");
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || defaultApiUrl).trim().replace(/\/+$/, "");
 
   // Match Azure Blob Storage URLs (which remain strictly private and must be routed
   // through the authenticated Spring Boot gateway at /api/media/{category}/{filename})

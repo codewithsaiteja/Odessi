@@ -34,7 +34,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       const localItems = wishlistLib.getWishlist();
       if (localItems.length > 0) {
         for (const item of localItems) {
-          const numId = Number(item.product.id);
+          const numId = Number(item?.product?.id);
           if (!isNaN(numId)) {
             try {
               await addWishlistItem(numId);
@@ -108,7 +108,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   };
 
   const toggleWishlist = (product: Product): boolean => {
-    const exists = wishlist.some((item) => item.product.id === product.id);
+    const exists = wishlist.some((item) => item?.product?.id === product.id);
     if (exists) {
       removeFromWishlist(product.id);
       return false;
@@ -119,7 +119,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   };
 
   const isInWishlist = (productId: string): boolean => {
-    return wishlist.some((item) => item.product.id === productId);
+    return wishlist.some((item) => item?.product?.id === productId);
   };
 
   const clearWishlist = () => {

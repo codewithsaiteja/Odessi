@@ -39,7 +39,7 @@ export function addToWishlist(product: Product): WishlistItem[] {
   const wishlist = getWishlist();
   
   // Check if product already exists in wishlist
-  const exists = wishlist.some((item) => item.product.id === product.id);
+  const exists = wishlist.some((item) => item?.product?.id === product.id);
   
   if (!exists) {
     wishlist.push({
@@ -54,7 +54,7 @@ export function addToWishlist(product: Product): WishlistItem[] {
 
 export function removeFromWishlist(productId: string): WishlistItem[] {
   const wishlist = getWishlist();
-  const updatedWishlist = wishlist.filter((item) => item.product.id !== productId);
+  const updatedWishlist = wishlist.filter((item) => item?.product?.id !== productId);
   saveWishlist(updatedWishlist);
   return updatedWishlist;
 }
