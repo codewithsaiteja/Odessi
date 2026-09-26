@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Heart, Truck, RotateCcw, Shield, ChevronDown, Bell, Ruler } from "lucide-react";
+import { Heart, Truck, RotateCcw, Shield, ChevronDown, Bell, Ruler, ChevronRight } from "lucide-react";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -299,42 +299,56 @@ export default function ProductPage() {
         <div className="container-odessi py-8">
           {/* Breadcrumb */}
           <nav className="mb-6 text-xs sm:text-sm" aria-label="Breadcrumb">
-            <ol className="flex items-center gap-2 text-[var(--color-odessi-stone)]">
-              <li>
-                <Link href="/" className="hover:text-[var(--color-odessi-black)] transition-colors">
+            <ol className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[var(--color-odessi-stone)]">
+              <li className="flex items-center">
+                <Link href="/" className="hover:text-[var(--color-odessi-black)] transition-colors whitespace-nowrap">
                   Home
                 </Link>
               </li>
-              <li>/</li>
-              <li>
-                <Link href="/shop" className="hover:text-[var(--color-odessi-black)] transition-colors">
+              <li aria-hidden="true" className="flex items-center select-none text-[var(--color-odessi-stone)]/50">
+                <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+              </li>
+              <li className="flex items-center">
+                <Link href="/shop" className="hover:text-[var(--color-odessi-black)] transition-colors whitespace-nowrap">
                   Shop
                 </Link>
               </li>
               {product.collection && (
                 <>
-                  <li>/</li>
-                  <li>
+                  <li aria-hidden="true" className="flex items-center select-none text-[var(--color-odessi-stone)]/50">
+                    <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                  </li>
+                  <li className="flex items-center">
                     <Link
                       href={`/collections/${product.collection}`}
-                      className="hover:text-[var(--color-odessi-black)] transition-colors capitalize"
+                      className="hover:text-[var(--color-odessi-black)] transition-colors capitalize whitespace-nowrap"
                     >
-                      {product.collection.replace("-", " ")}
+                      {product.collectionName || product.collection.replace(/-/g, " ")}
                     </Link>
                   </li>
                 </>
               )}
-              <li>/</li>
-              <li>
+              <li aria-hidden="true" className="flex items-center select-none text-[var(--color-odessi-stone)]/50">
+                <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+              </li>
+              <li className="flex items-center">
                 <Link 
                   href={`/shop?category=${product.category}`}
-                  className="hover:text-[var(--color-odessi-black)] transition-colors capitalize"
+                  className="hover:text-[var(--color-odessi-black)] transition-colors capitalize whitespace-nowrap"
                 >
-                  {product.category.replace("-", " ")}
+                  {product.categoryName || product.category.replace(/-/g, " ")}
                 </Link>
               </li>
-              <li>/</li>
-              <li className="text-[var(--color-odessi-black)] line-clamp-1">{product.name}</li>
+              <li aria-hidden="true" className="flex items-center select-none text-[var(--color-odessi-stone)]/50">
+                <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+              </li>
+              <li 
+                aria-current="page" 
+                className="text-[var(--color-odessi-black)] font-medium truncate max-w-[200px] sm:max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg"
+                title={product.name}
+              >
+                {product.name}
+              </li>
             </ol>
           </nav>
 

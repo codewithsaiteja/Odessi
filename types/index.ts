@@ -40,7 +40,9 @@ export interface Product {
   images: string[];
   thumbnail: string;
   category: ProductCategory;
+  categoryName?: string;
   collection?: string; // collection slug
+  collectionName?: string;
   sizes: ProductSize[];
   colors: ProductColor[];
   variants?: ProductVariant[];

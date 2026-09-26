@@ -60,6 +60,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const lastBackendTouchRef = useRef<number>(0);
   const isLoggingOutRef = useRef<boolean>(false);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+  const userRef = useRef<User | null>(user);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   // Initialize active timestamp on mount
   useEffect(() => {
@@ -122,7 +127,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoggingOutRef.current = true;
 
     try {
-      await apiPost("/api/auth/logout");
+      if (userRef.current) {
+        await apiPost("/api/auth/logout");
+      }
     } catch {
       // Ignore network errors on logout
     } finally {
@@ -186,7 +193,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser();
 
     const handleSessionExpired = () => {
-      handleInactivityLogout();
+      if (userRef.current) {
+        handleInactivityLogout();
+      }
     };
 
     window.addEventListener("auth-session-expired", handleSessionExpired);

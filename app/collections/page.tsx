@@ -8,6 +8,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { getCollections } from "@/lib/api/collections";
 import type { Collection } from "@/types";
+import { ChevronRight } from "lucide-react";
 
 export default function CollectionsPage() {
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -40,14 +41,16 @@ export default function CollectionsPage() {
         <div className="container-odessi">
           {/* Breadcrumb */}
           <nav className="py-4 text-sm" aria-label="Breadcrumb">
-            <ol className="flex items-center gap-2 text-[var(--color-odessi-stone)]">
-              <li>
-                <Link href="/" className="hover:text-[var(--color-odessi-black)] transition-colors">
+            <ol className="flex items-center gap-1.5 sm:gap-2 text-[var(--color-odessi-stone)]">
+              <li className="flex items-center">
+                <Link href="/" className="hover:text-[var(--color-odessi-black)] transition-colors whitespace-nowrap">
                   Home
                 </Link>
               </li>
-              <li>/</li>
-              <li className="text-[var(--color-odessi-black)]">Collections</li>
+              <li aria-hidden="true" className="flex items-center select-none text-[var(--color-odessi-stone)]/50">
+                <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+              </li>
+              <li aria-current="page" className="text-[var(--color-odessi-black)] font-medium">Collections</li>
             </ol>
           </nav>
 

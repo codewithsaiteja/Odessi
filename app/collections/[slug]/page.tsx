@@ -13,6 +13,7 @@ import { getCollectionBySlug } from "@/lib/api/collections";
 import { getProductsByCollection } from "@/lib/api/products";
 import type { Collection, Product, ProductSort } from "@/types";
 import BackButton from "@/components/navigation/BackButton";
+import { ChevronRight } from "lucide-react";
 
 function CollectionContent() {
   const params = useParams();
@@ -127,20 +128,26 @@ function CollectionContent() {
           <BackButton fallback="/collections" label="Back to Collections" className="mb-4" />
           {/* Breadcrumb */}
           <nav className="mb-8 text-sm" aria-label="Breadcrumb">
-            <ol className="flex items-center gap-2 text-[var(--color-odessi-stone)]">
-              <li>
-                <Link href="/" className="hover:text-[var(--color-odessi-black)] transition-colors">
+            <ol className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[var(--color-odessi-stone)]">
+              <li className="flex items-center">
+                <Link href="/" className="hover:text-[var(--color-odessi-black)] transition-colors whitespace-nowrap">
                   Home
                 </Link>
               </li>
-              <li>/</li>
-              <li>
-                <Link href="/collections" className="hover:text-[var(--color-odessi-black)] transition-colors">
+              <li aria-hidden="true" className="flex items-center select-none text-[var(--color-odessi-stone)]/50">
+                <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+              </li>
+              <li className="flex items-center">
+                <Link href="/collections" className="hover:text-[var(--color-odessi-black)] transition-colors whitespace-nowrap">
                   Collections
                 </Link>
               </li>
-              <li>/</li>
-              <li className="text-[var(--color-odessi-black)]">{collection.name}</li>
+              <li aria-hidden="true" className="flex items-center select-none text-[var(--color-odessi-stone)]/50">
+                <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+              </li>
+              <li aria-current="page" className="text-[var(--color-odessi-black)] font-medium truncate max-w-xs sm:max-w-md">
+                {collection.name}
+              </li>
             </ol>
           </nav>
 

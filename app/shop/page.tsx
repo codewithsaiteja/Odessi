@@ -188,18 +188,32 @@ function ShopContent() {
         <div className="container-odessi">
           {/* Breadcrumb */}
           <nav className="py-4 text-xs font-mono uppercase tracking-wider text-[#737373]" aria-label="Breadcrumb">
-            <ol className="flex items-center gap-2">
-              <li>
-                <Link href="/" className="hover:text-black transition-colors">
+            <ol className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <li className="flex items-center">
+                <Link href="/" className="hover:text-black transition-colors whitespace-nowrap">
                   Home
                 </Link>
               </li>
-              <li>/</li>
-              <li className="text-black font-semibold">Shop</li>
+              <li aria-hidden="true" className="flex items-center select-none text-[#737373]/50">
+                <ChevronRight className="w-3 h-3 shrink-0" />
+              </li>
+              <li className="flex items-center">
+                {categoryParam ? (
+                  <Link href="/shop" className="hover:text-black transition-colors whitespace-nowrap">
+                    Shop
+                  </Link>
+                ) : (
+                  <span className="text-black font-semibold" aria-current="page">Shop</span>
+                )}
+              </li>
               {categoryParam && (
                 <>
-                  <li>/</li>
-                  <li className="text-black capitalize">{categoryParam.replace("-", " ")}</li>
+                  <li aria-hidden="true" className="flex items-center select-none text-[#737373]/50">
+                    <ChevronRight className="w-3 h-3 shrink-0" />
+                  </li>
+                  <li aria-current="page" className="text-black font-semibold capitalize whitespace-nowrap">
+                    {categoryParam.replace(/-/g, " ")}
+                  </li>
                 </>
               )}
             </ol>
