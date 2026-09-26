@@ -50,3 +50,7 @@ next-env.d.ts
 # maven
 target/
 **/target/
+
+# local media uploads (dev/test only)
+uploads/
+**/uploads/

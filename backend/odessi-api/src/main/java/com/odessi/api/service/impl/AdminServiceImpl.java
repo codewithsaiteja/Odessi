@@ -1358,4 +1358,61 @@ public class AdminServiceImpl implements AdminService {
         auditService.logAction(admin, "COLLECTION_ACTIVATED_TOGGLED", "Collection", id.toString(), "Toggled active to " + col.isActive());
         return collectionMapper.toResponse(updated);
     }
+
+    @Override
+    @Transactional
+    public String uploadCollectionMedia(User admin, org.springframework.web.multipart.MultipartFile file) {
+        String url = mediaStorageService.storeCollectionImage(file);
+        auditService.logAction(admin, "COLLECTION_IMAGE_UPLOADED", "Collection", "standalone",
+            "Uploaded standalone collection media: " + url);
+        return url;
+    }
+
+    @Override
+    @Transactional
+    public CollectionResponse uploadCollectionImage(User admin, Long id, org.springframework.web.multipart.MultipartFile file) {
+        com.odessi.api.entity.Collection col = collectionRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("COLLECTION_NOT_FOUND", "Collection not found: " + id));
+
+        String newImageUrl = mediaStorageService.storeCollectionImage(file);
+        String oldImageUrl = col.getHeroImage();
+
+        col.setHeroImage(newImageUrl);
+        com.odessi.api.entity.Collection updated = collectionRepository.save(col);
+
+        if (oldImageUrl != null && !oldImageUrl.isBlank()) {
+            try {
+                mediaStorageService.deleteCollectionImage(oldImageUrl);
+            } catch (Exception e) {
+                log.warn("[Admin] Could not delete old collection image {}: {}", oldImageUrl, e.getMessage());
+            }
+        }
+
+        auditService.logAction(admin, "COLLECTION_IMAGE_UPLOADED", "Collection", id.toString(),
+            "Uploaded collection image: " + newImageUrl);
+        return collectionMapper.toResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public CollectionResponse removeCollectionImage(User admin, Long id) {
+        com.odessi.api.entity.Collection col = collectionRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("COLLECTION_NOT_FOUND", "Collection not found: " + id));
+
+        String oldImageUrl = col.getHeroImage();
+        col.setHeroImage(null);
+        com.odessi.api.entity.Collection updated = collectionRepository.save(col);
+
+        if (oldImageUrl != null && !oldImageUrl.isBlank()) {
+            try {
+                mediaStorageService.deleteCollectionImage(oldImageUrl);
+            } catch (Exception e) {
+                log.warn("[Admin] Could not delete old collection image {}: {}", oldImageUrl, e.getMessage());
+            }
+        }
+
+        auditService.logAction(admin, "COLLECTION_IMAGE_REMOVED", "Collection", id.toString(),
+            "Removed collection image");
+        return collectionMapper.toResponse(updated);
+    }
 }

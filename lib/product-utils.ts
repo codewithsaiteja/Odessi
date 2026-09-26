@@ -251,8 +251,8 @@ export function getRelatedProducts(product: Product, limit: number = 4): Product
 
 /* ── Media URL resolution helper ── */
 
-export function getMediaUrl(urlInput?: any): string {
-  const fallback = "/placeholder-product.svg";
+export function getMediaUrl(urlInput?: any, fallbackOrIndex?: string | number, _array?: any[]): string {
+  const fallback = typeof fallbackOrIndex === "string" ? fallbackOrIndex : "/placeholder-product.svg";
   if (urlInput === null || urlInput === undefined) return fallback;
 
   let urlStr = "";

@@ -66,4 +66,7 @@ public interface AdminService {
     CollectionResponse createCollection(User admin, AdminCollectionRequest request);
     CollectionResponse updateCollection(User admin, Long id, AdminCollectionRequest request);
     CollectionResponse toggleCollectionActive(User admin, Long id);
+    String uploadCollectionMedia(User admin, org.springframework.web.multipart.MultipartFile file);
+    CollectionResponse uploadCollectionImage(User admin, Long id, org.springframework.web.multipart.MultipartFile file);
+    CollectionResponse removeCollectionImage(User admin, Long id);
 }

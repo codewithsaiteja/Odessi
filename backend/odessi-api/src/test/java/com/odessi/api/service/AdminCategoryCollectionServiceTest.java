@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -107,5 +108,69 @@ public class AdminCategoryCollectionServiceTest {
         assertThrows(BadRequestException.class, () ->
             adminService.createCollection(admin, req)
         );
+    }
+
+    @Test
+    void createCollection_withHeroImage_persistsImage() {
+        String imageRef = "/api/media/collections/col-12345-abcdef01.jpg";
+        AdminCollectionRequest req = new AdminCollectionRequest("Winter Drop", "winter-drop", "Winter Edit", imageRef, true, true);
+        CollectionResponse res = adminService.createCollection(admin, req);
+
+        assertEquals("Winter Drop", res.name());
+        assertEquals(imageRef, res.heroImage());
+    }
+
+    @Test
+    void uploadCollectionMedia_returnsValidCollectionPath() {
+        MockMultipartFile file = new MockMultipartFile(
+            "file", "drop-banner.jpg", "image/jpeg", "fake-image-bytes".getBytes()
+        );
+        String url = adminService.uploadCollectionMedia(admin, file);
+
+        assertNotNull(url);
+        assertTrue(url.startsWith("/api/media/collections/col-"));
+        assertTrue(url.endsWith(".jpg"));
+    }
+
+    @Test
+    void uploadCollectionImage_persistsToCollectionAndDeletesOldImage() {
+        AdminCollectionRequest req = new AdminCollectionRequest("Dark Edit", "dark-edit", "Editorial", null, true, true);
+        CollectionResponse created = adminService.createCollection(admin, req);
+        assertNull(created.heroImage());
+
+        MockMultipartFile file1 = new MockMultipartFile(
+            "file", "cover-1.png", "image/png", "png-content-bytes".getBytes()
+        );
+        CollectionResponse updated1 = adminService.uploadCollectionImage(admin, created.id(), file1);
+
+        assertNotNull(updated1.heroImage());
+        assertTrue(updated1.heroImage().startsWith("/api/media/collections/col-"));
+        assertTrue(updated1.heroImage().endsWith(".png"));
+
+        // Upload replacement image
+        MockMultipartFile file2 = new MockMultipartFile(
+            "file", "cover-2.webp", "image/webp", "webp-content-bytes".getBytes()
+        );
+        CollectionResponse updated2 = adminService.uploadCollectionImage(admin, created.id(), file2);
+
+        assertNotNull(updated2.heroImage());
+        assertTrue(updated2.heroImage().startsWith("/api/media/collections/col-"));
+        assertTrue(updated2.heroImage().endsWith(".webp"));
+        assertNotEquals(updated1.heroImage(), updated2.heroImage());
+    }
+
+    @Test
+    void removeCollectionImage_clearsHeroImageField() {
+        MockMultipartFile file = new MockMultipartFile(
+            "file", "cover.jpg", "image/jpeg", "image-bytes".getBytes()
+        );
+        String uploadedUrl = adminService.uploadCollectionMedia(admin, file);
+
+        AdminCollectionRequest req = new AdminCollectionRequest("Rogue Series", "rogue-series", "Description", uploadedUrl, true, false);
+        CollectionResponse created = adminService.createCollection(admin, req);
+        assertEquals(uploadedUrl, created.heroImage());
+
+        CollectionResponse cleared = adminService.removeCollectionImage(admin, created.id());
+        assertNull(cleared.heroImage());
     }
 }

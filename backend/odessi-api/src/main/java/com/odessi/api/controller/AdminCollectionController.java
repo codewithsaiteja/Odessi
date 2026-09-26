@@ -10,12 +10,15 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/collections")
@@ -65,5 +68,31 @@ public class AdminCollectionController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long id) {
         return ResponseEntity.ok(adminService.toggleCollectionActive(getAdminUser(userDetails), id));
+    }
+
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload image asset for collection cover")
+    public ResponseEntity<Map<String, String>> uploadCollectionMedia(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam("file") MultipartFile file) {
+        String url = adminService.uploadCollectionMedia(getAdminUser(userDetails), file);
+        return ResponseEntity.ok(Map.of("url", url));
+    }
+
+    @PostMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload or replace collection cover image")
+    public ResponseEntity<CollectionResponse> uploadCollectionImage(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(adminService.uploadCollectionImage(getAdminUser(userDetails), id, file));
+    }
+
+    @DeleteMapping("/{id}/image")
+    @Operation(summary = "Remove collection cover image")
+    public ResponseEntity<CollectionResponse> removeCollectionImage(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(adminService.removeCollectionImage(getAdminUser(userDetails), id));
     }
 }

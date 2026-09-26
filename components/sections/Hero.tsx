@@ -9,6 +9,7 @@ import { getHomepageContent, HomepageSection } from "@/lib/api/content";
 import BlurText from "@/components/react-bits/text/BlurText";
 import ShinyText from "@/components/react-bits/text/ShinyText";
 import Noise from "@/components/react-bits/backgrounds/Noise";
+import { getMediaUrl } from "@/lib/product-utils";
 
 export default function Hero() {
   const { hero: defaultHero } = siteConfig;
@@ -36,7 +37,10 @@ export default function Hero() {
   const eyebrow = heroData?.eyebrow || `${siteConfig.name} — Premium Collection`;
   const headline = heroData?.headline || defaultHero.headline;
   const subHeadline = heroData?.subHeadline || defaultHero.subHeadline;
-  const bgImage = heroData?.mediaUrl || defaultHero.image;
+  const rawDesktop = heroData?.mediaUrl || defaultHero.image;
+  const rawMobile = heroData?.mobileMediaUrl;
+  const desktopBgImage = getMediaUrl(rawDesktop);
+  const mobileBgImage = rawMobile ? getMediaUrl(rawMobile) : null;
   const primaryCtaLabel = heroData?.primaryCtaLabel || defaultHero.primaryCta.label;
   const primaryCtaUrl = heroData?.primaryCtaUrl || defaultHero.primaryCta.href;
   const secondaryCtaLabel = heroData?.secondaryCtaLabel || defaultHero.secondaryCta.label;
@@ -56,15 +60,38 @@ export default function Hero() {
     >
       {/* ── Background image ── */}
       <div className="absolute inset-0 z-0">
-        <Image
-          src={bgImage}
-          alt="Odessi.tfi — Premium Cinematic Clothing"
-          fill
-          priority
-          quality={90}
-          sizes="100vw"
-          className="object-cover object-center select-none"
-        />
+        {mobileBgImage ? (
+          <>
+            <Image
+              src={mobileBgImage}
+              alt="Odessi.tfi — Premium Cinematic Clothing"
+              fill
+              priority
+              quality={90}
+              sizes="100vw"
+              className="md:hidden object-cover object-center select-none"
+            />
+            <Image
+              src={desktopBgImage}
+              alt="Odessi.tfi — Premium Cinematic Clothing"
+              fill
+              priority
+              quality={90}
+              sizes="100vw"
+              className="hidden md:block object-cover object-center select-none"
+            />
+          </>
+        ) : (
+          <Image
+            src={desktopBgImage}
+            alt="Odessi.tfi — Premium Cinematic Clothing"
+            fill
+            priority
+            quality={90}
+            sizes="100vw"
+            className="object-cover object-center select-none"
+          />
+        )}
         {/* Gradient overlay — bottom emphasis */}
         <div
           aria-hidden="true"

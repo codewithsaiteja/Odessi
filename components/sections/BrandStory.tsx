@@ -9,6 +9,7 @@ import { getHomepageContent, HomepageSection } from "@/lib/api/content";
 import BlurText from "@/components/react-bits/text/BlurText";
 import ScrollReveal from "@/components/react-bits/text/ScrollReveal";
 import Noise from "@/components/react-bits/backgrounds/Noise";
+import { getMediaUrl } from "@/lib/product-utils";
 
 export default function BrandStory() {
   const { brandStory: defaultStory } = siteConfig;
@@ -32,7 +33,7 @@ export default function BrandStory() {
   const eyebrow = storyData?.eyebrow || defaultStory.eyebrow;
   const headline = storyData?.headline || defaultStory.headline;
   const body = storyData?.body || defaultStory.body;
-  const bgImage = storyData?.mediaUrl || defaultStory.image;
+  const bgImage = getMediaUrl(storyData?.mediaUrl || defaultStory.image);
   const ctaLabel = storyData?.primaryCtaLabel || defaultStory.cta.label;
   const ctaHref = storyData?.primaryCtaUrl || defaultStory.cta.href;
 

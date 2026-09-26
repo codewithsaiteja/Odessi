@@ -11,6 +11,7 @@ import {
   uploadContentImage,
 } from "@/lib/api/content";
 import { getMediaUrl } from "@/lib/product-utils";
+import AdminMediaPicker from "@/components/admin/AdminMediaPicker";
 import {
   Sparkles,
   Save,
@@ -627,70 +628,71 @@ export default function AdminContentPage() {
                   </div>
                 </div>
 
-                {/* Media URL */}
-                <div className="border-t border-stone-100 pt-4">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-stone-600 mb-3 font-bold">
-                    Background Visual Media
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs text-stone-600 mb-1 font-medium">
-                          Desktop Media URL
-                        </label>
-                        <input
-                          type="url"
-                          value={formData.mediaUrl || ""}
-                          onChange={(e) =>
-                            setFormData((prev) => ({ ...prev, mediaUrl: e.target.value }))
-                          }
-                          placeholder="https://..."
-                          className="w-full px-3 py-2 border border-stone-300 rounded text-xs focus:ring-1 focus:ring-stone-900 focus:outline-none font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-stone-600 mb-1 font-medium">
-                          Mobile Media URL (Optional)
-                        </label>
-                        <input
-                          type="url"
-                          value={formData.mobileMediaUrl || ""}
-                          onChange={(e) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              mobileMediaUrl: e.target.value,
-                            }))
-                          }
-                          placeholder="https://..."
-                          className="w-full px-3 py-2 border border-stone-300 rounded text-xs focus:ring-1 focus:ring-stone-900 focus:outline-none font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Visual Preview */}
-                    <div>
-                      <span className="block text-xs text-stone-600 mb-1 font-medium">
-                        Visual Preview
-                      </span>
-                      <div className="w-full h-32 rounded bg-stone-100 border border-stone-200 overflow-hidden relative flex items-center justify-center">
-                        {formData.mediaUrl ? (
-                          <img
-                            src={formData.mediaUrl}
-                            alt="Section background preview"
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLElement).style.display = "none";
-                            }}
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center text-stone-400">
-                            <ImageIcon className="w-6 h-6 mb-1" />
-                            <span className="text-[11px]">No image URL configured</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                {/* Media Management */}
+                <div className="border-t border-stone-100 pt-5 space-y-6">
+                  <div>
+                    <h4 className="text-xs font-mono uppercase tracking-wider text-stone-900 font-bold">
+                      Storefront Visual Media
+                    </h4>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      Upload high-resolution photography or paste authenticated storage media URLs.
+                    </p>
                   </div>
+
+                  {activeSectionKey === "HERO" ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                      <AdminMediaPicker
+                        label="Hero Desktop Media (16:9)"
+                        value={formData.mediaUrl || ""}
+                        onChange={(url) => setFormData((prev) => ({ ...prev, mediaUrl: url }))}
+                        onUploadFile={async (file) => {
+                          const res = await uploadContentImage(file);
+                          return res.url;
+                        }}
+                        onDeleteImage={() => setFormData((prev) => ({ ...prev, mediaUrl: "" }))}
+                        recommendedWidth={1920}
+                        recommendedHeight={1080}
+                        aspectRatio="16:9"
+                        maxSizeMb={10}
+                        allowedFormats={["JPG", "PNG", "WEBP"]}
+                        helperText="Cinematic 100vw desktop visual"
+                      />
+
+                      <AdminMediaPicker
+                        label="Hero Mobile Media (9:16 Optional)"
+                        value={formData.mobileMediaUrl || ""}
+                        onChange={(url) => setFormData((prev) => ({ ...prev, mobileMediaUrl: url }))}
+                        onUploadFile={async (file) => {
+                          const res = await uploadContentImage(file);
+                          return res.url;
+                        }}
+                        onDeleteImage={() => setFormData((prev) => ({ ...prev, mobileMediaUrl: "" }))}
+                        recommendedWidth={1080}
+                        recommendedHeight={1920}
+                        aspectRatio="9:16"
+                        maxSizeMb={10}
+                        allowedFormats={["JPG", "PNG", "WEBP"]}
+                        helperText="Vertical visual for mobile viewports"
+                      />
+                    </div>
+                  ) : (
+                    <AdminMediaPicker
+                      label="Brand Story Background Media (16:9)"
+                      value={formData.mediaUrl || ""}
+                      onChange={(url) => setFormData((prev) => ({ ...prev, mediaUrl: url }))}
+                      onUploadFile={async (file) => {
+                        const res = await uploadContentImage(file);
+                        return res.url;
+                      }}
+                      onDeleteImage={() => setFormData((prev) => ({ ...prev, mediaUrl: "" }))}
+                      recommendedWidth={1920}
+                      recommendedHeight={1080}
+                      aspectRatio="16:9"
+                      maxSizeMb={10}
+                      allowedFormats={["JPG", "PNG", "WEBP"]}
+                      helperText="Atmospheric editorial background layer"
+                    />
+                  )}
                 </div>
               </>
             )}
@@ -872,87 +874,23 @@ export default function AdminContentPage() {
                             </div>
 
                             {/* Right: Card Image & Local Upload (5 cols) */}
-                            <div className="lg:col-span-5 space-y-3">
-                              <label className="block text-[11px] font-mono uppercase tracking-wider text-stone-600 font-semibold">
-                                Drop Image & Media
-                              </label>
-
-                              {/* Preview thumbnail */}
-                              <div className="relative w-full h-44 rounded-lg bg-stone-900 border border-stone-200 overflow-hidden flex items-center justify-center group">
-                                {hasImage ? (
-                                  <>
-                                    <img
-                                      src={getMediaUrl(card.image)}
-                                      alt={card.title || "Collection card preview"}
-                                      className="w-full h-full object-cover select-none"
-                                      onError={(e) => {
-                                        (e.currentTarget as HTMLElement).style.display = "none";
-                                      }}
-                                    />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white text-[10px] font-mono truncate px-1 pointer-events-none">
-                                      <span className="truncate">{card.image}</span>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <div className="flex flex-col items-center justify-center text-stone-400 p-4 text-center">
-                                    <ImageIcon className="w-8 h-8 mb-1.5 opacity-40 text-white" />
-                                    <span className="text-xs text-stone-300 font-medium">
-                                      No Image Configured
-                                    </span>
-                                    <span className="text-[10px] text-stone-400 mt-0.5">
-                                      Upload a high-res JPG, PNG, or WEBP
-                                    </span>
-                                  </div>
-                                )}
-
-                                {isUploading && (
-                                  <div className="absolute inset-0 bg-stone-900/80 backdrop-blur-xs flex flex-col items-center justify-center text-white space-y-2">
-                                    <Loader2 className="w-6 h-6 animate-spin text-white" />
-                                    <span className="text-xs font-semibold">Uploading image...</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Hidden file input */}
-                              <input
-                                ref={(el) => {
-                                  fileInputRefs.current[idx] = el;
+                            <div className="lg:col-span-5">
+                              <AdminMediaPicker
+                                label="Drop Card Visual Media"
+                                value={card.image || ""}
+                                onChange={(url) => handleCardFieldChange(idx, "image", url)}
+                                onUploadFile={async (file) => {
+                                  const res = await uploadContentImage(file);
+                                  return res.url;
                                 }}
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                onChange={(e) => handleCardFileSelected(idx, e)}
-                                className="hidden"
+                                onDeleteImage={() => handleRemoveCardImage(idx)}
+                                recommendedWidth={1200}
+                                recommendedHeight={1500}
+                                aspectRatio="4:5"
+                                maxSizeMb={10}
+                                allowedFormats={["JPG", "PNG", "WEBP"]}
+                                helperText={`Card #${idx + 1} drop visual (4:5 editorial)`}
                               />
-
-                              {/* Action Buttons */}
-                              <div className="flex items-center space-x-2">
-                                <button
-                                  type="button"
-                                  disabled={isUploading}
-                                  onClick={() => fileInputRefs.current[idx]?.click()}
-                                  className="flex-1 inline-flex items-center justify-center space-x-1.5 px-3 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded text-xs font-semibold shadow-2xs transition disabled:opacity-50 cursor-pointer"
-                                >
-                                  {isUploading ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  ) : (
-                                    <Upload className="w-3.5 h-3.5" />
-                                  )}
-                                  <span>{hasImage ? "Change Image" : "Upload Image"}</span>
-                                </button>
-
-                                {hasImage && (
-                                  <button
-                                    type="button"
-                                    disabled={isUploading}
-                                    onClick={() => handleRemoveCardImage(idx)}
-                                    className="px-2.5 py-2 border border-red-200 text-red-600 hover:bg-red-50 rounded text-xs font-semibold transition disabled:opacity-50 cursor-pointer"
-                                    title="Remove this image"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
                             </div>
                           </div>
                         </div>

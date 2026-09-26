@@ -117,6 +117,14 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
         return uploadBlob(blobName, file, file.getContentType());
     }
 
+    // ─── Collection Image ──────────────────────────────────────────────────────
+
+    @Override
+    public String storeCollectionImage(MultipartFile file) {
+        validateImage(file);
+        String blobName = "collections/" + safeCollectionFileName(file.getOriginalFilename(), resolveImageExtension(file));
+        return uploadBlob(blobName, file, file.getContentType());
+    }
 
     @Override
     public Optional<MediaStream> loadMedia(String category, String filename) {
@@ -125,7 +133,7 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
         }
 
         String safeCategory = category.trim().toLowerCase();
-        if (!"products".equals(safeCategory) && !"social".equals(safeCategory) && !"categories".equals(safeCategory) && !"content".equals(safeCategory)) {
+        if (!"products".equals(safeCategory) && !"social".equals(safeCategory) && !"categories".equals(safeCategory) && !"content".equals(safeCategory) && !"collections".equals(safeCategory)) {
             return Optional.empty();
         }
 
@@ -218,6 +226,30 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
         }
     }
 
+    // ─── Delete Collection Image ──────────────────────────────────────────────
+
+    @Override
+    public void deleteCollectionImage(String imageUrl) {
+        if (imageUrl == null || imageUrl.isBlank()) return;
+
+        try {
+            String blobName = extractBlobName(imageUrl);
+            if (blobName == null) {
+                log.warn("[Azure] Cannot derive collection blob name from URL: {}", imageUrl);
+                return;
+            }
+            BlobClient blobClient = containerClient.getBlobClient(blobName);
+            if (blobClient.exists()) {
+                blobClient.delete();
+                log.info("[Azure] Deleted collection blob: {}", blobName);
+            } else {
+                log.warn("[Azure] Collection blob not found for deletion: {}", blobName);
+            }
+        } catch (Exception e) {
+            log.warn("[Azure] Failed to delete collection blob for URL {}: {}", imageUrl, e.getMessage());
+        }
+    }
+
     // ─── Internal Helpers ─────────────────────────────────────────────────────
 
     /**
@@ -275,6 +307,17 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
      */
     private String safeContentFileName(String originalFilename, String extension) {
         return "content-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8) + extension;
+    }
+
+    /**
+     * Generate a collision-resistant, sanitized filename for collection media.
+     *
+     * @param originalFilename raw client filename (untrusted)
+     * @param extension        validated extension (.jpg, .png, etc.)
+     * @return safe filename: col-{timestamp}-{uuid8}{extension}
+     */
+    private String safeCollectionFileName(String originalFilename, String extension) {
+        return "col-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8) + extension;
     }
 
 

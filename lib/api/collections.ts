@@ -25,8 +25,8 @@ export interface BackendCollectionResponse {
 // Map backend response to frontend Collection type
 export function mapCollectionResponse(c: BackendCollectionResponse): Collection {
   const coverImage = c.heroImage
-    ? getMediaUrl(c.heroImage)
-    : "https://images.unsplash.com/photo-1536922246289-88c42f957773?w=1200&q=85";
+    ? getMediaUrl(c.heroImage, "/placeholder-collection.svg")
+    : "/placeholder-collection.svg";
 
   return {
     id: String(c.id),

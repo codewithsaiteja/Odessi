@@ -302,6 +302,39 @@ export async function toggleAdminCollectionActive(id: number): Promise<any> {
   return apiPatch<any>(`/api/admin/collections/${id}/status`);
 }
 
+/**
+ * Upload an unlinked collection cover image.
+ * Sends a multipart/form-data POST with field "file".
+ * Returns { url: string }.
+ */
+export async function uploadAdminCollectionImage(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiPostFormData<{ url: string }>("/api/admin/collections/upload", formData);
+}
+
+/**
+ * Upload or replace the cover image for an existing collection.
+ * Sends a multipart/form-data POST with field "file".
+ * Returns updated CollectionResponse.
+ */
+export async function uploadAdminCollectionImageForId(
+  collectionId: number,
+  file: File
+): Promise<any> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiPostFormData<any>(`/api/admin/collections/${collectionId}/image`, formData);
+}
+
+/**
+ * Remove the cover image from a collection.
+ * Returns updated CollectionResponse with heroImage set to null.
+ */
+export async function deleteAdminCollectionImage(collectionId: number): Promise<any> {
+  return apiDelete<any>(`/api/admin/collections/${collectionId}/image`);
+}
+
 // ── Admin Audit Logs ─────────────────────────────────────────────
 export async function getAdminAuditLogs(page = 0, size = 20): Promise<PageResponse<any>> {
   try {

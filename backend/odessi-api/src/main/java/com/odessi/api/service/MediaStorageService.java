@@ -32,6 +32,12 @@ public interface MediaStorageService {
     String storeContentImage(MultipartFile file);
 
     /**
+     * Stores a collection cover image file and returns its canonical public URL path.
+     * Path format: /api/media/collections/{filename}
+     */
+    String storeCollectionImage(MultipartFile file);
+
+    /**
      * Deletes a product image or video file from storage if present.
      */
     void deleteProductImage(String imageUrl);
@@ -41,6 +47,12 @@ public interface MediaStorageService {
      * Safe to call even when imageUrl is null or blank.
      */
     void deleteCategoryImage(String imageUrl);
+
+    /**
+     * Deletes a collection image from storage if present.
+     * Safe to call even when imageUrl is null or blank.
+     */
+    void deleteCollectionImage(String imageUrl);
 
     /**
      * Loads a media asset stream by category and filename from private storage.
