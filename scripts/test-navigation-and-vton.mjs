@@ -234,4 +234,57 @@ console.log("Running Navigation & VTON Recovery Test Suite...\n");
   console.log("✓ Test 8 Passed: Error classification preserves isolated failure layers without masking behind Camera Access Blocked");
 }
 
+// ── Test 9: Verify Decart Anywear Customer Flow & Credit Protection ────────
+{
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+
+  const vtonConfig = await import("../lib/vton-config.ts");
+  assert.strictEqual(vtonConfig.VTON_CONFIG.enableAnywear, true, "Anywear must be enabled");
+  assert.strictEqual(vtonConfig.VTON_CONFIG.enableNativeVton, false, "Native VTON should be disabled by default to protect API credits");
+  assert.strictEqual(vtonConfig.VTON_CONFIG.anywearUrl, "https://anywear.decart.ai", "Anywear destination URL must match official Decart endpoint");
+
+  const productPageContent = fs.readFileSync(
+    path.resolve(process.cwd(), "app/product/[slug]/page.tsx"),
+    "utf-8"
+  );
+  assert.strictEqual(productPageContent.includes("AnywearButton"), true, "Product page must import and render AnywearButton");
+  assert.strictEqual(productPageContent.includes("AnywearModal"), true, "Product page must import and render AnywearModal");
+
+  // Verify hierarchy: BUY NOW comes before AnywearButton
+  const buyNowIdx = productPageContent.indexOf("BUY NOW");
+  const anywearBtnIdx = productPageContent.indexOf("<AnywearButton");
+  assert.ok(buyNowIdx > 0 && anywearBtnIdx > buyNowIdx, "TRY WITH DECART ANYWEAR must sit directly below BUY NOW");
+
+  const anywearModalContent = fs.readFileSync(
+    path.resolve(process.cwd(), "components/try-on/AnywearModal.tsx"),
+    "utf-8"
+  );
+  assert.strictEqual(
+    anywearModalContent.includes("desktop workflow may not be available on this device"),
+    true,
+    "Anywear modal must show mobile compatibility notice"
+  );
+  assert.strictEqual(anywearModalContent.includes("draggable={true}"), true, "Anywear modal garment image must be draggable");
+  assert.strictEqual(anywearModalContent.includes("dataTransfer.setData"), true, "Anywear modal must transfer image data on drag");
+
+  console.log("✓ Test 9 Passed: Decart Anywear customer workflow, hierarchy, and credit protection verified");
+}
+
+// ── Test 10: Verify Native Decart VTON Is Preserved & Recoverable ─────
+{
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+
+  assert.strictEqual(fs.existsSync(path.resolve(process.cwd(), "components/try-on/TryOnModal.tsx")), true, "Native TryOnModal must be preserved");
+  assert.strictEqual(fs.existsSync(path.resolve(process.cwd(), "components/try-on/TryOnButton.tsx")), true, "Native TryOnButton must be preserved");
+  assert.strictEqual(fs.existsSync(path.resolve(process.cwd(), "lib/api/try-on.ts")), true, "Native TryOn API client must be preserved");
+
+  const tryOnClient = fs.readFileSync(path.resolve(process.cwd(), "lib/api/try-on.ts"), "utf-8");
+  assert.strictEqual(tryOnClient.includes("/api/try-on/token"), true, "Native token endpoint reference preserved");
+
+  console.log("✓ Test 10 Passed: Native Decart VTON implementation remains modular, intact, and recoverable");
+}
+
 console.log("\nAll Navigation & VTON recovery tests passed successfully!");
+

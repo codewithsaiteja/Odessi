@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { ChevronLeft, ChevronRight, X, Maximize2, Layers, Image as ImageIcon, Camera } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Maximize2, Layers, Image as ImageIcon, Camera, Move } from "lucide-react";
 import type { Product3DAsset, Product360Sequence } from "@/types";
 
 const Interactive360Viewer = dynamic(() => import("@/components/product/Interactive360Viewer"), {
@@ -173,12 +173,12 @@ export default function ProductGallery({
                   console.log("[TryOn] button clicked");
                   onOpenTryOn();
                 }}
-                className="px-3.5 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all bg-gradient-to-r from-amber-500/10 via-[#D4AF37]/20 to-amber-500/10 border border-[#D4AF37]/60 text-[#8C6D1F] hover:text-[#0A0A0A] hover:border-[#D4AF37] hover:bg-[#D4AF37]/30 shadow-sm ml-auto"
-                aria-label="Try this piece on yourself with live camera"
+                className="px-3 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all bg-gradient-to-r from-amber-500/10 via-[#D4AF37]/20 to-amber-500/10 border border-[#D4AF37]/60 text-[#8C6D1F] hover:text-[#0A0A0A] hover:border-[#D4AF37] hover:bg-[#D4AF37]/30 shadow-sm ml-auto cursor-pointer"
+                aria-label="Try this piece on with Decart Anywear"
               >
-                <Camera size={13} className="text-[#B89A5A]" />
-                <span>TRY IT ON</span>
-                <span className="text-[9px] px-1 py-0.2 bg-[#D4AF37] text-black font-extrabold rounded-sm uppercase tracking-wider">LIVE</span>
+                <Move size={12} className="text-[#B89A5A]" />
+                <span className="text-[11px] font-semibold tracking-wider uppercase">TRY WITH ANYWEAR</span>
+                <span className="text-[9px] px-1.5 py-0.5 bg-[#D4AF37] text-black font-extrabold rounded-xs uppercase tracking-wider">CHROME</span>
               </button>
             )}
           </div>
@@ -217,6 +217,7 @@ export default function ProductGallery({
                 src={getImageSrc(currentIndex)}
                 alt={`${productName} - Image ${currentIndex + 1}`}
                 fill
+                draggable={true}
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, 50vw"
                 priority={currentIndex === 0}

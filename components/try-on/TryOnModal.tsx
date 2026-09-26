@@ -14,6 +14,10 @@ import {
   CameraOff,
   Radio,
   ArrowLeft,
+  Move,
+  ExternalLink,
+  Copy,
+  Check,
 } from "lucide-react";
 import type { Product } from "@/types";
 import { getTryOnToken, type TryOnTokenResponse } from "@/lib/api/try-on";
@@ -23,6 +27,7 @@ interface TryOnModalProps {
   onClose: () => void;
   product: Product;
   selectedVariantSku?: string;
+  initialMode?: "native" | "anywear";
 }
 
 export type TryOnStatus =
@@ -78,7 +83,10 @@ export function TryOnModal({
   onClose,
   product,
   selectedVariantSku,
+  initialMode = "anywear",
 }: TryOnModalProps) {
+  const [activeTab, setActiveTab] = useState<"native" | "anywear">(initialMode || "anywear");
+  const [copied, setCopied] = useState(false);
   const [status, setStatus] = useState<TryOnStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("user");
@@ -86,6 +94,30 @@ export function TryOnModal({
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const [tokenData, setTokenData] = useState<TryOnTokenResponse | null>(null);
   const [isRecovering, setIsRecovering] = useState(false);
+
+  // Derive absolute garment image URL for Decart Anywear ingestion
+  const rawGarmentUrl = tokenData?.garmentImageUrl || (product.images && product.images[0]) || product.thumbnail || "";
+  const defaultApi = process.env.NODE_ENV === "production" ? "https://odessi-backend.onrender.com" : "http://localhost:8080";
+  const backendUrl = (process.env.NEXT_PUBLIC_API_URL || defaultApi).trim().replace(/\/+$/, "");
+  const garmentImageUrl = rawGarmentUrl.startsWith("http")
+    ? rawGarmentUrl
+    : rawGarmentUrl.startsWith("/")
+    ? `${backendUrl}${rawGarmentUrl}`
+    : `${backendUrl}/${rawGarmentUrl}`;
+
+  const handleDragStart = (e: React.DragEvent<HTMLImageElement>) => {
+    e.dataTransfer.setData("text/plain", garmentImageUrl);
+    e.dataTransfer.setData("text/uri-list", garmentImageUrl);
+    e.dataTransfer.effectAllowed = "copy";
+  };
+
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(garmentImageUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -355,10 +387,21 @@ export function TryOnModal({
     }
   }, [status, showLocalPip]);
 
-  // Trigger try-on when modal is opened
+  // Synchronize activeTab when modal is opened with initialMode
   useEffect(() => {
     if (isOpen) {
-      startTryOn();
+      setActiveTab(initialMode || "anywear");
+    }
+  }, [isOpen, initialMode]);
+
+  // Trigger try-on conditionally based on activeTab
+  useEffect(() => {
+    if (isOpen) {
+      if (activeTab === "native") {
+        startTryOn();
+      } else {
+        cleanupSession();
+      }
     } else {
       cleanupSession();
       setStatus("idle");
@@ -367,7 +410,7 @@ export function TryOnModal({
     return () => {
       cleanupSession();
     };
-  }, [isOpen, startTryOn, cleanupSession]);
+  }, [isOpen, activeTab, startTryOn, cleanupSession]);
 
   // Keyboard navigation: Escape key closes modal
   useEffect(() => {

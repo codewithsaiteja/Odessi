@@ -27,7 +27,10 @@ const PincodeDeliveryEstimator = dynamic(() => import("@/components/product/Pinc
 const RecentlyViewed = dynamic(() => import("@/components/product/RecentlyViewed").then(mod => mod.RecentlyViewed), { ssr: false });
 const ImageTrail = dynamic(() => import("@/components/editorial/ImageTrail"), { ssr: false });
 const TryOnModal = dynamic(() => import("@/components/try-on/TryOnModal").then(mod => mod.TryOnModal), { ssr: false });
+const AnywearModal = dynamic(() => import("@/components/try-on/AnywearModal").then(mod => mod.AnywearModal), { ssr: false });
 import { TryOnButton } from "@/components/try-on/TryOnButton";
+import { AnywearButton } from "@/components/try-on/AnywearButton";
+import { VTON_CONFIG } from "@/lib/vton-config";
 
 export default function ProductPage() {
   const params = useParams();
@@ -46,6 +49,7 @@ export default function ProductPage() {
   const [showSizeAssistant, setShowSizeAssistant] = useState(false);
   const [showBackInStockModal, setShowBackInStockModal] = useState(false);
   const [showTryOnModal, setShowTryOnModal] = useState(false);
+  const [showAnywearModal, setShowAnywearModal] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>("description");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -362,7 +366,11 @@ export default function ProductPage() {
                 selectedColorHex={selectedColor?.hex}
                 model3D={product.model3D}
                 images360={product.images360}
-                onOpenTryOn={() => setShowTryOnModal(true)}
+                onOpenTryOn={() =>
+                  VTON_CONFIG.enableAnywear
+                    ? setShowAnywearModal(true)
+                    : setShowTryOnModal(true)
+                }
               />
             </div>
 
@@ -589,12 +597,6 @@ export default function ProductPage() {
 
               {/* Actions */}
               <div className="space-y-3 mb-8">
-                {/* Decart Lucy VTON: Real-Time Virtual Try-On */}
-                <TryOnButton
-                  onClick={() => setShowTryOnModal(true)}
-                  className="mb-1"
-                />
-
                 {!hasVariants ? (
                   <div className="space-y-2">
                     <button
@@ -652,6 +654,22 @@ export default function ProductPage() {
                       BUY NOW
                     </button>
                   </>
+                )}
+
+                {/* Virtual Try-On: Decart Anywear customer workflow (0 developer credits consumed) */}
+                {VTON_CONFIG.enableAnywear && (
+                  <AnywearButton
+                    onClick={() => setShowAnywearModal(true)}
+                    className="mt-1"
+                  />
+                )}
+
+                {/* Native Decart Developer API VTON (Preserved and recoverable when API credits are funded) */}
+                {VTON_CONFIG.enableNativeVton && (
+                  <TryOnButton
+                    onClick={() => setShowTryOnModal(true)}
+                    className="mt-1"
+                  />
                 )}
 
                 <button
@@ -832,7 +850,11 @@ export default function ProductPage() {
         onAddToCart={handleAddToCart}
         onNotifyMe={() => setShowBackInStockModal(true)}
         addedToCart={addedToCart}
-        onOpenTryOn={() => setShowTryOnModal(true)}
+        onOpenTryOn={() =>
+          VTON_CONFIG.enableAnywear
+            ? setShowAnywearModal(true)
+            : setShowTryOnModal(true)
+        }
       />
 
       {/* Size Guide Modal */}
@@ -859,8 +881,17 @@ export default function ProductPage() {
         variantSku={selectedVariant?.sku || `${product.slug}-${selectedSize || 'OS'}`}
       />
 
-      {/* Decart Lucy VTON: Real-Time Virtual Try-On Modal */}
-      {showTryOnModal && (
+      {/* Decart Anywear Modal: Customer-side virtual try-on (0 Odessi API credits consumed) */}
+      {showAnywearModal && product && (
+        <AnywearModal
+          isOpen={showAnywearModal}
+          onClose={() => setShowAnywearModal(false)}
+          product={product}
+        />
+      )}
+
+      {/* Decart Lucy VTON: Real-Time Virtual Try-On Modal (Preserved and recoverable when API credits are funded) */}
+      {showTryOnModal && product && (
         <TryOnModal
           isOpen={showTryOnModal}
           onClose={() => setShowTryOnModal(false)}
