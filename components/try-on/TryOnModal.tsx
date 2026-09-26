@@ -54,23 +54,19 @@ async function acquireCameraStream(facingMode: "user" | "environment"): Promise<
 
   console.log("[TryOn] getUserMedia called");
 
-  // Attempt 1: FacingMode if requested
-  if (facingMode) {
+  // If rear/environment camera specifically requested on mobile
+  if (facingMode === "environment") {
     try {
       return await navigator.mediaDevices.getUserMedia({
-        video: { facingMode },
+        video: { facingMode: "environment" },
         audio: false,
       });
-    } catch (err1: unknown) {
-      const error1 = err1 as { name?: string };
-      if (error1?.name === "NotAllowedError" || error1?.name === "PermissionDeniedError") {
-        throw err1;
-      }
-      console.warn("[TryOn] facingMode failed, falling back to minimal video: true:", error1?.name);
+    } catch (err: unknown) {
+      console.warn("[TryOn] environment camera constraint failed, falling back to unconstrained video:", err);
     }
   }
 
-  // Attempt 2: Minimal generic video constraint (guaranteed to not fail on constraint mismatches)
+  // Universal unconstrained video query (direct browser camera test, works on all desktop and mobile cameras)
   return await navigator.mediaDevices.getUserMedia({
     video: true,
     audio: false,
@@ -293,7 +289,6 @@ export function TryOnModal({
           image: garmentImageInput,
         },
         mirror: cameraFacing === "user" ? "auto" : false,
-        speed: "fast",
         onRemoteStream: (remoteStream: MediaStream) => {
           console.log("[TryOn] remote stream received");
           if (streamTimeoutRef.current) {
