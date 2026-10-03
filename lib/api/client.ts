@@ -28,6 +28,58 @@ const DEFAULT_API_URL =
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL).trim().replace(/\/+$/, "");
 
+// ─── Session State Tracking ──────────────────────────────────────────────────
+const HAS_SESSION_KEY = "odessi_has_session";
+
+export function hasStoredSession(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(HAS_SESSION_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setStoredSession(hasSession: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (hasSession) {
+      localStorage.setItem(HAS_SESSION_KEY, "true");
+    } else {
+      localStorage.removeItem(HAS_SESSION_KEY);
+    }
+  } catch {}
+}
+
+// ─── In-Flight Deduplication & Public GET Cache ──────────────────────────────
+const inFlightGets = new Map<string, Promise<any>>();
+const publicGetCache = new Map<string, { data: any; expiresAt: number }>();
+const DEFAULT_CACHE_TTL_MS = 30_000; // 30 seconds
+
+function isPublicCacheablePath(path: string): boolean {
+  return (
+    (path.startsWith("/api/homepage/content") ||
+      path.startsWith("/api/collections") ||
+      path.startsWith("/api/categories") ||
+      path.startsWith("/api/products") ||
+      path.startsWith("/api/reviews")) &&
+    !path.startsWith("/api/admin")
+  );
+}
+
+/** Invalidate cached public GET responses (e.g. after admin updates). */
+export function invalidateClientCache(prefix?: string): void {
+  if (!prefix) {
+    publicGetCache.clear();
+  } else {
+    for (const key of Array.from(publicGetCache.keys())) {
+      if (key.startsWith(prefix)) {
+        publicGetCache.delete(key);
+      }
+    }
+  }
+}
+
 // ─── CSRF Token Manager ─────────────────────────────────────────────────────
 
 interface CsrfTokenResponse {
@@ -125,7 +177,11 @@ interface ErrorBody {
 
 // ─── Response Handler ────────────────────────────────────────────────────────
 
-async function handleResponse<T>(response: Response, originalRequest?: () => Promise<T>): Promise<T> {
+async function handleResponse<T>(
+  response: Response,
+  originalRequest?: () => Promise<T>,
+  requestPath?: string
+): Promise<T> {
   if (response.ok) {
     if (response.status === 204) return undefined as T;
 
@@ -146,24 +202,27 @@ async function handleResponse<T>(response: Response, originalRequest?: () => Pro
   }
 
   // ── 401 Intercept & JWT Refresh (Deduplicated) ─────────────────────────
-  if (response.status === 401 && originalRequest) {
+  // Guest guard: if /api/auth/me returned 401 and this browser has no saved session,
+  // do not trigger a futile refresh attempt.
+  const isGuestAuthMe = requestPath === "/api/auth/me" && !hasStoredSession();
+
+  if (response.status === 401 && originalRequest && !isGuestAuthMe) {
     if (!refreshFetchInFlight) {
       refreshFetchInFlight = (async () => {
         try {
-          const xsrf = await getCsrfToken();
+          // Backend ignores CSRF on /api/auth/refresh, no getCsrfToken needed
           const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
             method: "POST",
             credentials: "include",
-            headers: {
-              "X-XSRF-TOKEN": xsrf,
-            },
           });
 
           if (refreshResponse.ok) {
+            setStoredSession(true);
             // Invalidate CSRF cache — a new session may issue a new token
             invalidateCsrfToken();
             return true;
           } else if (refreshResponse.status === 401) {
+            setStoredSession(false);
             if (typeof window !== "undefined") {
               window.dispatchEvent(new Event("auth-session-expired"));
             }
@@ -216,6 +275,8 @@ async function handleResponse<T>(response: Response, originalRequest?: () => Pro
 export interface RequestOptions {
   headers?: Record<string, string>;
   signal?: AbortSignal;
+  timeoutMs?: number;
+  skipCache?: boolean;
 }
 
 async function executeFetch<T>(
@@ -226,64 +287,125 @@ async function executeFetch<T>(
   _isCsrfRetry = false,
   _isAuthRetry = false
 ): Promise<T> {
-  const isPublicAuthRequest = [
-    "/api/auth/login",
-    "/api/auth/register",
-    "/api/auth/refresh",
-    "/api/auth/forgot-password",
-    "/api/auth/reset-password",
-  ].some((p) => path.startsWith(p));
-  const isStateChanging = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
-
-  const headers = new Headers({
-    "Content-Type": "application/json",
-    ...options?.headers,
-  });
-
-  if (isStateChanging) {
-    // Use server-side CSRF endpoint — never relies on document.cookie cross-origin
-    const xsrfToken = await getCsrfToken();
-    headers.set("X-XSRF-TOKEN", xsrfToken);
+  // Check memory cache for idempotent public GET requests
+  if (method === "GET" && !options?.skipCache && isPublicCacheablePath(path)) {
+    const cached = publicGetCache.get(path);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.data as T;
+    }
   }
 
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-      signal: options?.signal,
-      credentials: "include",
-      cache: "no-store",
-    });
-  } catch (err: unknown) {
-    const error = err as { name?: string; message?: string };
-    if (error?.name === "AbortError") {
-      throw err;
+  // In-flight deduplication for concurrent identical GET requests
+  if (method === "GET" && !_isAuthRetry && !_isCsrfRetry && !options?.signal) {
+    const existing = inFlightGets.get(path);
+    if (existing) {
+      return existing as Promise<T>;
     }
-    throw new ApiError(
-      0,
-      "NETWORK_ERROR",
-      `Failed to connect to backend server (${API_BASE_URL}). ${error?.message || "Failed to fetch"}`,
+  }
+
+  const fetchPromise = (async () => {
+    const isPublicAuthRequest = [
+      "/api/auth/login",
+      "/api/auth/register",
+      "/api/auth/refresh",
+      "/api/auth/forgot-password",
+      "/api/auth/reset-password",
+    ].some((p) => path.startsWith(p));
+    const isStateChanging = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
+
+    const headers = new Headers({
+      "Content-Type": "application/json",
+      ...options?.headers,
+    });
+
+    if (isStateChanging) {
+      // Use server-side CSRF endpoint — never relies on document.cookie cross-origin
+      const xsrfToken = await getCsrfToken();
+      headers.set("X-XSRF-TOKEN", xsrfToken);
+    }
+
+    // Default timeout management
+    const timeoutMs = options?.timeoutMs ?? (isStateChanging ? 15000 : 10000);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const effectiveSignal = options?.signal || controller.signal;
+
+    const isServer = typeof window === "undefined";
+    const isServerPublicGet = isServer && method === "GET" && isPublicCacheablePath(path);
+
+    let response: Response;
+    try {
+      const fetchInit: RequestInit & { next?: { revalidate?: number } } = {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: effectiveSignal,
+        credentials: "include",
+        cache: isServerPublicGet ? "default" : "no-store",
+      };
+
+      if (isServerPublicGet) {
+        fetchInit.next = { revalidate: 60 };
+      }
+
+      response = await fetch(`${API_BASE_URL}${path}`, fetchInit as RequestInit);
+    } catch (err: unknown) {
+      clearTimeout(timer);
+      const error = err as { name?: string; message?: string };
+      if (error?.name === "AbortError") {
+        throw new ApiError(
+          408,
+          "REQUEST_TIMEOUT",
+          `Request to ${path} timed out after ${timeoutMs}ms`,
+          path
+        );
+      }
+      throw new ApiError(
+        0,
+        "NETWORK_ERROR",
+        `Failed to connect to backend server (${API_BASE_URL}). ${error?.message || "Failed to fetch"}`,
+        path
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+
+    // ── CSRF 403 retry (once) — handles token rotation between tabs/deployments
+    if (response.status === 403 && isStateChanging && !isPublicAuthRequest && !_isCsrfRetry) {
+      invalidateCsrfToken();
+      return executeFetch<T>(method, path, body, options, true, _isAuthRetry);
+    }
+
+    // Don't retry public auth endpoints themselves on 401
+    if (isPublicAuthRequest) {
+      return handleResponse<T>(response, undefined, path);
+    }
+
+    const result = await handleResponse<T>(
+      response,
+      !_isAuthRetry ? () => executeFetch<T>(method, path, body, options, _isCsrfRetry, true) : undefined,
       path
     );
+
+    // Save in public GET cache if applicable
+    if (method === "GET" && isPublicCacheablePath(path) && result !== undefined) {
+      publicGetCache.set(path, {
+        data: result,
+        expiresAt: Date.now() + DEFAULT_CACHE_TTL_MS,
+      });
+    }
+
+    return result;
+  })();
+
+  if (method === "GET" && !_isAuthRetry && !_isCsrfRetry && !options?.signal) {
+    inFlightGets.set(path, fetchPromise);
+    fetchPromise.finally(() => {
+      inFlightGets.delete(path);
+    });
   }
 
-  // ── CSRF 403 retry (once) — handles token rotation between tabs/deployments
-  if (response.status === 403 && isStateChanging && !isPublicAuthRequest && !_isCsrfRetry) {
-    invalidateCsrfToken();
-    return executeFetch<T>(method, path, body, options, true, _isAuthRetry);
-  }
-
-  // Don't retry public auth endpoints themselves on 401
-  if (isPublicAuthRequest) {
-    return handleResponse<T>(response);
-  }
-
-  return handleResponse<T>(
-    response,
-    !_isAuthRetry ? () => executeFetch<T>(method, path, body, options, _isCsrfRetry, true) : undefined
-  );
+  return fetchPromise;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -373,10 +495,13 @@ export async function apiPostFormData<T>(
     return apiPostFormData<T>(path, formData, true, _isAuthRetry);
   }
 
-  return handleResponse<T>(
+  const result = await handleResponse<T>(
     response,
-    !_isAuthRetry ? () => apiPostFormData<T>(path, formData, _isCsrfRetry, true) : undefined
+    !_isAuthRetry ? () => apiPostFormData<T>(path, formData, _isCsrfRetry, true) : undefined,
+    path
   );
+  invalidateClientCache();
+  return result;
 }
 
 // ─── Utility ──────────────────────────────────────────────────────────────────

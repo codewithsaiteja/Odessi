@@ -18,6 +18,7 @@ import java.util.List;
         @UniqueConstraint(name = "uq_collections_slug", columnNames = "slug")
     }
 )
+@org.hibernate.annotations.BatchSize(size = 25)
 public class Collection {
 
     @Id

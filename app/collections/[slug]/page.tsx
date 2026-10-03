@@ -42,6 +42,17 @@ function CollectionContent() {
     }
   }, [params.slug]);
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[var(--color-odessi-cream)] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-10 h-10 border-2 border-stone-300 border-t-stone-800 rounded-full animate-spin mx-auto" />
+          <p className="type-meta text-stone-500 uppercase tracking-widest text-xs">Loading Collection...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!collection) {
     return (
       <div className="min-h-screen flex items-center justify-center">

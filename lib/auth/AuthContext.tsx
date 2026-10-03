@@ -16,6 +16,8 @@ import {
   refreshCsrfToken,
   invalidateCsrfToken,
   extendSessionApi,
+  hasStoredSession,
+  setStoredSession,
 } from "../api/client";
 import { EVENTS, emitEvent } from "../events";
 import { SessionExpirationWarning } from "@/components/auth/SessionExpirationWarning";
@@ -110,13 +112,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
+    // If the browser indicates no active session and the user is on a public storefront page,
+    // skip the initial blocking /api/auth/me roundtrip so the UI paints instantaneously.
+    if (!hasStoredSession()) {
+      if (typeof window !== "undefined") {
+        const path = window.location.pathname;
+        const isPrivateRoute =
+          path.startsWith("/admin") ||
+          path.startsWith("/account") ||
+          path.startsWith("/orders");
+        if (!isPrivateRoute) {
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
+      }
+    }
+
     try {
       setIsLoading(true);
       const data = await apiGet<User>("/api/auth/me");
       setUser(data);
+      setStoredSession(true);
       lastActiveTimeRef.current = Date.now();
     } catch {
       setUser(null);
+      setStoredSession(false);
     } finally {
       setIsLoading(false);
     }
@@ -133,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Ignore network errors on logout
     } finally {
+      setStoredSession(false);
       invalidateCsrfToken();
       if (typeof window !== "undefined") {
         localStorage.removeItem("odessi_demo_user");
@@ -276,6 +298,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (credentials: Record<string, string>): Promise<User> => {
     const data = await apiPost<User>("/api/auth/login", credentials);
     setUser(data);
+    setStoredSession(true);
     lastActiveTimeRef.current = Date.now();
     lastBackendTouchRef.current = Date.now();
     setShowWarning(false);

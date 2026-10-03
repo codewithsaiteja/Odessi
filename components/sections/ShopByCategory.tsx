@@ -9,8 +9,6 @@ import { getCategories } from "@/lib/api/categories";
 import { getMediaUrl } from "@/lib/product-utils";
 import type { Category } from "@/types";
 
-export const revalidate = 0;
-
 /**
  * Resolve the display image for a category card.
  *

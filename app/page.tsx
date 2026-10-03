@@ -14,8 +14,9 @@ import { LetsGrowTogether } from "@/components/home/LetsGrowTogether";
 import { LimitedDropSection } from "@/components/home/LimitedDropSection";
 import { WhatsAppCTA } from "@/components/common/WhatsAppCTA";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// Enable Next.js Incremental Static Regeneration (ISR)
+// Caches at Vercel Edge CDN with background revalidation every 60s
+export const revalidate = 60;
 
 export default function HomePage() {
   return (
