@@ -309,6 +309,7 @@ async function executeFetch<T>(
       "/api/auth/register",
       "/api/auth/refresh",
       "/api/auth/forgot-password",
+      "/api/auth/verify-reset-otp",
       "/api/auth/reset-password",
     ].some((p) => path.startsWith(p));
     const isStateChanging = ["POST", "PUT", "PATCH", "DELETE"].includes(method);

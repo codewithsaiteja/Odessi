@@ -77,6 +77,22 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(HttpStatus.UNAUTHORIZED, ex.getErrorCode(), ex.getMessage(), request.getRequestURI()));
         }
 
+        // Map rate limits and attempt lockouts to 429 Too Many Requests
+        if ("RATE_LIMIT_EXCEEDED".equals(ex.getErrorCode())
+                || "TOO_MANY_ATTEMPTS".equals(ex.getErrorCode())) {
+            return ResponseEntity
+                .status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ErrorResponse.of(HttpStatus.TOO_MANY_REQUESTS, ex.getErrorCode(), ex.getMessage(), request.getRequestURI()));
+        }
+
+        // Map invalid OTP code and invalid reset token to 400 Bad Request
+        if ("INVALID_OTP".equals(ex.getErrorCode())
+                || "INVALID_RESET_TOKEN".equals(ex.getErrorCode())) {
+            return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, ex.getErrorCode(), ex.getMessage(), request.getRequestURI()));
+        }
+
         return ResponseEntity
             .status(HttpStatus.UNPROCESSABLE_ENTITY)
             .body(ErrorResponse.of(HttpStatus.UNPROCESSABLE_ENTITY, ex.getErrorCode(), ex.getMessage(), request.getRequestURI()));

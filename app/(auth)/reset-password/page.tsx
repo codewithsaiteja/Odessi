@@ -85,7 +85,7 @@ function ResetPasswordContent() {
               href="/forgot-password"
               className="w-full py-3.5 px-6 bg-[#F3F0E8] text-[#080808] hover:bg-white active:bg-[#E5E0D5] text-xs font-semibold tracking-[0.2em] uppercase rounded-[2px] transition-colors duration-200 flex items-center justify-center font-sans"
             >
-              REQUEST NEW RESET LINK
+              RECOVER PASSWORD WITH CODE
             </Link>
           </div>
 

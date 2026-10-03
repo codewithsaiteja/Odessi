@@ -92,7 +92,7 @@ public class SecurityConfig {
                 .csrfTokenRequestHandler(requestHandler)
                 .ignoringRequestMatchers(
                     "/api/auth/login", "/api/auth/register", "/api/auth/refresh",
-                    "/api/auth/forgot-password", "/api/auth/reset-password",
+                    "/api/auth/forgot-password", "/api/auth/verify-reset-otp", "/api/auth/reset-password",
                     "/api/webhooks/razorpay",
                     "/api/partnerships", "/api/custom-orders", "/api/back-in-stock/subscribe",
                     "/api/try-on/token"
@@ -146,6 +146,7 @@ public class SecurityConfig {
                     "/api/auth/login",
                     "/api/auth/refresh",
                     "/api/auth/forgot-password",
+                    "/api/auth/verify-reset-otp",
                     "/api/auth/reset-password",
                     "/api/webhooks/razorpay",
                     "/api/partnerships",

@@ -5,7 +5,9 @@ import com.odessi.api.dto.request.ForgotPasswordRequest;
 import com.odessi.api.dto.request.LoginRequest;
 import com.odessi.api.dto.request.RegisterRequest;
 import com.odessi.api.dto.request.ResetPasswordRequest;
+import com.odessi.api.dto.request.VerifyResetOtpRequest;
 import com.odessi.api.dto.response.UserResponse;
+import com.odessi.api.dto.response.VerifyResetOtpResponse;
 import com.odessi.api.entity.RefreshToken;
 import com.odessi.api.entity.User;
 import com.odessi.api.security.CustomUserDetails;
@@ -116,15 +118,27 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        authService.forgotPassword(request);
-        return ResponseEntity.ok(Map.of("message", "If the account exists, a password reset link has been sent."));
+    public ResponseEntity<Map<String, String>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request,
+            HttpServletRequest httpRequest) {
+        String clientIp = resolveClientIp(httpRequest);
+        authService.requestPasswordResetOtp(request.getEmail(), clientIp);
+        return ResponseEntity.ok(Map.of("message", "If an account matches that email, a 6-digit verification code has been sent."));
+    }
+
+    @PostMapping("/verify-reset-otp")
+    public ResponseEntity<VerifyResetOtpResponse> verifyResetOtp(
+            @Valid @RequestBody VerifyResetOtpRequest request,
+            HttpServletRequest httpRequest) {
+        String clientIp = resolveClientIp(httpRequest);
+        VerifyResetOtpResponse response = authService.verifyPasswordResetOtp(request, clientIp);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
-        return ResponseEntity.ok(Map.of("message", "Password has been reset successfully."));
+        return ResponseEntity.ok(Map.of("message", "Password has been reset successfully. Please sign in with your new password."));
     }
 
     @PostMapping("/resend-verification")
@@ -201,4 +215,18 @@ public class AuthController {
         }
         return null;
     }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        if (request == null) return null;
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            return xff.split(",")[0].trim();
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
+        }
+        return request.getRemoteAddr();
+    }
 }
+

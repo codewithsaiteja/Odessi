@@ -6,6 +6,7 @@ import com.odessi.api.entity.Role;
 import com.odessi.api.entity.User;
 import com.odessi.api.exception.BusinessException;
 import com.odessi.api.repository.EmailVerificationTokenRepository;
+import com.odessi.api.repository.PasswordResetOtpChallengeRepository;
 import com.odessi.api.repository.PasswordResetTokenRepository;
 import com.odessi.api.repository.RefreshTokenRepository;
 import com.odessi.api.repository.UserRepository;
@@ -34,6 +35,7 @@ class AuthServiceRefreshTest {
     @Mock UserRepository userRepository;
     @Mock RefreshTokenRepository refreshTokenRepository;
     @Mock PasswordResetTokenRepository passwordResetTokenRepository;
+    @Mock PasswordResetOtpChallengeRepository passwordResetOtpChallengeRepository;
     @Mock EmailVerificationTokenRepository emailVerificationTokenRepository;
     @Mock PasswordEncoder passwordEncoder;
     @Mock JwtService jwtService;
@@ -48,6 +50,7 @@ class AuthServiceRefreshTest {
         appProperties = new AppProperties();
         authService = new AuthService(
                 userRepository, refreshTokenRepository, passwordResetTokenRepository,
+                passwordResetOtpChallengeRepository,
                 emailVerificationTokenRepository, passwordEncoder, jwtService,
                 emailService, referralService, appProperties
         );

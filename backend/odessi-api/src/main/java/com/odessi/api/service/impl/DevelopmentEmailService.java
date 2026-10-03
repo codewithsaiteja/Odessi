@@ -25,10 +25,20 @@ public class DevelopmentEmailService implements EmailService {
     @Override
     public void sendPasswordResetEmail(String to, String token) {
         logger.info("==================================================");
-        logger.info("MOCK EMAIL SENT: Password Reset");
+        logger.info("MOCK EMAIL SENT: Password Reset Link (Legacy)");
         logger.info("To: {}", to);
         logger.info("Reset Token: {}", token);
         logger.info("Link: http://localhost:3000/reset-password?token={}", token);
+        logger.info("==================================================");
+    }
+
+    @Override
+    public void sendPasswordResetOtpEmail(String to, String otp, int expiryMinutes) {
+        logger.info("==================================================");
+        logger.info("MOCK EMAIL SENT: Password Reset OTP");
+        logger.info("To: {}", to);
+        logger.info("OTP Code: {}", otp);
+        logger.info("Expires in: {} minutes", expiryMinutes);
         logger.info("==================================================");
     }
 

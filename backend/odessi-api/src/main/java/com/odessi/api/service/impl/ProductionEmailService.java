@@ -122,6 +122,12 @@ public class ProductionEmailService implements EmailService {
     }
 
     @Override
+    public void sendPasswordResetOtpEmail(String to, String otp, int expiryMinutes) {
+        String htmlBody = buildPasswordResetOtpHtml(otp, expiryMinutes);
+        sendHtmlEmail(to, "Your Odessi Verification Code: " + otp, htmlBody);
+    }
+
+    @Override
     public void sendTestEmail(String to) {
         String recipient = (to != null && !to.isBlank()) ? to.trim() : appProperties.getMail().getFromEmail();
         String primaryFrontendUrl = resolvePrimaryFrontendUrl();
@@ -552,6 +558,54 @@ public class ProductionEmailService implements EmailService {
             </body>
             </html>
             """.formatted(resetUrl, year);
+    }
+
+    private String buildPasswordResetOtpHtml(String otp, int expiryMinutes) {
+        int year = Year.now().getValue();
+        return """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Your Odessi Verification Code</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #080808; background-color: #FAF9F6; margin: 0; padding: 24px; }
+                    .container { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #EFECE6; }
+                    .header { background: #080808; color: #FAF9F6; padding: 36px 30px; text-align: center; }
+                    .content { padding: 40px 32px; background: #ffffff; }
+                    .otp-box { background: #0D0D0D; color: #FAF9F6; border: 1px solid #2B2A27; border-radius: 6px; padding: 28px 20px; text-align: center; margin: 28px 0; }
+                    .footer { background: #F7F5F0; padding: 24px 30px; text-align: center; font-size: 12px; color: #7A7A7A; border-top: 1px solid #EFECE6; }
+                    p { margin: 0 0 16px; font-size: 14px; color: #333333; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1 style="margin:0;font-size:22px;font-weight:300;letter-spacing:4px;color:#FAF9F6;">ODESSI.TFI</h1>
+                        <p style="margin:8px 0 0;font-size:10px;opacity:0.75;letter-spacing:2px;text-transform:uppercase;color:#C5A880;">Atelier &bull; Security</p>
+                    </div>
+                    <div class="content">
+                        <h2 style="margin:0 0 16px;font-size:18px;font-weight:600;color:#080808;letter-spacing:-0.2px;">PASSWORD RECOVERY VERIFICATION</h2>
+                        <p>We received a request to reset your Odessi account password. Use the single-use verification code below to authorize your password recovery.</p>
+                        
+                        <div class="otp-box">
+                            <span style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#C5A880;display:block;margin-bottom:12px;font-weight:600;">One-Time Security Code</span>
+                            <span style="font-size:38px;font-weight:700;letter-spacing:14px;font-family:'Courier New',Courier,monospace;color:#FFFFFF;display:inline-block;padding-left:14px;">%s</span>
+                            <span style="font-size:11px;color:#8C827A;display:block;margin-top:12px;letter-spacing:0.5px;">Valid for %d minutes &bull; Single-use authorization</span>
+                        </div>
+
+                        <p style="font-size:13px;color:#7A7A7A;line-height:1.5;">If you did not initiate this request, no action is needed. Your account remains secure. Odessi will never ask for your code via phone, chat, or email.</p>
+                        <p style="font-size:12px;color:#999999;margin-bottom:0;border-top:1px solid #F0EEE9;padding-top:16px;">This verification code was generated automatically for your account security.</p>
+                    </div>
+                    <div class="footer">
+                        <p style="margin:0 0 4px;font-size:12px;color:#7A7A7A;">&copy; %d Odessi.tfi. All rights reserved.</p>
+                        <p style="margin:0;font-size:10px;letter-spacing:1.5px;color:#999999;text-transform:uppercase;">Wear Your Story</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """.formatted(otp, expiryMinutes, year);
     }
 
     private String buildTestEmailHtml(String frontendUrl) {

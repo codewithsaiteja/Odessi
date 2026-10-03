@@ -7,7 +7,10 @@ import com.odessi.api.dto.request.LoginRequest;
 import com.odessi.api.dto.request.RegisterRequest;
 import com.odessi.api.dto.request.ResetPasswordRequest;
 import com.odessi.api.dto.response.UserResponse;
+import com.odessi.api.dto.request.VerifyResetOtpRequest;
+import com.odessi.api.dto.response.VerifyResetOtpResponse;
 import com.odessi.api.entity.EmailVerificationToken;
+import com.odessi.api.entity.PasswordResetOtpChallenge;
 import com.odessi.api.entity.PasswordResetToken;
 import com.odessi.api.entity.RefreshToken;
 import com.odessi.api.entity.Role;
@@ -15,6 +18,7 @@ import com.odessi.api.entity.User;
 import com.odessi.api.exception.BusinessException;
 import com.odessi.api.exception.ResourceNotFoundException;
 import com.odessi.api.repository.EmailVerificationTokenRepository;
+import com.odessi.api.repository.PasswordResetOtpChallengeRepository;
 import com.odessi.api.repository.PasswordResetTokenRepository;
 import com.odessi.api.repository.RefreshTokenRepository;
 import com.odessi.api.repository.UserRepository;
@@ -28,19 +32,27 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.HexFormat;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final PasswordResetOtpChallengeRepository passwordResetOtpChallengeRepository;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -52,6 +64,7 @@ public class AuthService {
             UserRepository userRepository,
             RefreshTokenRepository refreshTokenRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
+            PasswordResetOtpChallengeRepository passwordResetOtpChallengeRepository,
             EmailVerificationTokenRepository emailVerificationTokenRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
@@ -61,6 +74,7 @@ public class AuthService {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
+        this.passwordResetOtpChallengeRepository = passwordResetOtpChallengeRepository;
         this.emailVerificationTokenRepository = emailVerificationTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -334,39 +348,234 @@ public class AuthService {
 
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
-        userRepository.findByEmail(request.getEmail().toLowerCase().trim()).ifPresent(user -> {
-            PasswordResetToken token = new PasswordResetToken();
-            token.setUser(user);
-            token.setTokenHash(UUID.randomUUID().toString());
-            token.setExpiresAt(Instant.now().plus(1, ChronoUnit.HOURS));
-            passwordResetTokenRepository.save(token);
-
-            try {
-                emailService.sendPasswordResetEmail(user.getEmail(), token.getTokenHash());
-            } catch (Exception e) {
-                log.error("Failed to send password reset email to user id={}: {}", user.getId(), e.getMessage());
-            }
-        });
-        // Always return generic response in controller
+        requestPasswordResetOtp(request.getEmail(), null);
     }
 
+    /**
+     * Step 1: Generates and dispatches a cryptographically secure 6-digit OTP to the user's email.
+     * Enforces a 60-second cooldown per account and protects against timing enumeration attacks.
+     */
     @Transactional
-    public void resetPassword(ResetPasswordRequest request) {
-        PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenHash(request.getToken())
-                .orElseThrow(() -> new BusinessException("INVALID_RESET_TOKEN", "Invalid or expired reset token"));
+    public void requestPasswordResetOtp(String rawEmail, String ipAddress) {
+        if (rawEmail == null || rawEmail.isBlank()) {
+            return;
+        }
+        String normalizedEmail = rawEmail.trim().toLowerCase();
+        Optional<User> userOpt = userRepository.findByEmail(normalizedEmail);
 
-        if (resetToken.getExpiresAt().isBefore(Instant.now())) {
-            passwordResetTokenRepository.delete(resetToken);
-            throw new BusinessException("INVALID_RESET_TOKEN", "Invalid or expired reset token");
+        if (userOpt.isEmpty()) {
+            // Constant-time defense against timing attacks for user enumeration
+            hashOtp("123456", generateSalt());
+            log.info("Password reset OTP requested for unregistered email: {}", normalizedEmail);
+            return;
         }
 
-        User user = resetToken.getUser();
+        User user = userOpt.get();
+
+        // 60-second cooldown check
+        Optional<PasswordResetOtpChallenge> lastChallenge =
+                passwordResetOtpChallengeRepository.findFirstByUserOrderByCreatedAtDesc(user);
+        if (lastChallenge.isPresent() && lastChallenge.get().getCreatedAt() != null) {
+            Instant cooldownThreshold = Instant.now().minusSeconds(60);
+            if (lastChallenge.get().getCreatedAt().isAfter(cooldownThreshold)) {
+                throw new BusinessException("RATE_LIMIT_EXCEEDED", "Please wait 60 seconds before requesting another code.");
+            }
+        }
+
+        // Invalidate previous challenges
+        passwordResetOtpChallengeRepository.supersedeActiveChallengesForUser(user);
+
+        // Generate cryptographically secure 6-digit OTP and 16-byte salt
+        String otp = generateOtp();
+        String salt = generateSalt();
+        String otpHash = hashOtp(otp, salt);
+
+        PasswordResetOtpChallenge challenge = new PasswordResetOtpChallenge();
+        challenge.setUser(user);
+        challenge.setEmail(user.getEmail());
+        challenge.setOtpHash(otpHash);
+        challenge.setOtpSalt(salt);
+        challenge.setFailedAttempts(0);
+        challenge.setMaxAttempts(5);
+        challenge.setOtpExpiresAt(Instant.now().plus(5, ChronoUnit.MINUTES));
+        challenge.setVerified(false);
+        challenge.setConsumed(false);
+        challenge.setSuperseded(false);
+        challenge.setIpAddress(ipAddress);
+
+        passwordResetOtpChallengeRepository.save(challenge);
+
+        try {
+            emailService.sendPasswordResetOtpEmail(user.getEmail(), otp, 5);
+            log.info("Password reset OTP email sent successfully for user id={}", user.getId());
+        } catch (Exception e) {
+            log.error("Failed to send password reset OTP email to user id={}: {}", user.getId(), e.getMessage());
+        }
+    }
+
+    /**
+     * Step 2: Verifies the 6-digit OTP with max 5 failed attempts and constant-time comparison.
+     * On success, issues a single-use 10-minute reset authorization token.
+     */
+    @Transactional
+    public VerifyResetOtpResponse verifyPasswordResetOtp(VerifyResetOtpRequest request, String ipAddress) {
+        String normalizedEmail = request.email() != null ? request.email().trim().toLowerCase() : "";
+        String rawOtp = request.otp() != null ? request.otp().trim() : "";
+
+        Optional<User> userOpt = userRepository.findByEmail(normalizedEmail);
+        if (userOpt.isEmpty()) {
+            // Constant-time defense
+            hashOtp(rawOtp, generateSalt());
+            throw new BusinessException("INVALID_OTP", "Invalid or expired verification code.");
+        }
+
+        User user = userOpt.get();
+        Optional<PasswordResetOtpChallenge> challengeOpt =
+                passwordResetOtpChallengeRepository.findFirstByUserAndSupersededFalseAndConsumedFalseOrderByCreatedAtDesc(user);
+
+        if (challengeOpt.isEmpty()) {
+            throw new BusinessException("INVALID_OTP", "Invalid or expired verification code. Please request a new code.");
+        }
+
+        PasswordResetOtpChallenge challenge = challengeOpt.get();
+
+        if (challenge.getOtpExpiresAt() == null || challenge.getOtpExpiresAt().isBefore(Instant.now())) {
+            challenge.setSuperseded(true);
+            passwordResetOtpChallengeRepository.save(challenge);
+            throw new BusinessException("INVALID_OTP", "Verification code has expired. Please request a new code.");
+        }
+
+        if (challenge.getFailedAttempts() >= challenge.getMaxAttempts()) {
+            challenge.setSuperseded(true);
+            passwordResetOtpChallengeRepository.save(challenge);
+            throw new BusinessException("TOO_MANY_ATTEMPTS", "Maximum verification attempts exceeded. Please request a new code.");
+        }
+
+        // Constant-time comparison
+        String computedHash = hashOtp(rawOtp, challenge.getOtpSalt());
+        boolean isMatch = MessageDigest.isEqual(
+                computedHash.getBytes(StandardCharsets.UTF_8),
+                challenge.getOtpHash().getBytes(StandardCharsets.UTF_8)
+        );
+
+        if (!isMatch) {
+            int failed = challenge.getFailedAttempts() + 1;
+            challenge.setFailedAttempts(failed);
+            if (failed >= challenge.getMaxAttempts()) {
+                challenge.setSuperseded(true);
+                passwordResetOtpChallengeRepository.save(challenge);
+                throw new BusinessException("TOO_MANY_ATTEMPTS", "Too many failed attempts. Please request a new code.");
+            }
+            passwordResetOtpChallengeRepository.save(challenge);
+            int remaining = challenge.getMaxAttempts() - failed;
+            throw new BusinessException("INVALID_OTP", "Invalid verification code. " + remaining + " attempt" + (remaining == 1 ? "" : "s") + " remaining.");
+        }
+
+        // OTP matched — issue 32-byte (64-char hex) reset token
+        String rawResetToken = generateSecureToken();
+        String resetTokenHash = hashToken(rawResetToken);
+
+        challenge.setVerified(true);
+        challenge.setResetTokenHash(resetTokenHash);
+        challenge.setResetTokenExpiresAt(Instant.now().plus(10, ChronoUnit.MINUTES));
+        passwordResetOtpChallengeRepository.save(challenge);
+
+        log.info("OTP verified successfully for user id={}, issued reset token", user.getId());
+        return new VerifyResetOtpResponse(true, "Code verified successfully.", rawResetToken, 600);
+    }
+
+    /**
+     * Step 3: Resets password using valid reset authorization token. Atomically updates password,
+     * invalidates the challenge, and revokes all active refresh sessions.
+     */
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        String token = request.getEffectiveToken();
+        if (token == null || token.isBlank()) {
+            throw new BusinessException("INVALID_RESET_TOKEN", "Reset token is required.");
+        }
+
+        String tokenHash = hashToken(token);
+        Optional<PasswordResetOtpChallenge> otpChallengeOpt =
+                passwordResetOtpChallengeRepository.findByResetTokenHashAndVerifiedTrueAndConsumedFalseAndSupersededFalse(tokenHash);
+
+        if (otpChallengeOpt.isPresent()) {
+            PasswordResetOtpChallenge challenge = otpChallengeOpt.get();
+            if (challenge.getResetTokenExpiresAt() == null || challenge.getResetTokenExpiresAt().isBefore(Instant.now())) {
+                challenge.setSuperseded(true);
+                passwordResetOtpChallengeRepository.save(challenge);
+                throw new BusinessException("INVALID_RESET_TOKEN", "Reset session has expired. Please request a new code.");
+            }
+
+            User user = challenge.getUser();
+            user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+            userRepository.save(user);
+
+            challenge.setConsumed(true);
+            challenge.setSuperseded(true);
+            passwordResetOtpChallengeRepository.save(challenge);
+
+            // Invalidate all existing refresh sessions
+            refreshTokenRepository.revokeAllByUser(user);
+            log.info("Password successfully reset via OTP flow for user id={}", user.getId());
+            return;
+        }
+
+        // Backward compatibility fallback: check legacy password_reset_tokens table
+        PasswordResetToken legacyToken = passwordResetTokenRepository.findByTokenHash(token)
+                .orElseThrow(() -> new BusinessException("INVALID_RESET_TOKEN", "Invalid or expired reset token. Please request a new code."));
+
+        if (legacyToken.getExpiresAt().isBefore(Instant.now())) {
+            passwordResetTokenRepository.delete(legacyToken);
+            throw new BusinessException("INVALID_RESET_TOKEN", "Reset link has expired. Please request a new code.");
+        }
+
+        User user = legacyToken.getUser();
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
-        // Consume token & invalidate all existing refresh sessions
-        passwordResetTokenRepository.delete(resetToken);
+        passwordResetTokenRepository.delete(legacyToken);
         refreshTokenRepository.revokeAllByUser(user);
+        log.info("Password successfully reset via legacy token for user id={}", user.getId());
+    }
+
+    // ── Helper Crypto Methods ──────────────────────────────────────────────────
+
+    private String generateOtp() {
+        int code = 100000 + SECURE_RANDOM.nextInt(900000);
+        return String.format("%06d", code);
+    }
+
+    private String generateSalt() {
+        byte[] salt = new byte[16];
+        SECURE_RANDOM.nextBytes(salt);
+        return HexFormat.of().formatHex(salt);
+    }
+
+    private String hashOtp(String otp, String salt) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest((otp + salt).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not supported", e);
+        }
+    }
+
+    private String hashToken(String token) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(token.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not supported", e);
+        }
+    }
+
+    private String generateSecureToken() {
+        byte[] tokenBytes = new byte[32];
+        SECURE_RANDOM.nextBytes(tokenBytes);
+        return HexFormat.of().formatHex(tokenBytes);
     }
 
     @Transactional
