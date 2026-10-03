@@ -29,6 +29,7 @@ import {
   Layers,
   Upload,
   Trash2,
+  ShieldCheck,
 } from "lucide-react";
 
 interface SectionConfig {
@@ -62,6 +63,12 @@ const KNOWN_SECTIONS: SectionConfig[] = [
     name: "Brand Story & Heritage",
     description: "Editorial narrative section highlighting the craftsmanship, ethos, and storytelling of Odessi.",
     icon: BookOpen,
+  },
+  {
+    key: "AUTH_PAGE",
+    name: "Authentication Editorial Media",
+    description: "Managed editorial campaign photography displayed across Sign In, Register, and Account Recovery screens.",
+    icon: ShieldCheck,
   },
 ];
 
@@ -153,6 +160,22 @@ export default function AdminContentPage() {
           active: true,
         });
         setCards(DEFAULT_FEATURED_COLLECTION_CARDS);
+      } else if (activeSectionKey === "AUTH_PAGE") {
+        setFormData({
+          title: "Atelier Campaign Visual",
+          eyebrow: "ODISSI ATELIER",
+          headline: "Silence Speaks in Craft",
+          subHeadline: "Quiet Luxury Heritage Campaign",
+          body: "",
+          primaryCtaLabel: "",
+          primaryCtaUrl: "",
+          secondaryCtaLabel: "",
+          secondaryCtaUrl: "",
+          mediaUrl: "",
+          mobileMediaUrl: "",
+          active: true,
+          customPayload: "",
+        });
       }
     } catch (err: any) {
       setError(err?.message || "Failed to load homepage sections");
@@ -190,6 +213,22 @@ export default function AdminContentPage() {
           customPayload: JSON.stringify(DEFAULT_FEATURED_COLLECTION_CARDS),
         });
         setCards(DEFAULT_FEATURED_COLLECTION_CARDS);
+      } else if (key === "AUTH_PAGE") {
+        setFormData({
+          title: "Atelier Campaign Visual",
+          eyebrow: "ODISSI ATELIER",
+          headline: "Silence Speaks in Craft",
+          subHeadline: "Quiet Luxury Heritage Campaign",
+          body: "",
+          primaryCtaLabel: "",
+          primaryCtaUrl: "",
+          secondaryCtaLabel: "",
+          secondaryCtaUrl: "",
+          mediaUrl: "",
+          mobileMediaUrl: "",
+          active: true,
+          customPayload: "",
+        });
       } else {
         setFormData({
           title: "",
@@ -555,78 +594,101 @@ export default function AdminContentPage() {
                 </div>
 
                 {/* Call to Actions */}
-                <div className="border-t border-stone-100 pt-4">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-stone-600 mb-3 font-bold">
-                    Call to Actions (Buttons)
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs text-stone-600 mb-1 font-medium">
-                        Primary CTA Label
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.primaryCtaLabel || ""}
-                        onChange={(e) =>
-                          setFormData((prev) => ({ ...prev, primaryCtaLabel: e.target.value }))
-                        }
-                        placeholder="e.g. EXPLORE COLLECTION"
-                        className="w-full px-3 py-2 border border-stone-300 rounded text-xs focus:ring-1 focus:ring-stone-900 focus:outline-none"
-                      />
-                    </div>
+                {activeSectionKey !== "AUTH_PAGE" ? (
+                  <div className="border-t border-stone-100 pt-4">
+                    <h4 className="text-xs font-mono uppercase tracking-wider text-stone-600 mb-3 font-bold">
+                      Call to Actions (Buttons)
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs text-stone-600 mb-1 font-medium">
+                          Primary CTA Label
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.primaryCtaLabel || ""}
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, primaryCtaLabel: e.target.value }))
+                          }
+                          placeholder="e.g. EXPLORE COLLECTION"
+                          className="w-full px-3 py-2 border border-stone-300 rounded text-xs focus:ring-1 focus:ring-stone-900 focus:outline-none"
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-xs text-stone-600 mb-1 font-medium">
-                        Primary CTA URL
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.primaryCtaUrl || ""}
-                        onChange={(e) =>
-                          setFormData((prev) => ({ ...prev, primaryCtaUrl: e.target.value }))
-                        }
-                        placeholder="e.g. /shop or /collections/cinematic"
-                        className="w-full px-3 py-2 border border-stone-300 rounded text-xs focus:ring-1 focus:ring-stone-900 focus:outline-none font-mono"
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-xs text-stone-600 mb-1 font-medium">
+                          Primary CTA URL
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.primaryCtaUrl || ""}
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, primaryCtaUrl: e.target.value }))
+                          }
+                          placeholder="e.g. /shop or /collections/cinematic"
+                          className="w-full px-3 py-2 border border-stone-300 rounded text-xs focus:ring-1 focus:ring-stone-900 focus:outline-none font-mono"
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-xs text-stone-600 mb-1 font-medium">
-                        Secondary CTA Label (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.secondaryCtaLabel || ""}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            secondaryCtaLabel: e.target.value,
-                          }))
-                        }
-                        placeholder="e.g. OUR STORY"
-                        className="w-full px-3 py-2 border border-stone-300 rounded text-xs focus:ring-1 focus:ring-stone-900 focus:outline-none"
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-xs text-stone-600 mb-1 font-medium">
+                          Secondary CTA Label (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.secondaryCtaLabel || ""}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              secondaryCtaLabel: e.target.value,
+                            }))
+                          }
+                          placeholder="e.g. OUR STORY"
+                          className="w-full px-3 py-2 border border-stone-300 rounded text-xs focus:ring-1 focus:ring-stone-900 focus:outline-none"
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-xs text-stone-600 mb-1 font-medium">
-                        Secondary CTA URL (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.secondaryCtaUrl || ""}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            secondaryCtaUrl: e.target.value,
-                          }))
-                        }
-                        placeholder="e.g. /about"
-                        className="w-full px-3 py-2 border border-stone-300 rounded text-xs focus:ring-1 focus:ring-stone-900 focus:outline-none font-mono"
-                      />
+                      <div>
+                        <label className="block text-xs text-stone-600 mb-1 font-medium">
+                          Secondary CTA URL (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.secondaryCtaUrl || ""}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              secondaryCtaUrl: e.target.value,
+                            }))
+                          }
+                          placeholder="e.g. /about"
+                          className="w-full px-3 py-2 border border-stone-300 rounded text-xs focus:ring-1 focus:ring-stone-900 focus:outline-none font-mono"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="border-t border-stone-100 pt-4">
+                    <div className="bg-stone-50 border border-stone-200 rounded p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-stone-600">
+                      <div>
+                        <span className="font-semibold text-stone-800">Storefront Authentication Placement:</span>
+                        <p className="mt-0.5 text-stone-500">
+                          Changes to these visual assets reflect on <strong>/login</strong>, <strong>/register</strong>, <strong>/forgot-password</strong>, and <strong>/reset-password</strong>.
+                        </p>
+                      </div>
+                      <a
+                        href="/login"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center space-x-1.5 px-3 py-1.5 border border-stone-300 text-stone-700 hover:bg-white text-xs font-semibold rounded transition shrink-0"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View Live /login</span>
+                        <ExternalLink className="w-3 h-3 text-stone-400" />
+                      </a>
+                    </div>
+                  </div>
+                )}
 
                 {/* Media Management */}
                 <div className="border-t border-stone-100 pt-5 space-y-6">
@@ -673,6 +735,42 @@ export default function AdminContentPage() {
                         maxSizeMb={10}
                         allowedFormats={["JPG", "PNG", "WEBP"]}
                         helperText="Vertical visual for mobile viewports"
+                      />
+                    </div>
+                  ) : activeSectionKey === "AUTH_PAGE" ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                      <AdminMediaPicker
+                        label="Login Desktop Editorial Media (4:5)"
+                        value={formData.mediaUrl || ""}
+                        onChange={(url) => setFormData((prev) => ({ ...prev, mediaUrl: url }))}
+                        onUploadFile={async (file) => {
+                          const res = await uploadContentImage(file);
+                          return res.url;
+                        }}
+                        onDeleteImage={() => setFormData((prev) => ({ ...prev, mediaUrl: "" }))}
+                        recommendedWidth={1440}
+                        recommendedHeight={1800}
+                        aspectRatio="4:5"
+                        maxSizeMb={10}
+                        allowedFormats={["JPG", "PNG", "WEBP"]}
+                        helperText="High-res portrait visual for desktop split-screen auth (50vw)"
+                      />
+
+                      <AdminMediaPicker
+                        label="Login Mobile Editorial Media (16:9)"
+                        value={formData.mobileMediaUrl || ""}
+                        onChange={(url) => setFormData((prev) => ({ ...prev, mobileMediaUrl: url }))}
+                        onUploadFile={async (file) => {
+                          const res = await uploadContentImage(file);
+                          return res.url;
+                        }}
+                        onDeleteImage={() => setFormData((prev) => ({ ...prev, mobileMediaUrl: "" }))}
+                        recommendedWidth={1200}
+                        recommendedHeight={675}
+                        aspectRatio="16:9"
+                        maxSizeMb={10}
+                        allowedFormats={["JPG", "PNG", "WEBP"]}
+                        helperText="Horizontal banner visual for mobile auth screens"
                       />
                     </div>
                   ) : (

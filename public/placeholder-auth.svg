@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 1800" width="1440" height="1800">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#080808" />
+      <stop offset="50%" stop-color="#101010" />
+      <stop offset="100%" stop-color="#050505" />
+    </linearGradient>
+    <linearGradient id="goldAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#CBB57B" />
+      <stop offset="100%" stop-color="#9E803E" />
+    </linearGradient>
+    <linearGradient id="subtleLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="transparent" />
+      <stop offset="50%" stop-color="#2A2A2A" />
+      <stop offset="100%" stop-color="transparent" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="100%" height="100%" fill="url(#bgGrad)" />
+
+  <!-- Architectural Minimalist Framing -->
+  <rect x="64" y="64" width="1312" height="1672" fill="none" stroke="#1A1A1A" stroke-width="1.5" />
+  <rect x="80" y="80" width="1280" height="1640" fill="none" stroke="#141414" stroke-width="1" />
+
+  <!-- Subtle Editorial Grids -->
+  <line x1="720" y1="120" x2="720" y2="300" stroke="#1F1F1F" stroke-width="1" stroke-dasharray="4,8" />
+  <line x1="720" y1="1500" x2="720" y2="1680" stroke="#1F1F1F" stroke-width="1" stroke-dasharray="4,8" />
+
+  <!-- Center Atelier Motif -->
+  <g transform="translate(720, 840)" text-anchor="middle">
+    <!-- Minimalist Architectural Arch -->
+    <path d="M-220,180 L-220,-80 C-220,-220 220,-220 220,-80 L220,180" fill="none" stroke="#1C1C1C" stroke-width="1.5" />
+    <path d="M-180,180 L-180,-70 C-180,-180 180,-180 180,-70 L180,180" fill="none" stroke="url(#goldAccent)" stroke-width="1.5" opacity="0.6" />
+
+    <!-- Center Monogram Emblem -->
+    <circle cx="0" cy="-60" r="48" fill="#0C0C0C" stroke="#262626" stroke-width="1" />
+    <circle cx="0" cy="-60" r="3" fill="#CBB57B" />
+    <path d="M-20,-60 L20,-60 M0,-80 L0,-40" stroke="#CBB57B" stroke-width="1" />
+
+    <!-- Horizontal Divider -->
+    <line x1="-300" y1="240" x2="300" y2="240" stroke="url(#subtleLine)" stroke-width="1" />
+
+    <!-- Typography: Cormorant Garamond style serif & Inter style tracking -->
+    <text y="320" fill="#F3F0E8" font-family="'Cormorant Garamond', 'Playfair Display', Georgia, serif" font-size="34" font-weight="300" letter-spacing="12" text-transform="uppercase">
+      ODISSI
+    </text>
+    <text y="365" fill="#CBB57B" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600" letter-spacing="6" text-transform="uppercase">
+      PRIVATE ATELIER
+    </text>
+    <text y="405" fill="#7A756D" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="400" letter-spacing="3">
+      EST. 2026 • CINEMATIC COUTURE
+    </text>
+  </g>
+
+  <!-- Corner Registry Marks -->
+  <g stroke="#262626" stroke-width="1">
+    <line x1="60" y1="64" x2="68" y2="64" />
+    <line x1="64" y1="60" x2="64" y2="68" />
+    <line x1="1372" y1="64" x2="1380" y2="64" />
+    <line x1="1376" y1="60" x2="1376" y2="68" />
+    <line x1="60" y1="1736" x2="68" y2="1736" />
+    <line x1="64" y1="1732" x2="64" y2="1740" />
+    <line x1="1372" y1="1736" x2="1380" y2="1736" />
+    <line x1="1376" y1="1732" x2="1376" y2="1740" />
+  </g>
+</svg>

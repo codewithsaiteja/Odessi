@@ -1,129 +1,157 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import BackButton from "@/components/navigation/BackButton";
+import { getHomepageContent, HomepageSection } from "@/lib/api/content";
+import { getMediaUrl } from "@/lib/product-utils";
 
 interface AuthShellProps {
   children: React.ReactNode;
 }
 
+const DEFAULT_AUTH_FALLBACK = "/placeholder-auth.svg";
+
 export default function AuthShell({ children }: AuthShellProps) {
+  const [authContent, setAuthContent] = useState<HomepageSection | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    getHomepageContent()
+      .then((sections) => {
+        if (!isMounted) return;
+        const found = sections.find((s) => s.sectionKey === "AUTH_PAGE" && s.active);
+        if (found) {
+          setAuthContent(found);
+        }
+      })
+      .catch(() => {
+        // Fall back gracefully to brand placeholder
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const rawDesktop = authContent?.mediaUrl;
+  const rawMobile = authContent?.mobileMediaUrl;
+
+  const desktopImage = rawDesktop
+    ? getMediaUrl(rawDesktop, DEFAULT_AUTH_FALLBACK)
+    : DEFAULT_AUTH_FALLBACK;
+
+  const mobileImage = rawMobile
+    ? getMediaUrl(rawMobile, desktopImage)
+    : desktopImage;
+
   return (
-    <div className="min-h-screen w-full bg-[#080808] text-[#F3F0E8] flex flex-col lg:flex-row overflow-hidden selection:bg-[#B89A5A] selection:text-black">
-      {/* ── Left / Visual Panel (Desktop 52% width) ── */}
-      <div className="relative hidden lg:flex lg:w-[52%] xl:w-[55%] bg-[#080808] flex-col justify-between p-12 xl:p-16 select-none overflow-hidden border-r border-[#1F1F1F]">
-        {/* Cinematic High-Res Background Image */}
-        <Image
-          src="https://images.unsplash.com/photo-1536922246289-88c42f957773?w=1800&q=90"
-          alt="Odessi.tfi Editorial Campaign"
-          fill
-          priority
-          quality={90}
-          className="object-cover object-center opacity-55 scale-100 transition-transform duration-[2000ms] hover:scale-105"
-        />
+    <div className="min-h-screen w-full bg-[#080808] text-[#F3F0E8] flex flex-col lg:flex-row overflow-x-hidden selection:bg-[#F3F0E8] selection:text-[#080808]">
+      {/* ── Desktop Left Editorial Panel (50% Width) ── */}
+      <div className="relative hidden lg:flex lg:w-1/2 bg-[#080808] flex-col justify-between p-12 xl:p-16 select-none overflow-hidden border-r border-[#171717]">
+        {/* Full-bleed Editorial Campaign Image */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src={desktopImage}
+            alt="Odessi Editorial"
+            fill
+            priority
+            quality={92}
+            sizes="50vw"
+            className="object-cover object-center select-none"
+          />
+          {/* Subtle Dark Editorial Vignette */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-gradient-to-t from-[#080808] via-[#080808]/40 to-[#080808]/20 z-10"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-[#080808]/60 z-10"
+          />
+        </div>
 
-        {/* Gradient Vignette Overlay for Text Legibility */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-t from-[#080808] via-[#080808]/60 to-[#080808]/40 z-10"
-        />
-
-        {/* Subtle Micro-Glow Accent */}
-        <div
-          aria-hidden="true"
-          className="absolute -top-32 -left-32 w-96 h-96 bg-[#B89A5A]/15 rounded-full blur-3xl z-10 pointer-events-none"
-        />
-
-        {/* Top Header — Logo Mark */}
+        {/* Top Header — Small Refined Logo */}
         <div className="relative z-20 flex items-center justify-between">
-          <Link href="/" aria-label="Odessi.tfi Home" className="inline-block group">
+          <Link href="/" aria-label="Odessi Home" className="inline-block group">
             <Image
-              src="/logo-light.png"
-              alt="Odessi.tfi"
-              width={200}
-              height={40}
+              src="/logo2.png"
+              alt="Odessi"
+              width={130}
+              height={32}
               priority
-              className="h-10 w-auto object-contain transition-opacity group-hover:opacity-80"
+              className="h-7 w-auto object-contain brightness-95 contrast-125 transition-opacity duration-300 group-hover:opacity-75"
             />
           </Link>
-          <span className="text-[10px] tracking-[0.25em] text-[#B89A5A] uppercase font-mono font-bold bg-[#B89A5A]/10 border border-[#B89A5A]/30 px-3 py-1 rounded-full">
-            SS 2026 EDITION
+          <span className="text-[10px] tracking-[0.3em] text-[#9C978E] uppercase font-mono">
+            ATELIER
           </span>
         </div>
 
-        {/* Center Editorial Typography */}
-        <div className="relative z-20 max-w-lg my-auto py-12">
-          <p className="text-[11px] tracking-[0.3em] text-[#B89A5A] uppercase font-mono font-bold mb-3 flex items-center gap-2">
-            <span className="w-6 h-[1px] bg-[#B89A5A]" />
-            ODESSI.TFI LUXURY HAUTE
-          </p>
-          <h2 className="type-display text-5xl xl:text-6xl text-[#F3F0E8] font-light leading-[0.95] mb-4 font-serif">
-            WEAR YOUR
-            <br />
-            STORY.
-          </h2>
-          <p className="text-xs tracking-[0.25em] text-[#A3A3A3] uppercase font-medium">
-            Enter the world of Odessi.
-          </p>
-        </div>
-
-        {/* Bottom Tagline */}
-        <div className="relative z-20 flex items-center justify-between border-t border-[#262626] pt-6">
-          <span className="text-[10px] tracking-[0.2em] text-[#888888] uppercase font-mono">
-            Premium • Custom • Iconic
-          </span>
-          <span className="text-[10px] tracking-[0.2em] text-[#888888] uppercase font-mono">
-            odessi.shop
-          </span>
+        {/* Bottom Subtle Editorial Footer */}
+        <div className="relative z-20 flex items-center justify-between border-t border-white/10 pt-6 text-[10px] tracking-[0.25em] text-[#9C978E] uppercase font-mono">
+          <span>PRIVATE ACCESS</span>
+          <span>EST. 2026</span>
         </div>
       </div>
 
-      {/* ── Right / Form Panel (Desktop 48% width, Mobile 100% width) ── */}
-      <div className="flex-1 flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-16 bg-[#0D0D0D]">
-        {/* Top Bar Navigation */}
+      {/* ── Right Authentication Panel (50% Desktop, 100% Mobile) ── */}
+      <div className="flex-1 flex flex-col justify-between p-6 sm:p-10 lg:p-14 xl:p-18 bg-[#080808] relative">
+        {/* Top Navigation */}
         <div className="flex items-center justify-between mb-8 sm:mb-12">
-          <BackButton
-            fallback="/shop"
-            label="Return to Store"
-            variant="light"
-            className="!text-xs !font-bold tracking-wider !text-[#A3A3A3] hover:!text-[#B89A5A] uppercase font-mono"
-          />
-        </div>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-[11px] tracking-[0.2em] uppercase text-[#9C978E] hover:text-[#FAF9F6] transition-colors font-mono group"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 transition-transform duration-200 group-hover:-translate-x-1" />
+            <span>Return to Store</span>
+          </Link>
 
-        {/* Mobile Brand Banner (<1024px) */}
-        <div className="lg:hidden mb-8 p-6 bg-[#141414] border border-[#262626] rounded-2xl text-center relative overflow-hidden shadow-xl">
-          <Image
-            src="https://images.unsplash.com/photo-1536922246289-88c42f957773?w=900&q=85"
-            alt="Odessi.tfi Mobile Banner"
-            fill
-            className="object-cover opacity-30"
-          />
-          <div className="relative z-10 flex flex-col items-center">
-            <Image
-              src="/logo-light.png"
-              alt="Odessi.tfi"
-              width={160}
-              height={32}
-              priority
-              className="h-8 w-auto object-contain mb-2"
-            />
-            <p className="text-[10px] tracking-[0.25em] text-[#B89A5A] uppercase font-mono font-bold">
-              WEAR YOUR STORY.
-            </p>
+          {/* Mobile Logo on Small Screens */}
+          <div className="lg:hidden">
+            <Link href="/" aria-label="Odessi Home">
+              <Image
+                src="/logo2.png"
+                alt="Odessi"
+                width={110}
+                height={26}
+                priority
+                className="h-6 w-auto object-contain brightness-95 contrast-125"
+              />
+            </Link>
           </div>
         </div>
 
-        {/* Form Container */}
-        <div className="w-full max-w-md mx-auto my-auto py-4">
+        {/* Mobile Header Banner (<1024px) */}
+        <div className="lg:hidden mb-8 w-full h-40 sm:h-48 relative overflow-hidden rounded-[2px] border border-[#1C1C1C] bg-[#111111]">
+          <Image
+            src={mobileImage}
+            alt="Odessi Campaign"
+            fill
+            priority
+            quality={90}
+            sizes="100vw"
+            className="object-cover object-center opacity-45"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-gradient-to-t from-[#080808] via-black/40 to-transparent"
+          />
+          <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between text-[10px] tracking-[0.25em] text-[#9C978E] uppercase font-mono z-10">
+            <span>ODISSI</span>
+            <span>PRIVATE ACCESS</span>
+          </div>
+        </div>
+
+        {/* Form Negative Space Container (No Boxed Card) */}
+        <div className="w-full max-w-md mx-auto my-auto py-4 sm:py-6">
           {children}
         </div>
 
-        {/* Footer info */}
-        <div className="mt-12 text-center text-[11px] text-[#737373] tracking-widest uppercase font-mono">
-          © {new Date().getFullYear()} ODESSI.TFI. ALL RIGHTS RESERVED.
+        {/* Understated Minimalist Footer */}
+        <div className="mt-12 text-center text-[10px] text-[#555555] tracking-[0.25em] uppercase font-mono">
+          © {new Date().getFullYear()} ODESSI. ALL RIGHTS RESERVED.
         </div>
       </div>
     </div>

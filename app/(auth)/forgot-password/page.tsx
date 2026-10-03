@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { apiPost } from "@/lib/api/client";
 import Link from "next/link";
 import AuthShell from "@/components/auth/AuthShell";
-import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle, Mail } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -35,61 +35,47 @@ export default function ForgotPasswordPage() {
   if (sent) {
     return (
       <AuthShell>
-        <div className="bg-[#141414] border border-[#262626] rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6">
-          <div className="mb-2">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] tracking-[0.25em] text-[#B89A5A] uppercase font-mono font-bold">
-                EMAIL SENT
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border bg-emerald-950/70 text-emerald-300 border-emerald-800/80">
-                <CheckCircle size={10} />
-                Success
-              </span>
-            </div>
-
-            <h1 style={{ color: "#F3F0E8" }} className="text-3xl sm:text-4xl font-serif font-bold text-[#F3F0E8] mb-2 tracking-tight">
+        <div className="space-y-8">
+          <div>
+            <span className="text-[10px] tracking-[0.25em] text-[#9C978E] uppercase font-mono block mb-2">
+              ODISSI
+            </span>
+            <h1 className="font-serif text-3xl sm:text-4xl text-[#F3F0E8] font-normal tracking-tight mb-2">
               CHECK YOUR INBOX
             </h1>
-            <p className="text-xs sm:text-sm text-[#A3A3A3] leading-relaxed font-medium">
-              Reset instructions have been sent if the account exists.
+            <p className="text-xs text-[#9C978E] leading-relaxed">
+              Password reset instructions have been dispatched.
             </p>
           </div>
 
-          <div className="bg-emerald-950/40 text-emerald-200 border border-emerald-800/60 px-4 py-4 rounded-2xl text-xs shadow-xs space-y-1">
-            <div className="flex items-start gap-2.5">
-              <Mail size={16} className="text-emerald-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="font-bold text-emerald-300 mb-1">Reset Link Sent</p>
-                <p className="text-emerald-200 leading-relaxed mb-2">
-                  If an account exists for{" "}
-                  <span className="font-bold text-white">{email}</span>, you will receive an
-                  email with instructions to reset your password within a few minutes.
-                </p>
-                <p className="text-emerald-300/80">
-                  Don&apos;t see it? Check your spam folder or promotions tab.
-                </p>
-              </div>
-            </div>
+          <div className="bg-[#101010] border border-[#222222] rounded-[2px] p-5 text-xs text-[#9C978E] space-y-2">
+            <p className="text-[#FAF9F6] font-medium">Reset link dispatched</p>
+            <p className="leading-relaxed">
+              If an account is associated with{" "}
+              <span className="text-[#FAF9F6] font-medium">{email}</span>, you will receive an
+              email with a secure reset link shortly.
+            </p>
+            <p className="text-[#737373] text-[11px] pt-1">
+              If it does not appear within a few moments, please check your spam folder.
+            </p>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 pt-2">
             <Link
               href="/login"
-              style={{ backgroundColor: "#B89A5A", color: "#080808" }}
-              className="w-full py-4 bg-[#B89A5A] hover:bg-[#d4af37] text-[#080808] text-xs font-bold tracking-[0.2em] uppercase rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 group cursor-pointer font-sans"
+              className="w-full py-3.5 px-6 bg-[#F3F0E8] text-[#080808] hover:bg-white active:bg-[#E5E0D5] text-xs font-semibold tracking-[0.2em] uppercase rounded-[2px] transition-colors duration-200 flex items-center justify-center cursor-pointer font-sans"
             >
-              <span>RETURN TO SIGN IN</span>
-              <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+              RETURN TO SIGN IN
             </Link>
 
-            <div className="text-center">
+            <div className="text-center pt-2">
               <button
                 type="button"
                 onClick={() => {
                   setSent(false);
                   setEmail("");
                 }}
-                className="text-xs text-[#A3A3A3] hover:text-[#B89A5A] underline underline-offset-4 transition-colors font-medium cursor-pointer"
+                className="text-xs text-[#9C978E] hover:text-[#FAF9F6] underline underline-offset-4 transition-colors cursor-pointer"
               >
                 Try a different email address
               </button>
@@ -102,26 +88,26 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell>
-      <div className="bg-[#141414] border border-[#262626] rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6">
+      <div className="space-y-8">
         <div>
-          <span className="text-[10px] tracking-[0.25em] text-[#B89A5A] uppercase font-mono font-bold block mb-1">
-            ACCOUNT RECOVERY
+          <span className="text-[10px] tracking-[0.25em] text-[#9C978E] uppercase font-mono block mb-2">
+            ODISSI
           </span>
-          <h1 style={{ color: "#F3F0E8" }} className="text-3xl sm:text-4xl font-serif font-bold text-[#F3F0E8] mb-2 tracking-tight">
-            FORGOT PASSWORD?
+          <h1 className="font-serif text-3xl sm:text-4xl text-[#F3F0E8] font-normal tracking-tight mb-2">
+            FORGOT PASSWORD
           </h1>
-          <p className="text-xs sm:text-sm text-[#A3A3A3] leading-relaxed font-medium">
-            Enter your email address and we&apos;ll send you a secure reset link.
+          <p className="text-xs text-[#9C978E] leading-relaxed">
+            Enter your registered email address and we will send you a secure link to reset your password.
           </p>
         </div>
 
         {error && (
           <div
-            className="bg-rose-950/60 text-rose-200 border border-rose-800/80 px-4 py-3.5 rounded-xl text-xs font-semibold flex items-center gap-2.5 shadow-xs"
+            className="bg-[#1A1112] text-[#F3C5C7] border border-[#3E1C1F] px-4 py-3 rounded-[2px] text-xs flex items-center gap-2.5"
             role="alert"
             aria-live="polite"
           >
-            <AlertCircle size={16} className="text-rose-400 flex-shrink-0" />
+            <AlertCircle size={15} className="text-[#E06C75] shrink-0" />
             <span>{error}</span>
           </div>
         )}
@@ -130,60 +116,54 @@ export default function ForgotPasswordPage() {
           <div>
             <label
               htmlFor="forgot-email"
-              className="block text-xs font-bold uppercase tracking-wider text-[#D4D4D4] mb-2"
+              className="block text-[10px] font-medium uppercase tracking-[0.18em] text-[#9C978E] mb-2"
             >
               Email Address
             </label>
-            <div className="relative">
-              <input
-                id="forgot-email"
-                type="email"
-                name="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{ color: "#ffffff", backgroundColor: "#1A1A1A" }}
-                className="w-full px-4 py-3.5 pl-10 bg-[#1A1A1A] border border-[#333333] rounded-xl text-sm font-semibold text-white placeholder:text-[#737373] focus:outline-none focus:border-[#B89A5A] focus:ring-2 focus:ring-[#B89A5A]/30 transition-all disabled:opacity-50 shadow-inner"
-                placeholder="e.g. customer@odessi.shop"
-                disabled={loading}
-              />
-              <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#B89A5A] pointer-events-none" />
-            </div>
-            <p className="text-[11px] text-[#A3A3A3] mt-2 leading-relaxed">
-              For security, we won&apos;t reveal whether this email is registered with us.
+            <input
+              id="forgot-email"
+              type="email"
+              name="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3.5 bg-[#101010] border border-[#222222] rounded-[2px] text-sm text-[#FAF9F6] placeholder:text-[#555555] focus:outline-none focus:border-[#9C978E] transition-colors disabled:opacity-50"
+              placeholder="name@example.com"
+              disabled={loading}
+            />
+            <p className="text-[11px] text-[#737373] mt-2 leading-relaxed">
+              For privacy and security, we never disclose whether an address is registered.
             </p>
           </div>
 
-          <button
-            id="forgot-submit"
-            type="submit"
-            disabled={loading || !email.trim()}
-            style={{ backgroundColor: "#B89A5A", color: "#080808" }}
-            className="w-full py-4 bg-[#B89A5A] hover:bg-[#d4af37] text-[#080808] text-xs font-bold tracking-[0.2em] uppercase rounded-xl transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg flex items-center justify-center gap-2 group cursor-pointer font-sans"
-            aria-busy={loading}
-          >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                <span>SENDING...</span>
-              </span>
-            ) : (
-              <>
-                <span>SEND RESET LINK</span>
-                <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
-              </>
-            )}
-          </button>
+          <div className="pt-2">
+            <button
+              id="forgot-submit"
+              type="submit"
+              disabled={loading || !email.trim()}
+              className="w-full py-3.5 px-6 bg-[#F3F0E8] text-[#080808] hover:bg-white active:bg-[#E5E0D5] text-xs font-semibold tracking-[0.2em] uppercase rounded-[2px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer font-sans"
+              aria-busy={loading}
+            >
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                  <span>SENDING...</span>
+                </span>
+              ) : (
+                "SEND RESET LINK"
+              )}
+            </button>
+          </div>
         </form>
 
-        <div className="pt-4 border-t border-[#262626] text-center">
+        <div className="pt-6 border-t border-[#171717] text-center text-xs text-[#9C978E]">
+          <span>Remember your password? </span>
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 text-xs font-bold tracking-wider text-[#A3A3A3] hover:text-[#B89A5A] transition-colors uppercase font-mono"
+            className="text-[#FAF9F6] hover:underline underline-offset-4 font-medium transition-colors ml-1"
           >
-            <ArrowLeft size={15} className="text-[#B89A5A]" />
-            <span>BACK TO SIGN IN</span>
+            Sign in
           </Link>
         </div>
       </div>
