@@ -16,4 +16,5 @@ public interface ReferralRepository extends JpaRepository<Referral, Long> {
     List<Referral> findByReferrerId(Long referrerId);
     Page<Referral> findByReferrerId(Long referrerId, Pageable pageable);
     long countByReferrerIdAndStatus(Long referrerId, ReferralStatus status);
+    long countByStatus(ReferralStatus status);
 }

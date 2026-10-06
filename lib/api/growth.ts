@@ -71,10 +71,25 @@ export interface BackInStockResponse {
 }
 
 export interface ReferralResponse {
+  /** Customer's referral code */
   code: string;
+  /** Full share URL with code embedded */
   shareUrl?: string;
+  /** Total registered referees (all statuses) */
   totalReferrals: number;
+  /** Number of referrals that reached QUALIFIED status */
   qualifiedReferrals: number;
+  /** Total rewards earned by this customer (historical, from immutable ledger) */
+  totalRewardsEarned: number;
+  /**
+   * Current reward per successful referral — fetched from admin-controlled
+   * backend settings. NEVER hardcode this value on the frontend.
+   */
+  referrerRewardAmount: number;
+  /** Referred customer reward — always 0. Do not display as a benefit. */
+  refereeRewardAmount: number;
+  /** Whether the referral program is currently enabled by admin. */
+  programEnabled: boolean;
   createdAt?: string;
 }
 

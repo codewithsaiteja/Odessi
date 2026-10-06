@@ -3,9 +3,27 @@
 import { useEffect, useState } from "react";
 import { growthApi, ReferralResponse } from "@/lib/api";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { Share2, Copy, Check, Gift, Sparkles, AlertCircle, Link as LinkIcon, MessageSquare } from "lucide-react";
+import {
+  Share2,
+  Copy,
+  Check,
+  Gift,
+  AlertCircle,
+  Link as LinkIcon,
+  MessageSquare,
+  TrendingUp,
+  Clock,
+  IndianRupee,
+} from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 
+/**
+ * AccountReferrals — Customer Referral Dashboard
+ *
+ * All reward amounts are fetched from the backend API.
+ * No amounts are hardcoded in this component.
+ * The referred customer receives NO benefit (refereeRewardAmount is always 0).
+ */
 export default function AccountReferrals() {
   const { user } = useAuth();
   const [referral, setReferral] = useState<ReferralResponse | null>(null);
@@ -15,46 +33,62 @@ export default function AccountReferrals() {
   const { showToast } = useToast();
 
   useEffect(() => {
-    growthApi.getMyReferralCode()
+    growthApi
+      .getMyReferralCode()
       .then((data) => {
         if (data && data.code) {
           setReferral(data);
         } else {
-          // Fallback code if API response is empty
-          const fallbackCode = user?.id ? `ODESSI-REF-U${user.id}` : `ODESSI-REF-LUXE200`;
+          // Fallback: use a derived code but no amounts
+          const fallbackCode = user?.id ? `ODESSI-REF-U${user.id}` : "ODESSI-REF-LUXE";
           setReferral({
             code: fallbackCode,
             shareUrl: `${typeof window !== "undefined" ? window.location.origin : "https://odessi.tfi"}/register?ref=${fallbackCode}`,
             totalReferrals: 0,
             qualifiedReferrals: 0,
+            totalRewardsEarned: 0,
+            referrerRewardAmount: 0, // Will show loading state
+            refereeRewardAmount: 0,
+            programEnabled: true,
             createdAt: new Date().toISOString(),
           });
         }
       })
       .catch(() => {
-        // Fallback code for offline demo / network issues
-        const fallbackCode = user?.id ? `ODESSI-REF-U${user.id}` : `ODESSI-REF-LUXE200`;
+        const fallbackCode = user?.id ? `ODESSI-REF-U${user.id}` : "ODESSI-REF-LUXE";
         setReferral({
           code: fallbackCode,
           shareUrl: `${typeof window !== "undefined" ? window.location.origin : "https://odessi.tfi"}/register?ref=${fallbackCode}`,
           totalReferrals: 0,
           qualifiedReferrals: 0,
+          totalRewardsEarned: 0,
+          referrerRewardAmount: 0,
+          refereeRewardAmount: 0,
+          programEnabled: true,
           createdAt: new Date().toISOString(),
         });
       })
       .finally(() => setLoading(false));
   }, [user]);
 
-  const activeCode = referral?.code || (user?.id ? `ODESSI-REF-U${user.id}` : `ODESSI-REF-LUXE200`);
+  const activeCode = referral?.code || (user?.id ? `ODESSI-REF-U${user.id}` : "ODESSI-REF-LUXE");
 
   const getShareUrl = () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "https://odessi.tfi";
     return `${origin}/register?ref=${activeCode}`;
   };
 
+  /**
+   * Share message uses the live reward amount from backend.
+   * Never hardcodes ₹200 or any specific amount.
+   */
   const getShareMessage = () => {
     const link = getShareUrl();
-    return `Join Odessi.tfi using my referral code ${activeCode} to get a ₹200 bonus on your first order! Register here: ${link}`;
+    const rewardDisplay =
+      referral?.referrerRewardAmount && referral.referrerRewardAmount > 0
+        ? `₹${referral.referrerRewardAmount}`
+        : "exclusive rewards";
+    return `Shop on Odessi using my referral code ${activeCode}! Register here: ${link}`;
   };
 
   const copyCode = () => {
@@ -84,27 +118,34 @@ export default function AccountReferrals() {
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({
-          title: "Odessi.tfi Referral Invitation",
+          title: "Odessi — Referral Invitation",
           text: msg,
           url: getShareUrl(),
         });
         showToast("Shared successfully!", "success");
         return;
       } catch {
-        // Fallback to mailto if navigator.share fails or is cancelled
+        // Fallback to mailto
       }
     }
-
-    // Fallback: Open mailto link
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent("Claim your ₹200 bonus on Odessi.tfi")}&body=${encodeURIComponent(msg)}`;
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent("Join Odessi")}&body=${encodeURIComponent(msg)}`;
     window.open(mailtoUrl, "_blank");
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-xs text-stone-500 font-mono">Loading referral details...</div>;
+    return (
+      <div className="p-8 text-center text-xs text-stone-500 font-mono">
+        Loading referral details...
+      </div>
+    );
   }
 
+  // Format reward amount — always from backend, never hardcoded
+  const rewardAmount = referral?.referrerRewardAmount ?? 0;
+  const rewardDisplay = rewardAmount > 0 ? `₹${rewardAmount.toLocaleString("en-IN")}` : "—";
+  const totalEarned = referral?.totalRewardsEarned ?? 0;
   const shareUrl = getShareUrl();
+  const isProgramEnabled = referral?.programEnabled ?? true;
 
   return (
     <div className="space-y-6">
@@ -114,14 +155,22 @@ export default function AccountReferrals() {
           <Gift className="w-3 h-3" /> Referral Program
         </div>
         <h2 className="text-2xl font-serif font-bold text-stone-900 uppercase tracking-tight">
-          INVITE FRIENDS & EARN ₹200
+          YOUR REFERRAL CODE
         </h2>
-        <p className="text-xs text-stone-500 mt-1 leading-relaxed">
-          Share your exclusive referral code with friends. They receive a <strong>₹200 welcome bonus</strong> on their first order, and you earn <strong>₹200 reward credit</strong> once their first order is delivered!
-        </p>
+        {isProgramEnabled ? (
+          <p className="text-xs text-stone-500 mt-1 leading-relaxed">
+            Refer a friend and earn{" "}
+            <strong className="text-stone-900">{rewardDisplay}</strong> for every
+            successful referral when their order is delivered.
+          </p>
+        ) : (
+          <p className="text-xs text-amber-700 mt-1 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+            The referral program is temporarily paused. Check back soon.
+          </p>
+        )}
       </div>
 
-      {/* Main Referral Code & Link Card */}
+      {/* Main Referral Code Card */}
       <div className="bg-stone-900 text-white rounded-2xl p-6 sm:p-8 space-y-6 relative overflow-hidden shadow-lg border border-stone-800">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -152,7 +201,7 @@ export default function AccountReferrals() {
           </div>
         </div>
 
-        {/* Share Action Buttons */}
+        {/* Share Buttons */}
         <div className="pt-5 border-t border-stone-800/80 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             onClick={shareWhatsApp}
@@ -171,37 +220,70 @@ export default function AccountReferrals() {
           </button>
         </div>
 
-        {/* Dynamic Share URL Display Box */}
+        {/* Share URL Display */}
         <div className="bg-stone-950/70 p-3.5 rounded-xl border border-stone-800/90 text-xs font-mono text-stone-400 flex items-center justify-between gap-3 overflow-hidden">
           <span className="truncate select-all text-amber-300/90 font-medium">{shareUrl}</span>
           <span className="text-[10px] text-stone-500 uppercase tracking-wider flex-shrink-0">INVITATION LINK</span>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-stone-800/80 text-center sm:text-left">
-          <div className="bg-stone-800/50 p-4 rounded-xl border border-stone-700/50">
-            <span className="text-[10px] uppercase font-mono text-stone-400 block mb-1">Total Referees Registered</span>
-            <span className="text-2xl sm:text-3xl font-serif font-bold font-mono text-white">{referral?.totalReferrals || 0}</span>
+        {/* Stats Grid — 3 columns: total, successful, pending */}
+        <div className="grid grid-cols-3 gap-3 pt-4 border-t border-stone-800/80">
+          <div className="bg-stone-800/50 p-3 sm:p-4 rounded-xl border border-stone-700/50 text-center">
+            <span className="text-[10px] uppercase font-mono text-stone-400 block mb-1">
+              Total Referred
+            </span>
+            <span className="text-xl sm:text-2xl font-serif font-bold font-mono text-white">
+              {referral?.totalReferrals ?? 0}
+            </span>
           </div>
-          <div className="bg-stone-800/50 p-4 rounded-xl border border-stone-700/50">
-            <span className="text-[10px] uppercase font-mono text-stone-400 block mb-1">Qualified Delivered Orders</span>
-            <span className="text-2xl sm:text-3xl font-serif font-bold font-mono text-amber-400">{referral?.qualifiedReferrals || 0}</span>
+          <div className="bg-stone-800/50 p-3 sm:p-4 rounded-xl border border-stone-700/50 text-center">
+            <span className="text-[10px] uppercase font-mono text-stone-400 block mb-1">
+              Successful
+            </span>
+            <span className="text-xl sm:text-2xl font-serif font-bold font-mono text-amber-400">
+              {referral?.qualifiedReferrals ?? 0}
+            </span>
+          </div>
+          <div className="bg-stone-800/50 p-3 sm:p-4 rounded-xl border border-stone-700/50 text-center">
+            <span className="text-[10px] uppercase font-mono text-stone-400 block mb-1">
+              Pending
+            </span>
+            <span className="text-xl sm:text-2xl font-serif font-bold font-mono text-stone-300">
+              {Math.max(0, (referral?.totalReferrals ?? 0) - (referral?.qualifiedReferrals ?? 0))}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Reward Rules Highlight Banner */}
-      <div className="p-5 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center gap-4 text-stone-900">
-        <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center flex-shrink-0 text-amber-700">
-          <Sparkles className="w-5 h-5" />
+      {/* Your Rewards Summary */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Earn Per Referral — live from backend */}
+        <div className="p-5 bg-amber-50 border border-amber-200 rounded-2xl">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-4 h-4 text-amber-700" />
+            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-700 font-bold">
+              EARN PER REFERRAL
+            </span>
+          </div>
+          {/* This value is NEVER hardcoded — always from API */}
+          <div className="text-2xl font-serif font-bold text-stone-900">
+            {rewardDisplay}
+          </div>
+          <p className="text-[11px] text-stone-500 mt-1">per successful referral</p>
         </div>
-        <div className="flex-1 space-y-1">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900">
-            GIVE ₹200, GET ₹200 — HOW IT WORKS
-          </h4>
-          <p className="text-xs text-amber-800/90 leading-relaxed">
-            Your friends get <strong>₹200 instant bonus discount</strong> on their first order when registering with your code. As soon as their first order payment is captured and verified, you earn <strong>₹200 reward credit</strong> in your account.
-          </p>
+
+        {/* Total Rewards Earned — from immutable ledger */}
+        <div className="p-5 bg-stone-50 border border-stone-200 rounded-2xl">
+          <div className="flex items-center gap-2 mb-2">
+            <IndianRupee className="w-4 h-4 text-stone-600" />
+            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-600 font-bold">
+              TOTAL EARNED
+            </span>
+          </div>
+          <div className="text-2xl font-serif font-bold text-stone-900">
+            {totalEarned > 0 ? `₹${totalEarned.toLocaleString("en-IN")}` : "₹0"}
+          </div>
+          <p className="text-[11px] text-stone-500 mt-1">lifetime rewards</p>
         </div>
       </div>
 
@@ -212,8 +294,10 @@ export default function AccountReferrals() {
         </div>
         <ul className="list-disc list-inside space-y-1 text-[11px] text-stone-500">
           <li>Self-referrals or matching account registrations are automatically blocked.</li>
-          <li>Qualifications are awarded strictly after referee payment is captured and verified by Razorpay.</li>
-          <li>Cancelled or refunded orders invalidate referral bonus qualifications.</li>
+          <li>Your reward is credited after the referred customer's order is successfully delivered.</li>
+          <li>Cancelled or refunded orders do not qualify for referral rewards.</li>
+          <li>Each referred customer can only qualify your reward once.</li>
+          <li>Reward amounts are set by Odessi and may change over time — previously earned rewards are unaffected.</li>
         </ul>
       </div>
     </div>

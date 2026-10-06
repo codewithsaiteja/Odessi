@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -94,7 +94,7 @@ export default function AccountOverview({
   const [copiedLink, setCopiedLink] = useState(false);
   const { showToast } = useToast();
 
-  const userReferralCode = user?.id ? `ODESSI-REF-U${user.id}` : `ODESSI-REF-LUXE200`;
+  const userReferralCode = user?.id ? `ODESSI-REF-U${user.id}` : `ODESSI-REF-LUXE`;
 
   const copyReferralCode = () => {
     navigator.clipboard.writeText(userReferralCode);
@@ -249,8 +249,8 @@ export default function AccountOverview({
             </div>
             <ArrowRight size={16} className="text-neutral-500 group-hover:text-amber-400 transition-colors" />
           </div>
-          <p className="text-2xl font-bold font-heading text-amber-400">₹200 Bonus</p>
-          <p className="text-neutral-300 text-xs font-medium uppercase tracking-wider mt-1">Refer & Earn</p>
+          <p className="text-sm font-bold font-heading text-amber-400 uppercase tracking-wider">Refer & Earn</p>
+          <p className="text-neutral-300 text-xs font-medium uppercase tracking-wider mt-1">Referral Program</p>
         </button>
       </div>
 
@@ -267,7 +267,7 @@ export default function AccountOverview({
             {userReferralCode}
           </div>
           <p className="text-xs text-neutral-300">
-            Share with friends & give them <strong>₹200 bonus</strong> on their first order. You get <strong>₹200 credit</strong> when delivered!
+            Share your code with friends and earn rewards for every successful referral.
           </p>
         </div>
 

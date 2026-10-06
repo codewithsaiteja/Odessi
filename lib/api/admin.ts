@@ -394,3 +394,55 @@ export async function getAdminReferrals(page = 0, size = 20): Promise<PageRespon
     throw err;
   }
 }
+
+export interface ReferralSettingsData {
+  enabled: boolean;
+  /** Reward per successful referral — always read from backend, never hardcoded. */
+  referrerRewardAmount: number;
+  /** Referee benefit — always 0, confirmed by backend. */
+  refereeRewardAmount: number;
+  minimumOrderValue: number | null;
+  rewardTrigger: "ORDER_DELIVERED" | "ORDER_PAID";
+  updatedAt: string;
+  updatedBy: string | null;
+}
+
+export interface ReferralSettingsUpdatePayload {
+  enabled: boolean;
+  referrerRewardAmount: number;
+  minimumOrderValue: number | null;
+  rewardTrigger: "ORDER_DELIVERED" | "ORDER_PAID";
+}
+
+export interface ReferralAnalyticsData {
+  totalReferrals: number;
+  successfulReferrals: number;
+  pendingReferrals: number;
+  totalRewardsIssued: number;
+  totalRewardValue: number;
+}
+
+export async function getAdminReferralSettings(): Promise<ReferralSettingsData> {
+  return apiGet<ReferralSettingsData>("/api/admin/referrals/settings");
+}
+
+export async function updateAdminReferralSettings(
+  data: ReferralSettingsUpdatePayload
+): Promise<ReferralSettingsData> {
+  return apiPut<ReferralSettingsData>("/api/admin/referrals/settings", data);
+}
+
+export async function getAdminReferralAnalytics(): Promise<ReferralAnalyticsData> {
+  try {
+    return await apiGet<ReferralAnalyticsData>("/api/admin/referrals/analytics");
+  } catch {
+    return {
+      totalReferrals: 0,
+      successfulReferrals: 0,
+      pendingReferrals: 0,
+      totalRewardsIssued: 0,
+      totalRewardValue: 0,
+    };
+  }
+}
+

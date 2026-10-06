@@ -32,6 +32,8 @@ class GrowthFeaturesServiceTest {
     @Mock BackInStockRepository backInStockRepository;
     @Mock ReferralCodeRepository referralCodeRepository;
     @Mock ReferralRepository referralRepository;
+    @Mock ReferralSettingsRepository referralSettingsRepository;
+    @Mock ReferralRewardRepository referralRewardRepository;
     @Mock LoyaltyAccountRepository loyaltyAccountRepository;
     @Mock ProductRepository productRepository;
     @Mock ProductVariantRepository variantRepository;
@@ -52,7 +54,7 @@ class GrowthFeaturesServiceTest {
         partnershipService = new PartnershipServiceImpl(partnershipRepository, auditService);
         customOrderService = new CustomOrderServiceImpl(customOrderRepository, auditService);
         backInStockService = new BackInStockServiceImpl(backInStockRepository, productRepository, variantRepository);
-        referralService = new ReferralServiceImpl(referralCodeRepository, referralRepository);
+        referralService = new ReferralServiceImpl(referralCodeRepository, referralRepository, referralSettingsRepository, referralRewardRepository);
         loyaltyService = new LoyaltyServiceImpl(loyaltyAccountRepository);
 
         mockUser = new User();
@@ -177,16 +179,27 @@ class GrowthFeaturesServiceTest {
     }
 
     @Test
-    @DisplayName("Referral — Qualifies only when order payment status is CAPTURED or PAID")
+    @DisplayName("Referral — Qualifies only when order payment status is CAPTURED or PAID and order is DELIVERED")
     void referral_qualifiesOnCapturedPayment() {
         User referrer = new User(); referrer.setId(1L);
         User referee = new User(); referee.setId(2L);
 
+        // Stub settings — program enabled, trigger = ORDER_DELIVERED
+        com.odessi.api.entity.ReferralSettings settings = new com.odessi.api.entity.ReferralSettings();
+        settings.setEnabled(true);
+        settings.setReferrerRewardAmount(new java.math.BigDecimal("100.00"));
+        settings.setRewardTrigger("ORDER_DELIVERED");
+        given(referralSettingsRepository.getSingleton()).willReturn(Optional.of(settings));
+        given(referralRewardRepository.existsByReferralId(any())).willReturn(false);
+
         Referral referral = new Referral(referrer, referee, "ODESSI-REF-1234");
         given(referralRepository.findByRefereeId(2L)).willReturn(Optional.of(referral));
+        given(referralRepository.save(any())).willReturn(referral);
+        given(referralRewardRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
         Order order = new Order();
         order.setPaymentStatus(PaymentStatus.CAPTURED);
+        order.setStatus(OrderStatus.DELIVERED);
 
         referralService.processQualifyingOrder(referee, order);
         assertThat(referral.getStatus()).isEqualTo(ReferralStatus.QUALIFIED);
