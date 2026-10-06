@@ -27,8 +27,8 @@ public class ProductReview {
     @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_product_reviews_user"))
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "order_id", nullable = false, foreignKey = @ForeignKey(name = "fk_product_reviews_order"))
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", foreignKey = @ForeignKey(name = "fk_product_reviews_order"))
     private Order order;
 
     @Column(name = "rating", nullable = false)

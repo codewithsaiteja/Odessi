@@ -20,7 +20,11 @@ public interface PasswordResetOtpChallengeRepository extends JpaRepository<Passw
     Optional<PasswordResetOtpChallenge> findByResetTokenHashAndVerifiedTrueAndConsumedFalseAndSupersededFalse(String resetTokenHash);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("UPDATE PasswordResetOtpChallenge c SET c.superseded = true, c.updatedAt = CURRENT_TIMESTAMP WHERE c.user = :user AND c.consumed = false AND c.superseded = false")
-    void supersedeActiveChallengesForUser(@Param("user") User user);
+    @Query("UPDATE PasswordResetOtpChallenge c SET c.superseded = true, c.updatedAt = :now WHERE c.user = :user AND c.consumed = false AND c.superseded = false")
+    void supersedeActiveChallengesForUser(@Param("user") User user, @Param("now") java.time.Instant now);
+
+    default void supersedeActiveChallengesForUser(User user) {
+        supersedeActiveChallengesForUser(user, java.time.Instant.now());
+    }
 }
 
