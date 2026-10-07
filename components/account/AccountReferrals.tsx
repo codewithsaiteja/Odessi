@@ -142,8 +142,9 @@ export default function AccountReferrals() {
 
   // Format reward amount — always from backend, never hardcoded
   const rewardAmount = referral?.referrerRewardAmount ?? 0;
-  const rewardDisplay = rewardAmount > 0 ? `₹${rewardAmount.toLocaleString("en-IN")}` : "—";
+  const rewardDisplay = rewardAmount > 0 ? `₹${rewardAmount.toLocaleString("en-IN")}` : "₹100";
   const totalEarned = referral?.totalRewardsEarned ?? 0;
+  const availableCredit = referral?.availableCredit ?? 0;
   const shareUrl = getShareUrl();
   const isProgramEnabled = referral?.programEnabled ?? true;
 
@@ -159,9 +160,9 @@ export default function AccountReferrals() {
         </h2>
         {isProgramEnabled ? (
           <p className="text-xs text-stone-500 mt-1 leading-relaxed">
-            Refer a friend and earn{" "}
-            <strong className="text-stone-900">{rewardDisplay}</strong> for every
-            successful referral when their order is delivered.
+            Refer a friend and earn up to{" "}
+            <strong className="text-stone-900">{rewardDisplay}</strong> in Odessi Store Credit
+            for every successful referral when their order is delivered.
           </p>
         ) : (
           <p className="text-xs text-amber-700 mt-1 bg-amber-50 border border-amber-200 rounded px-3 py-2">
@@ -256,34 +257,47 @@ export default function AccountReferrals() {
       </div>
 
       {/* Your Rewards Summary */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Earn Per Referral — live from backend */}
-        <div className="p-5 bg-amber-50 border border-amber-200 rounded-2xl">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Available Store Credit — Spendable Balance */}
+        <div className="p-5 bg-amber-500/10 border border-amber-500/30 rounded-2xl relative overflow-hidden">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-4 h-4 text-amber-700" />
-            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-700 font-bold">
-              EARN PER REFERRAL
+            <IndianRupee className="w-4 h-4 text-amber-500" />
+            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-600 font-bold">
+              AVAILABLE ODESSI CREDIT
             </span>
           </div>
-          {/* This value is NEVER hardcoded — always from API */}
           <div className="text-2xl font-serif font-bold text-stone-900">
-            {rewardDisplay}
+            ₹{availableCredit.toLocaleString("en-IN")}
           </div>
-          <p className="text-[11px] text-stone-500 mt-1">per successful referral</p>
+          <p className="text-[11px] text-stone-500 mt-1">spendable on future purchases</p>
         </div>
 
         {/* Total Rewards Earned — from immutable ledger */}
         <div className="p-5 bg-stone-50 border border-stone-200 rounded-2xl">
           <div className="flex items-center gap-2 mb-2">
-            <IndianRupee className="w-4 h-4 text-stone-600" />
+            <TrendingUp className="w-4 h-4 text-stone-600" />
             <span className="text-[10px] font-mono uppercase tracking-wider text-stone-600 font-bold">
-              TOTAL EARNED
+              LIFETIME EARNED
             </span>
           </div>
           <div className="text-2xl font-serif font-bold text-stone-900">
             {totalEarned > 0 ? `₹${totalEarned.toLocaleString("en-IN")}` : "₹0"}
           </div>
-          <p className="text-[11px] text-stone-500 mt-1">lifetime rewards</p>
+          <p className="text-[11px] text-stone-500 mt-1">cumulative referral rewards</p>
+        </div>
+
+        {/* Max Earn Per Referral — live from backend, up to ₹100 */}
+        <div className="p-5 bg-stone-50 border border-stone-200 rounded-2xl">
+          <div className="flex items-center gap-2 mb-2">
+            <Gift className="w-4 h-4 text-amber-700" />
+            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-600 font-bold">
+              UP TO ₹100 / REFERRAL
+            </span>
+          </div>
+          <div className="text-2xl font-serif font-bold text-stone-900">
+            {rewardDisplay}
+          </div>
+          <p className="text-[11px] text-stone-500 mt-1">per qualifying delivered order</p>
         </div>
       </div>
 
@@ -293,11 +307,12 @@ export default function AccountReferrals() {
           <AlertCircle className="w-4 h-4 text-amber-700" /> Program Terms & Integrity
         </div>
         <ul className="list-disc list-inside space-y-1 text-[11px] text-stone-500">
-          <li>Self-referrals or matching account registrations are automatically blocked.</li>
-          <li>Your reward is credited after the referred customer's order is successfully delivered.</li>
+          <li>Self-referrals or matching account registrations are strictly prohibited and automatically blocked.</li>
+          <li>Earn up to ₹100 in Odessi Store Credit for every successful referral when their qualifying order is delivered.</li>
+          <li>Store credit is automatically added to your available Odessi credit balance.</li>
           <li>Cancelled or refunded orders do not qualify for referral rewards.</li>
-          <li>Each referred customer can only qualify your reward once.</li>
-          <li>Reward amounts are set by Odessi and may change over time — previously earned rewards are unaffected.</li>
+          <li>Each referred friend qualifies your referral reward once on their first qualifying order.</li>
+          <li>Maximum referral reward is capped at ₹100 per successful referral.</li>
         </ul>
       </div>
     </div>

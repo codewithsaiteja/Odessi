@@ -180,4 +180,68 @@ public class AdminOrderServiceTest {
         );
         assertTrue(orderService.findByUser(otherCustomer.getId(), 0, 10).data().isEmpty());
     }
+
+    @Autowired(required = false)
+    private ReferralService referralService;
+
+    @Autowired(required = false)
+    private ReferralRepository referralRepository;
+
+    @Autowired(required = false)
+    private ReferralCodeRepository referralCodeRepository;
+
+    @Autowired(required = false)
+    private ReferralRewardRepository referralRewardRepository;
+
+    @Autowired(required = false)
+    private StoreCreditAccountRepository storeCreditAccountRepository;
+
+    @Autowired(required = false)
+    private StoreCreditTransactionRepository storeCreditTransactionRepository;
+
+    @Test
+    void deliveredOrderStatus_triggersReferralQualificationAndCreditsStoreCredit() {
+        if (referralService == null || referralRepository == null || storeCreditAccountRepository == null) {
+            return;
+        }
+
+        // Create Referrer
+        User referrerUser = new User("Referrer", "User", "referrer.integ@test.com", "hash");
+        userRepository.save(referrerUser);
+
+        // Record referral
+        ReferralCode code = new ReferralCode(referrerUser, "ODESSI-REF-INT1");
+        referralCodeRepository.save(code);
+        Referral referral = new Referral(referrerUser, customer, "ODESSI-REF-INT1");
+        referralRepository.save(referral);
+
+        // Simulate order paid
+        Order order = orderRepository.findById(orderId).orElseThrow();
+        order.setPaymentStatus(PaymentStatus.CAPTURED);
+        order.setStatus(OrderStatus.SHIPPED);
+        orderRepository.save(order);
+
+        // Transition SHIPPED -> DELIVERED
+        OrderResponse res = adminService.updateOrderStatus(admin, orderId, OrderStatus.DELIVERED);
+        assertEquals(OrderStatus.DELIVERED, res.status());
+
+        // Verify referral was qualified
+        Referral updatedReferral = referralRepository.findByRefereeId(customer.getId()).orElseThrow();
+        assertEquals(ReferralStatus.QUALIFIED, updatedReferral.getStatus());
+        assertEquals(orderId, updatedReferral.getQualifyingOrder().getId());
+        assertNotNull(updatedReferral.getRewardAmount());
+        assertTrue(updatedReferral.getRewardAmount().compareTo(new BigDecimal("100.00")) <= 0);
+
+        // Verify ReferralReward record
+        assertTrue(referralRewardRepository.existsByReferralId(updatedReferral.getId()));
+
+        // Verify Referrer's StoreCreditAccount received balance
+        StoreCreditAccount creditAccount = storeCreditAccountRepository.findByUserId(referrerUser.getId()).orElseThrow();
+        assertEquals(updatedReferral.getRewardAmount(), creditAccount.getAvailableBalance());
+        assertEquals(updatedReferral.getRewardAmount(), creditAccount.getLifetimeCredited());
+
+        // Verify StoreCreditTransaction
+        String expectedKey = "REF_REWARD_" + updatedReferral.getId();
+        assertTrue(storeCreditTransactionRepository.existsByIdempotencyKey(expectedKey));
+    }
 }

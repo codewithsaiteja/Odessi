@@ -30,6 +30,9 @@ public class Referral {
     @JoinColumn(name = "qualifying_order_id")
     private Order qualifyingOrder;
 
+    @Column(name = "reward_amount", precision = 10, scale = 2)
+    private java.math.BigDecimal rewardAmount;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -66,6 +69,9 @@ public class Referral {
 
     public Order getQualifyingOrder() { return qualifyingOrder; }
     public void setQualifyingOrder(Order qualifyingOrder) { this.qualifyingOrder = qualifyingOrder; }
+
+    public java.math.BigDecimal getRewardAmount() { return rewardAmount; }
+    public void setRewardAmount(java.math.BigDecimal rewardAmount) { this.rewardAmount = rewardAmount; }
 
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

@@ -145,6 +145,10 @@ export default function AdminReferralsPage() {
       setSettingsError("Reward amount must be a valid number >= 0.");
       return;
     }
+    if (rewardVal > 100) {
+      setSettingsError("Maximum eligible reward cannot exceed ₹100 per policy.");
+      return;
+    }
 
     const payload: ReferralSettingsUpdatePayload = {
       enabled: formEnabled,
@@ -270,6 +274,7 @@ export default function AdminReferralsPage() {
                   <input
                     type="number"
                     min="0"
+                    max="100"
                     step="1"
                     value={formReward}
                     onChange={(e) => setFormReward(e.target.value)}
@@ -278,8 +283,7 @@ export default function AdminReferralsPage() {
                   />
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  This amount is read directly from the database by the customer account page.
-                  No redeployment needed after saving.
+                  Odessi policy caps eligible referral reward at ₹100 maximum. This amount is read directly by the customer account page.
                 </p>
               </div>
 

@@ -76,12 +76,19 @@ public class AdminServiceImpl implements AdminService {
     @Autowired(required = false)
     private com.odessi.api.repository.OrderStatusEmailLogRepository orderStatusEmailLogRepository;
 
+    @Autowired(required = false)
+    private com.odessi.api.service.ReferralService referralService;
+
     public void setEmailService(com.odessi.api.service.EmailService emailService) {
         this.emailService = emailService;
     }
 
     public void setOrderStatusEmailLogRepository(com.odessi.api.repository.OrderStatusEmailLogRepository orderStatusEmailLogRepository) {
         this.orderStatusEmailLogRepository = orderStatusEmailLogRepository;
+    }
+
+    public void setReferralService(com.odessi.api.service.ReferralService referralService) {
+        this.referralService = referralService;
     }
 
     @Autowired
@@ -1073,6 +1080,15 @@ public class AdminServiceImpl implements AdminService {
             "Updated status from " + currentStatus + " to " + newStatus);
 
         sendStatusUpdateEmailIfEligible(updated, currentStatus, newStatus);
+
+        // Process referral qualification if order reached DELIVERED status
+        if (newStatus == OrderStatus.DELIVERED && referralService != null) {
+            try {
+                referralService.processQualifyingOrder(updated.getUser(), updated);
+            } catch (Exception e) {
+                log.error("Failed to process referral qualification for delivered order id={}: {}", updated.getId(), e.getMessage(), e);
+            }
+        }
 
         return orderMapper.toResponse(updated);
     }

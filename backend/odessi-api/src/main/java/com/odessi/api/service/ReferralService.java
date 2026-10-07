@@ -6,9 +6,12 @@ import com.odessi.api.dto.admin.ReferralSettingsResponse;
 import com.odessi.api.dto.admin.ReferralSettingsUpdateRequest;
 import com.odessi.api.dto.response.ReferralResponse;
 import com.odessi.api.entity.Order;
+import com.odessi.api.entity.ReferralSettings;
 import com.odessi.api.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+
+import java.math.BigDecimal;
 
 public interface ReferralService {
 
@@ -16,7 +19,7 @@ public interface ReferralService {
 
     /**
      * Returns the customer's referral code along with current admin-configured
-     * reward amounts and their personal referral statistics.
+     * reward amounts, available store credit, and their personal referral statistics.
      */
     ReferralResponse getMyReferralCode(User user);
 
@@ -27,9 +30,16 @@ public interface ReferralService {
     void recordReferral(User referee, String referralCode);
 
     /**
-     * Qualifies a referral and creates an immutable reward ledger entry.
-     * The reward amount is snapshotted from the current admin settings.
-     * Called by the order service after the qualifying condition is met.
+     * Calculates the eligible reward amount for a qualifying order, enforcing the
+     * business rule ceiling of up to ₹100.
+     */
+    BigDecimal calculateEligibleReward(Order order, ReferralSettings settings);
+
+    /**
+     * Qualifies a referral, creates an immutable reward ledger entry, and
+     * credits the referrer's store credit account.
+     * The reward amount is calculated with a hard maximum of ₹100.
+     * Called by the order service / admin order lifecycle after the qualifying condition is met.
      */
     void processQualifyingOrder(User referee, Order order);
 

@@ -38,6 +38,13 @@ public class RazorpayPaymentService {
     private final OrderMapper orderMapper;
     private final EmailService emailService;
 
+    @Autowired(required = false)
+    private ReferralService referralService;
+
+    public void setReferralService(ReferralService referralService) {
+        this.referralService = referralService;
+    }
+
     @Autowired
     public RazorpayPaymentService(
             AppProperties appProperties,
@@ -169,6 +176,15 @@ public class RazorpayPaymentService {
             }
         }
 
+        // Process referral qualification if configured for ORDER_PAID trigger
+        if (referralService != null) {
+            try {
+                referralService.processQualifyingOrder(order.getUser(), order);
+            } catch (Exception e) {
+                log.error("Referral qualification check failed on payment verification for order {}: {}", order.getOrderNumber(), e.getMessage());
+            }
+        }
+
         return orderMapper.toResponse(order);
     }
 
@@ -283,6 +299,15 @@ public class RazorpayPaymentService {
                     orderRepository.save(order);
                 } catch (Exception e) {
                     log.error("[EMAIL] Webhook confirmation email dispatch failed for order {}: {}", order.getOrderNumber(), e.getMessage());
+                }
+            }
+
+            // Process referral qualification if configured for ORDER_PAID trigger
+            if (referralService != null) {
+                try {
+                    referralService.processQualifyingOrder(order.getUser(), order);
+                } catch (Exception e) {
+                    log.error("Referral qualification check failed on webhook confirmation for order {}: {}", order.getOrderNumber(), e.getMessage());
                 }
             }
 

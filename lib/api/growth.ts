@@ -81,8 +81,10 @@ export interface ReferralResponse {
   qualifiedReferrals: number;
   /** Total rewards earned by this customer (historical, from immutable ledger) */
   totalRewardsEarned: number;
+  /** Available spendable Odessi store credit from the store credit ledger */
+  availableCredit?: number;
   /**
-   * Current reward per successful referral — fetched from admin-controlled
+   * Current eligible reward per successful referral (up to ₹100) — fetched from admin-controlled
    * backend settings. NEVER hardcode this value on the frontend.
    */
   referrerRewardAmount: number;

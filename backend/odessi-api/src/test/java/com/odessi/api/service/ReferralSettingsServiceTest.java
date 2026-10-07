@@ -26,19 +26,22 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Unit tests for the Referral Settings + Reward system.
+ * Unit tests for the Referral Settings + Store Credit Reward system.
  *
  * Business rules verified:
  * - Admin can read settings
- * - Admin can update reward amount
+ * - Admin can update reward amount up to ₹100 ceiling
+ * - Setting above ₹100 is capped at ₹100
+ * - Reward amount can be below ₹100 (e.g. ₹50, ₹75)
+ * - Final credited reward never exceeds ₹100
  * - Referee reward is always 0 (server-enforced)
  * - Default reward is ₹100
- * - Changing ₹100 → ₹150 only affects future referrals
  * - Existing rewards are immutable
  * - Self-referral rejected
  * - Duplicate referral rejected
  * - Disabled program prevents new rewards
  * - Frontend cannot manipulate reward amount (server always reads from DB)
+ * - Store credit account is credited with exact eligible reward and idempotency key
  */
 @ExtendWith(MockitoExtension.class)
 class ReferralSettingsServiceTest {
@@ -47,6 +50,7 @@ class ReferralSettingsServiceTest {
     @Mock ReferralRepository referralRepository;
     @Mock ReferralSettingsRepository settingsRepository;
     @Mock ReferralRewardRepository rewardRepository;
+    @Mock StoreCreditService storeCreditService;
 
     @InjectMocks ReferralServiceImpl referralService;
 
@@ -91,25 +95,68 @@ class ReferralSettingsServiceTest {
         assertThat(response.getRewardTrigger()).isEqualTo("ORDER_DELIVERED");
     }
 
-    // ── Admin: Update Reward Amount ───────────────────────────────────────────
+    // ── Admin: Update Reward Amount With Ceiling ──────────────────────────────
 
     @Test
-    @DisplayName("Admin can update reward amount from ₹100 to ₹150")
-    void adminCanUpdateRewardAmount() {
+    @DisplayName("Admin can update reward amount up to ₹100 ceiling, and values above ₹100 are capped")
+    void adminCanUpdateRewardAmountWithCeiling() {
         when(settingsRepository.getSingleton()).thenReturn(Optional.of(defaultSettings));
         when(settingsRepository.save(any(ReferralSettings.class))).thenAnswer(i -> i.getArgument(0));
 
-        ReferralSettingsUpdateRequest request = new ReferralSettingsUpdateRequest();
-        request.setEnabled(true);
-        request.setReferrerRewardAmount(new BigDecimal("150.00"));
-        request.setRewardTrigger("ORDER_DELIVERED");
+        // Update to ₹75
+        ReferralSettingsUpdateRequest request75 = new ReferralSettingsUpdateRequest();
+        request75.setEnabled(true);
+        request75.setReferrerRewardAmount(new BigDecimal("75.00"));
+        request75.setRewardTrigger("ORDER_DELIVERED");
 
-        ReferralSettingsResponse response = referralService.updateSettings(request, "admin@odessi.tfi");
+        ReferralSettingsResponse response75 = referralService.updateSettings(request75, "admin@odessi.tfi");
+        assertThat(response75.getReferrerRewardAmount()).isEqualByComparingTo("75.00");
 
-        assertThat(response.getReferrerRewardAmount()).isEqualByComparingTo("150.00");
-        // Referee reward must always stay at 0 — server enforces it
-        assertThat(response.getRefereeRewardAmount()).isEqualByComparingTo("0.00");
-        assertThat(response.isEnabled()).isTrue();
+        // Attempt to update to ₹150 — capped at ₹100
+        ReferralSettingsUpdateRequest request150 = new ReferralSettingsUpdateRequest();
+        request150.setEnabled(true);
+        request150.setReferrerRewardAmount(new BigDecimal("150.00"));
+        request150.setRewardTrigger("ORDER_DELIVERED");
+
+        ReferralSettingsResponse response150 = referralService.updateSettings(request150, "admin@odessi.tfi");
+        assertThat(response150.getReferrerRewardAmount()).isEqualByComparingTo("100.00");
+        assertThat(response150.getRefereeRewardAmount()).isEqualByComparingTo("0.00");
+    }
+
+    // ── Up to ₹100 Rule: Calculation Tests ────────────────────────────────────
+
+    @Test
+    @DisplayName("calculateEligibleReward returns configured amount when below ₹100")
+    void calculateEligibleRewardBelowHundred() {
+        ReferralSettings settings = new ReferralSettings();
+        settings.setReferrerRewardAmount(new BigDecimal("50.00"));
+
+        BigDecimal reward = referralService.calculateEligibleReward(null, settings);
+        assertThat(reward).isEqualByComparingTo("50.00");
+
+        settings.setReferrerRewardAmount(new BigDecimal("75.00"));
+        reward = referralService.calculateEligibleReward(null, settings);
+        assertThat(reward).isEqualByComparingTo("75.00");
+    }
+
+    @Test
+    @DisplayName("calculateEligibleReward returns exactly ₹100 when configured at ₹100")
+    void calculateEligibleRewardExactlyHundred() {
+        ReferralSettings settings = new ReferralSettings();
+        settings.setReferrerRewardAmount(new BigDecimal("100.00"));
+
+        BigDecimal reward = referralService.calculateEligibleReward(null, settings);
+        assertThat(reward).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    @DisplayName("calculateEligibleReward caps reward at ₹100 if settings exceed ceiling")
+    void calculateEligibleRewardCannotExceedHundred() {
+        ReferralSettings settings = new ReferralSettings();
+        settings.setReferrerRewardAmount(new BigDecimal("250.00"));
+
+        BigDecimal reward = referralService.calculateEligibleReward(null, settings);
+        assertThat(reward).isEqualByComparingTo("100.00");
     }
 
     // ── Default Reward = ₹100 ─────────────────────────────────────────────────
@@ -120,23 +167,26 @@ class ReferralSettingsServiceTest {
         assertThat(defaultSettings.getReferrerRewardAmount()).isEqualByComparingTo("100.00");
     }
 
-    // ── Customer: Reward Amount Comes from Settings ───────────────────────────
+    // ── Customer: Reward Amount & Available Store Credit ──────────────────────
 
     @Test
-    @DisplayName("Customer referral response includes current reward from backend settings")
-    void customerReferralResponseIncludesCurrentReward() {
+    @DisplayName("Customer referral response includes current eligible reward and available store credit")
+    void customerReferralResponseIncludesCurrentRewardAndAvailableCredit() {
         ReferralCode code = new ReferralCode(referrer, "ODESSI-REF-ABC123");
         when(codeRepository.findByUserId(referrer.getId())).thenReturn(Optional.of(code));
         when(referralRepository.findByReferrerId(referrer.getId())).thenReturn(java.util.List.of());
         when(referralRepository.countByReferrerIdAndStatus(referrer.getId(), ReferralStatus.QUALIFIED)).thenReturn(0L);
-        when(rewardRepository.sumIssuedRewardsByReferrerId(referrer.getId())).thenReturn(BigDecimal.ZERO);
+        when(rewardRepository.sumIssuedRewardsByReferrerId(referrer.getId())).thenReturn(new BigDecimal("150.00"));
+        when(storeCreditService.getAvailableBalance(referrer)).thenReturn(new BigDecimal("150.00"));
         when(settingsRepository.getSingleton()).thenReturn(Optional.of(defaultSettings));
 
         ReferralResponse response = referralService.getMyReferralCode(referrer);
 
-        // Reward amount comes from DB — not hardcoded
         assertThat(response.referrerRewardAmount()).isEqualByComparingTo(new BigDecimal("100.00"));
         assertThat(response.refereeRewardAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(response.totalRewardsEarned()).isEqualByComparingTo(new BigDecimal("150.00"));
+        assertThat(response.availableCredit()).isEqualByComparingTo(new BigDecimal("150.00"));
+        assertThat(response.code()).isEqualTo("ODESSI-REF-ABC123");
         assertThat(response.programEnabled()).isTrue();
     }
 
@@ -153,7 +203,7 @@ class ReferralSettingsServiceTest {
     }
 
     @Test
-    @DisplayName("Admin cannot change referee reward amount — it's always forced to 0")
+    @DisplayName("Admin cannot set referee reward — it is always forced to 0")
     void adminCannotSetRefereeReward() {
         when(settingsRepository.getSingleton()).thenReturn(Optional.of(defaultSettings));
         when(settingsRepository.save(any(ReferralSettings.class))).thenAnswer(i -> i.getArgument(0));
@@ -162,8 +212,6 @@ class ReferralSettingsServiceTest {
         request.setEnabled(true);
         request.setReferrerRewardAmount(new BigDecimal("100.00"));
         request.setRewardTrigger("ORDER_DELIVERED");
-        // Even if someone tries to set referee reward via the request (it has no such field),
-        // the service always forces it to 0
 
         ReferralSettingsResponse response = referralService.updateSettings(request, "admin@odessi.tfi");
         assertThat(response.getRefereeRewardAmount()).isEqualByComparingTo(BigDecimal.ZERO);
@@ -177,7 +225,6 @@ class ReferralSettingsServiceTest {
         ReferralCode code = new ReferralCode(referrer, "ODESSI-REF-SELF1");
         when(codeRepository.findByCode("ODESSI-REF-SELF1")).thenReturn(Optional.of(code));
 
-        // Referee = same person as referrer
         assertThatThrownBy(() -> referralService.recordReferral(referrer, "ODESSI-REF-SELF1"))
             .isInstanceOf(BadRequestException.class)
             .hasMessageContaining("Self-referral");
@@ -192,7 +239,7 @@ class ReferralSettingsServiceTest {
         existingReferral.setStatus(ReferralStatus.QUALIFIED); // Already qualified
 
         when(settingsRepository.getSingleton()).thenReturn(Optional.of(defaultSettings));
-        when(referralRepository.findByRefereeId(referee.getId())).thenReturn(Optional.of(existingReferral));
+        when(referralRepository.findByRefereeIdWithLock(referee.getId())).thenReturn(Optional.of(existingReferral));
 
         Order order = new Order();
         order.setId(10L);
@@ -201,8 +248,9 @@ class ReferralSettingsServiceTest {
 
         referralService.processQualifyingOrder(referee, order);
 
-        // Should not save any reward
+        // Should not save any reward or credit store credit
         verify(rewardRepository, never()).save(any());
+        verify(storeCreditService, never()).credit(any(), any(), any(), any(), any(), any(), any());
     }
 
     // ── Disabled Program Prevents Rewards ────────────────────────────────────
@@ -223,45 +271,49 @@ class ReferralSettingsServiceTest {
 
         referralService.processQualifyingOrder(referee, order);
 
-        // Program disabled — no referral lookup or reward creation
-        verify(referralRepository, never()).findByRefereeId(anyLong());
+        verify(referralRepository, never()).findByRefereeIdWithLock(anyLong());
         verify(rewardRepository, never()).save(any());
+        verify(storeCreditService, never()).credit(any(), any(), any(), any(), any(), any(), any());
     }
 
     // ── Existing Rewards Are Immutable ───────────────────────────────────────
 
     @Test
-    @DisplayName("Changing settings does not retroactively change existing reward amounts")
-    void existingRewardsAreImmutable() {
-        // This is enforced architecturally: rewards are created with the amount
-        // snapshotted at qualification time and never updated afterward.
-        // The rewardRepository.save() captures the amount as a fixed value.
-
-        ReferralCode code = new ReferralCode(referrer, "ODESSI-REF-IMMU1");
+    @DisplayName("Referral qualification creates immutable reward and credits store credit")
+    void referralQualificationCreditsStoreCredit() {
         Referral pendingReferral = new Referral(referrer, referee, "ODESSI-REF-IMMU1");
+        pendingReferral.setId(77L);
         pendingReferral.setStatus(ReferralStatus.PENDING);
 
         Order order = new Order();
         order.setId(20L);
+        order.setOrderNumber("ODR-20261007-00001");
         order.setPaymentStatus(PaymentStatus.CAPTURED);
         order.setStatus(OrderStatus.DELIVERED);
 
         when(settingsRepository.getSingleton()).thenReturn(Optional.of(defaultSettings)); // ₹100
-        when(referralRepository.findByRefereeId(referee.getId())).thenReturn(Optional.of(pendingReferral));
-        when(rewardRepository.existsByReferralId(any())).thenReturn(false);
+        when(referralRepository.findByRefereeIdWithLock(referee.getId())).thenReturn(Optional.of(pendingReferral));
+        when(rewardRepository.existsByReferralId(77L)).thenReturn(false);
         when(referralRepository.save(any())).thenReturn(pendingReferral);
         when(rewardRepository.save(any(ReferralReward.class))).thenAnswer(i -> i.getArgument(0));
 
-        // Qualify at ₹100
         referralService.processQualifyingOrder(referee, order);
 
-        // Capture the saved reward
+        // Verifies reward was saved
         verify(rewardRepository).save(argThat(reward ->
             reward.getRewardAmount().compareTo(new BigDecimal("100.00")) == 0
         ));
 
-        // Now admin changes to ₹150 — but the saved reward still has ₹100
-        // This is guaranteed by immutability: we never update existing referral_rewards rows
+        // Verifies store credit was credited with proper idempotency key
+        verify(storeCreditService).credit(
+            eq(referrer),
+            eq(new BigDecimal("100.00")),
+            eq(StoreCreditTransactionType.REFERRAL_REWARD),
+            eq(StoreCreditReferenceType.REFERRAL),
+            eq(77L),
+            eq("REF_REWARD_77"),
+            contains("ODR-20261007-00001")
+        );
     }
 
     // ── Reward Not Created Before Qualification ───────────────────────────────
@@ -279,6 +331,7 @@ class ReferralSettingsServiceTest {
         referralService.processQualifyingOrder(referee, unpaidOrder);
 
         verify(rewardRepository, never()).save(any());
+        verify(storeCreditService, never()).credit(any(), any(), any(), any(), any(), any(), any());
     }
 
     // ── Referral Reward Idempotency Guard ────────────────────────────────────
@@ -287,6 +340,7 @@ class ReferralSettingsServiceTest {
     @DisplayName("Existing reward ledger entry prevents duplicate insertion")
     void rewardLedgerIdempotencyGuard() {
         Referral pendingReferral = new Referral(referrer, referee, "ODESSI-REF-IDEM1");
+        pendingReferral.setId(88L);
         pendingReferral.setStatus(ReferralStatus.PENDING);
 
         Order order = new Order();
@@ -295,13 +349,14 @@ class ReferralSettingsServiceTest {
         order.setStatus(OrderStatus.DELIVERED);
 
         when(settingsRepository.getSingleton()).thenReturn(Optional.of(defaultSettings));
-        when(referralRepository.findByRefereeId(referee.getId())).thenReturn(Optional.of(pendingReferral));
-        when(rewardRepository.existsByReferralId(any())).thenReturn(true); // Already issued
+        when(referralRepository.findByRefereeIdWithLock(referee.getId())).thenReturn(Optional.of(pendingReferral));
+        when(rewardRepository.existsByReferralId(88L)).thenReturn(true); // Already issued
         when(referralRepository.save(any())).thenReturn(pendingReferral);
 
         referralService.processQualifyingOrder(referee, order);
 
-        // Idempotency: should NOT save a second reward
+        // Idempotency: should NOT save a second reward or credit store credit
         verify(rewardRepository, never()).save(any());
+        verify(storeCreditService, never()).credit(any(), any(), any(), any(), any(), any(), any());
     }
 }

@@ -5,23 +5,17 @@ import com.odessi.api.dto.admin.ReferralAnalyticsResponse;
 import com.odessi.api.dto.admin.ReferralSettingsResponse;
 import com.odessi.api.dto.admin.ReferralSettingsUpdateRequest;
 import com.odessi.api.dto.response.ReferralResponse;
-import com.odessi.api.entity.Order;
-import com.odessi.api.entity.OrderStatus;
-import com.odessi.api.entity.PaymentStatus;
-import com.odessi.api.entity.Referral;
-import com.odessi.api.entity.ReferralCode;
-import com.odessi.api.entity.ReferralReward;
-import com.odessi.api.entity.ReferralSettings;
-import com.odessi.api.entity.ReferralStatus;
-import com.odessi.api.entity.User;
+import com.odessi.api.entity.*;
 import com.odessi.api.exception.BadRequestException;
 import com.odessi.api.repository.ReferralCodeRepository;
 import com.odessi.api.repository.ReferralRepository;
 import com.odessi.api.repository.ReferralRewardRepository;
 import com.odessi.api.repository.ReferralSettingsRepository;
 import com.odessi.api.service.ReferralService;
+import com.odessi.api.service.StoreCreditService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -36,20 +30,38 @@ public class ReferralServiceImpl implements ReferralService {
 
     private static final Logger log = LoggerFactory.getLogger(ReferralServiceImpl.class);
 
+    /**
+     * Hard business ceiling: maximum eligible referral reward is ₹100.
+     * The reward calculation must never exceed this amount under any configuration.
+     */
+    public static final BigDecimal MAX_REFERRAL_REWARD_CAP = new BigDecimal("100.00");
+
     private final ReferralCodeRepository codeRepository;
     private final ReferralRepository referralRepository;
     private final ReferralSettingsRepository settingsRepository;
     private final ReferralRewardRepository rewardRepository;
+    private final StoreCreditService storeCreditService;
+
+    @Autowired
+    public ReferralServiceImpl(
+            ReferralCodeRepository codeRepository,
+            ReferralRepository referralRepository,
+            ReferralSettingsRepository settingsRepository,
+            ReferralRewardRepository rewardRepository,
+            @Autowired(required = false) StoreCreditService storeCreditService) {
+        this.codeRepository = codeRepository;
+        this.referralRepository = referralRepository;
+        this.settingsRepository = settingsRepository;
+        this.rewardRepository = rewardRepository;
+        this.storeCreditService = storeCreditService;
+    }
 
     public ReferralServiceImpl(
             ReferralCodeRepository codeRepository,
             ReferralRepository referralRepository,
             ReferralSettingsRepository settingsRepository,
             ReferralRewardRepository rewardRepository) {
-        this.codeRepository = codeRepository;
-        this.referralRepository = referralRepository;
-        this.settingsRepository = settingsRepository;
-        this.rewardRepository = rewardRepository;
+        this(codeRepository, referralRepository, settingsRepository, rewardRepository, null);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────
@@ -65,6 +77,21 @@ public class ReferralServiceImpl implements ReferralService {
             defaults.setId(1);
             return defaults;
         });
+    }
+
+    /**
+     * Calculates the eligible reward amount for a qualifying order, enforcing the
+     * business rule ceiling of up to ₹100.
+     */
+    @Override
+    public BigDecimal calculateEligibleReward(Order order, ReferralSettings settings) {
+        ReferralSettings effectiveSettings = settings != null ? settings : getCurrentSettings();
+        BigDecimal configuredAmount = effectiveSettings.getReferrerRewardAmount();
+        if (configuredAmount == null || configuredAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        // Enforce the strict ₹100 maximum eligible reward rule
+        return configuredAmount.min(MAX_REFERRAL_REWARD_CAP);
     }
 
     // ── Customer-facing ───────────────────────────────────────────────
@@ -86,11 +113,17 @@ public class ReferralServiceImpl implements ReferralService {
         long totalCount = referralRepository.findByReferrerId(user.getId()).size();
         long qualifiedCount = referralRepository.countByReferrerIdAndStatus(user.getId(), ReferralStatus.QUALIFIED);
 
-        // Total rewards earned — from the immutable ledger (not recalculated from current settings)
+        // Total rewards earned — from the immutable ledger (historical lifetime sum)
         BigDecimal totalEarned = rewardRepository.sumIssuedRewardsByReferrerId(user.getId());
 
-        // Current reward amount — from admin-controlled settings
+        // Available spendable store credit — from the store credit subsystem
+        BigDecimal availableCredit = storeCreditService != null
+            ? storeCreditService.getAvailableBalance(user)
+            : BigDecimal.ZERO;
+
+        // Current reward amount — from admin-controlled settings (capped at ₹100)
         ReferralSettings settings = getCurrentSettings();
+        BigDecimal eligibleReward = calculateEligibleReward(null, settings);
 
         String shareUrl = "/register?ref=" + refCode.getCode();
 
@@ -100,8 +133,9 @@ public class ReferralServiceImpl implements ReferralService {
             totalCount,
             qualifiedCount,
             totalEarned,
-            settings.getReferrerRewardAmount(),   // dynamic — from DB
-            settings.getRefereeRewardAmount(),     // always 0
+            availableCredit,
+            eligibleReward,
+            settings.getRefereeRewardAmount(), // always 0
             settings.isEnabled(),
             refCode.getCreatedAt()
         );
@@ -175,24 +209,29 @@ public class ReferralServiceImpl implements ReferralService {
             }
         }
 
-        Optional<Referral> refOpt = referralRepository.findByRefereeId(referee.getId());
+        // Fetch referral with pessimistic lock when available to avoid concurrent race conditions
+        Optional<Referral> refOpt = referralRepository.findByRefereeIdWithLock(referee.getId());
+        if (refOpt.isEmpty()) {
+            refOpt = referralRepository.findByRefereeId(referee.getId());
+        }
         if (refOpt.isEmpty()) return;
 
         Referral referral = refOpt.get();
 
-        // IDEMPOTENCY: Already qualified — do not double-reward
-        if (referral.getStatus() == ReferralStatus.QUALIFIED) {
-            log.debug("Referral {} already QUALIFIED — skipping duplicate reward", referral.getId());
+        // IDEMPOTENCY: Only PENDING referrals can be qualified
+        if (referral.getStatus() != ReferralStatus.PENDING) {
+            log.debug("Referral {} status is {} (not PENDING) — skipping duplicate reward",
+                referral.getId(), referral.getStatus());
             return;
         }
 
-        // Snapshot the CURRENT reward amount from settings
-        // This value is stored immutably in the reward ledger
-        BigDecimal rewardAmount = settings.getReferrerRewardAmount();
+        // Calculate eligible reward with strict ceiling at ₹100
+        BigDecimal rewardAmount = calculateEligibleReward(order, settings);
 
-        // Update referral status
+        // Update referral status atomically
         referral.setStatus(ReferralStatus.QUALIFIED);
         referral.setQualifyingOrder(order);
+        referral.setRewardAmount(rewardAmount);
         referralRepository.save(referral);
 
         // IDEMPOTENCY guard on reward ledger
@@ -202,7 +241,6 @@ public class ReferralServiceImpl implements ReferralService {
         }
 
         // Create immutable reward ledger entry
-        // The rewardAmount is NEVER recalculated — it is locked at this value forever
         ReferralReward reward = new ReferralReward(
             referral,
             referral.getReferrer(),
@@ -213,7 +251,22 @@ public class ReferralServiceImpl implements ReferralService {
         );
         rewardRepository.save(reward);
 
-        log.info("Referral reward ISSUED: referral={}, referrer={}, amount={}",
+        // Credit the referrer's store credit account in the ledger
+        if (storeCreditService != null) {
+            String idempotencyKey = "REF_REWARD_" + referral.getId();
+            String description = "Referral reward for referee " + referee.getEmail() + " (Order " + order.getOrderNumber() + ")";
+            storeCreditService.credit(
+                referral.getReferrer(),
+                rewardAmount,
+                StoreCreditTransactionType.REFERRAL_REWARD,
+                StoreCreditReferenceType.REFERRAL,
+                referral.getId(),
+                idempotencyKey,
+                description
+            );
+        }
+
+        log.info("Referral reward ISSUED & STORE CREDIT CREDITED: referral={}, referrer={}, amount={}",
             referral.getId(), referral.getReferrer().getId(), rewardAmount);
     }
 
@@ -236,9 +289,16 @@ public class ReferralServiceImpl implements ReferralService {
     public ReferralSettingsResponse updateSettings(ReferralSettingsUpdateRequest request, String adminEmail) {
         ReferralSettings settings = getCurrentSettings();
 
-        // SECURITY: referee reward always stays at 0 — never updated from any request
         settings.setEnabled(request.getEnabled());
-        settings.setReferrerRewardAmount(request.getReferrerRewardAmount());
+
+        // Enforce hard ceiling of ₹100 maximum eligible reward
+        BigDecimal requestedReward = request.getReferrerRewardAmount();
+        if (requestedReward != null && requestedReward.compareTo(MAX_REFERRAL_REWARD_CAP) > 0) {
+            log.warn("Admin attempted to set referral reward to {} which exceeds max cap {}. Capping at {}",
+                requestedReward, MAX_REFERRAL_REWARD_CAP, MAX_REFERRAL_REWARD_CAP);
+            requestedReward = MAX_REFERRAL_REWARD_CAP;
+        }
+        settings.setReferrerRewardAmount(requestedReward != null ? requestedReward : MAX_REFERRAL_REWARD_CAP);
         settings.setRefereeRewardAmount(BigDecimal.ZERO);
         settings.setMinimumOrderValue(request.getMinimumOrderValue());
         settings.setRewardTrigger(request.getRewardTrigger());
