@@ -126,14 +126,13 @@ export default function Navbar() {
             className="flex-shrink-0 lg:mr-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm flex items-center"
           >
             <Image
-              src="/logo-wordmark.svg"
+              src="/logo-light.png"
               alt="Odessi.tfi — WEAR YOUR STORY"
-              width={320}
-              height={60}
+              width={702}
+              height={718}
               priority
               unoptimized
-              className="h-8 sm:h-9 w-auto object-contain brightness-0 invert-[0.95] transition-opacity duration-300"
-              style={{ filter: "brightness(0) invert(0.95)" }}
+              className="h-10 sm:h-11 w-auto object-contain transition-opacity duration-300"
             />
           </Link>
 
@@ -568,12 +567,12 @@ export default function Navbar() {
           <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--color-odessi-smoke)]">
             <Link href="/" onClick={() => setMobileOpen(false)}>
               <Image
-                src="/logo-wordmark.svg"
+                src="/logo-dark.png"
                 alt="Odessi.tfi — WEAR YOUR STORY"
-                width={320}
-                height={60}
+                width={702}
+                height={718}
                 unoptimized
-                className="h-8 w-auto object-contain"
+                className="h-9.5 w-auto object-contain"
               />
             </Link>
             <button
