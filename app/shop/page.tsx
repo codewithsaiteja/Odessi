@@ -222,10 +222,10 @@ function ShopContent() {
           {/* ── Editorial Header ── */}
           <header className="py-8 border-b border-[#EAE7DF]">
             <div className="max-w-2xl">
-              <span className="text-xs font-mono tracking-[0.2em] text-[#D4AF37] uppercase font-semibold block mb-2">
+              <span className="text-xs font-mono tracking-[0.2em] text-[#b89a5a] uppercase font-semibold block mb-2">
                 COLLECTION CATALOG
               </span>
-              <h1 className="type-h1 text-[#080808] mb-3 uppercase font-serif tracking-tight">
+              <h1 className="type-h1 text-[#080808] mb-3 uppercase font-serif tracking-tight font-normal">
                 SHOP
               </h1>
               <p className="type-body text-[#525252] leading-relaxed text-sm md:text-base">

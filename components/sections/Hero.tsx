@@ -11,6 +11,8 @@ import ShinyText from "@/components/react-bits/text/ShinyText";
 import Noise from "@/components/react-bits/backgrounds/Noise";
 import { getMediaUrl } from "@/lib/product-utils";
 
+import HeroEmblem3D from "@/components/home/HeroEmblem3D";
+
 export default function Hero() {
   const { hero: defaultHero } = siteConfig;
   const [heroData, setHeroData] = useState<HomepageSection | null>(null);
@@ -98,7 +100,7 @@ export default function Hero() {
           className="absolute inset-0 z-1"
           style={{
             background:
-              "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 35%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.08) 100%)",
+              "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,0.2) 65%, rgba(0,0,0,0.1) 100%)",
           }}
         />
         {/* Left vignette for text legibility */}
@@ -107,60 +109,68 @@ export default function Hero() {
           className="absolute inset-0 z-1 hidden md:block"
           style={{
             background:
-              "linear-gradient(to right, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.25) 50%, transparent 100%)",
+              "linear-gradient(to right, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.3) 55%, transparent 100%)",
           }}
         />
         {/* Subtle cinematic film grain */}
         <Noise patternAlpha={4} className="z-2" />
       </div>
 
-      {/* ── Content Grid: Editorial Luxury Layout ── */}
+      {/* ── Content Grid: Editorial Luxury Layout with 3D Brand Emblem ── */}
       <div className="relative z-10 container-odessi h-full flex flex-col justify-end pb-16 md:pb-20 lg:pb-24 min-h-[calc(100svh-var(--announcement-height)-var(--navbar-height))]">
-        <div className="max-w-2xl flex flex-col justify-end">
-          {/* Eyebrow */}
-          <div className="mb-5">
-            <ShinyText
-              text={eyebrow}
-              color="#A6A097"
-              shineColor="#FAF9F6"
-              speed={3}
-              className="type-caption text-[var(--color-odessi-silver)]"
-            />
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end w-full">
+          {/* Left: Headline & CTAs */}
+          <div className="lg:col-span-8 max-w-2xl flex flex-col justify-end">
+            {/* Eyebrow */}
+            <div className="mb-5">
+              <ShinyText
+                text={eyebrow}
+                color="#A6A097"
+                shineColor="#FAF9F6"
+                speed={3}
+                className="type-caption text-[var(--color-odessi-silver)]"
+              />
+            </div>
 
-          {/* Headline */}
-          <h1 className="mb-6" aria-label={headline.replace("\n", " ")}>
-            {headlineLines.map((line, i) => (
-              <span key={i} className="block overflow-hidden">
-                <BlurText
-                  text={line}
-                  delay={80}
-                  animateBy="words"
-                  className="type-display text-white block"
-                />
-              </span>
-            ))}
-          </h1>
+            {/* Headline */}
+            <h1 className="mb-6" aria-label={headline.replace("\n", " ")}>
+              {headlineLines.map((line, i) => (
+                <span key={i} className="block overflow-hidden">
+                  <BlurText
+                    text={line}
+                    delay={80}
+                    animateBy="words"
+                    className="type-display text-white block"
+                  />
+                </span>
+              ))}
+            </h1>
 
-          {/* Sub-headline */}
-          <div className="mb-10 max-w-lg">
-            {subLines.map((line, i) => (
-              <p key={i} className="type-body text-[var(--color-odessi-silver)]">
-                {line}
-              </p>
-            ))}
-          </div>
+            {/* Sub-headline */}
+            <div className="mb-10 max-w-lg">
+              {subLines.map((line, i) => (
+                <p key={i} className="type-body text-[var(--color-odessi-silver)]">
+                  {line}
+                </p>
+              ))}
+            </div>
 
-          {/* CTAs */}
-          <div className="flex flex-wrap gap-4">
-            <Link href={primaryCtaUrl} className="btn-primary">
-              {primaryCtaLabel}
-            </Link>
-            {secondaryCtaLabel && secondaryCtaUrl && (
-              <Link href={secondaryCtaUrl} className="btn-secondary">
-                {secondaryCtaLabel}
+            {/* CTAs */}
+            <div className="flex flex-wrap gap-4">
+              <Link href={primaryCtaUrl} className="btn-primary">
+                {primaryCtaLabel}
               </Link>
-            )}
+              {secondaryCtaLabel && secondaryCtaUrl && (
+                <Link href={secondaryCtaUrl} className="btn-secondary">
+                  {secondaryCtaLabel}
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Floating 3D Brand Emblem in space (desktop) */}
+          <div className="hidden lg:flex lg:col-span-4 items-center justify-end pb-8 pr-4">
+            <HeroEmblem3D />
           </div>
         </div>
       </div>
@@ -170,16 +180,15 @@ export default function Hero() {
         ref={scrollRef}
         onClick={scrollToContent}
         aria-label="Scroll to content"
-        className="absolute bottom-7 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 group"
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1.5 group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a]"
       >
-        <span className="type-caption text-[var(--color-odessi-silver)] group-hover:text-white transition-colors">
+        <span className="type-caption text-[#9c978e] group-hover:text-[#f3f0e8] transition-colors duration-200">
           Scroll
         </span>
         <ArrowDown
-          size={16}
+          size={14}
           strokeWidth={1.5}
-          className="text-[var(--color-odessi-silver)] group-hover:text-white transition-colors animate-bounce"
-          style={{ animationDuration: "2s" }}
+          className="text-[#9c978e] group-hover:text-[#f3f0e8] group-hover:translate-y-1 transition-all duration-300"
         />
       </button>
 

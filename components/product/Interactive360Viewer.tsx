@@ -127,7 +127,7 @@ export function Interactive360Viewer({
 
     let currentVel = velocityRef.current;
     let accumulatedDelta = 0;
-    const friction = 0.92;
+    const friction = 0.94;
 
     const step = () => {
       currentVel *= friction;
@@ -261,15 +261,21 @@ export function Interactive360Viewer({
         draggable={false}
       />
 
+      {/* Studio Lighting Vignette Overlay */}
+      <div 
+        className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,_transparent_45%,_rgba(8,8,8,0.55)_100%)] z-[1]" 
+        aria-hidden="true"
+      />
+
       {/* Top Header Glass Badge */}
       <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none z-10">
         <div className="flex items-center gap-2">
-          <span className="px-3 py-1 bg-black/75 backdrop-blur-md border border-white/15 text-white text-[11px] font-semibold tracking-wider uppercase rounded-full flex items-center gap-1.5 shadow-lg">
-            <Layers size={13} className="text-[#B89A5A]" />
-            <span>360° WORN FIT</span>
+          <span className="px-3 py-1 bg-[#080808]/85 backdrop-blur-md border border-white/15 text-[#f3f0e8] text-[10px] font-mono tracking-widest uppercase flex items-center gap-1.5 shadow-lg">
+            <Layers size={12} className="text-[#b89a5a]" />
+            <span>360° FIT STUDIO</span>
           </span>
           {prefersReducedMotion && (
-            <span className="px-2.5 py-1 bg-neutral-900/80 backdrop-blur-md border border-white/10 text-neutral-300 text-[10px] font-medium rounded-full">
+            <span className="px-2 py-1 bg-[#171717]/90 backdrop-blur-md border border-white/10 text-[#9c978e] text-[9px] font-mono uppercase tracking-wider">
               REDUCED MOTION
             </span>
           )}
@@ -277,11 +283,11 @@ export function Interactive360Viewer({
 
         <div className="flex items-center gap-2">
           {!isFullyLoaded && (
-            <span className="px-2.5 py-1 bg-black/75 backdrop-blur-md border border-white/15 text-amber-300 text-[10px] font-mono rounded-full">
+            <span className="px-2.5 py-1 bg-[#080808]/85 backdrop-blur-md border border-white/15 text-[#b89a5a] text-[9px] font-mono">
               PRELOADING {loadPercentage}%
             </span>
           )}
-          <span className="px-3 py-1 bg-black/75 backdrop-blur-md border border-white/15 text-white text-[11px] font-mono font-medium rounded-full shadow-lg">
+          <span className="px-2.5 py-1 bg-[#080808]/85 backdrop-blur-md border border-white/15 text-[#f3f0e8] text-[10px] font-mono font-medium shadow-lg">
             {String(currentFrame + 1).padStart(2, "0")} / {String(totalFrames).padStart(2, "0")}
           </span>
         </div>
@@ -291,18 +297,18 @@ export function Interactive360Viewer({
       {!isFullyLoaded && (
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-black/50 z-20">
           <div
-            className="h-full bg-[#B89A5A] transition-all duration-300"
+            className="h-full bg-[#b89a5a] transition-all duration-300"
             style={{ width: `${loadPercentage}%` }}
           />
         </div>
       )}
 
       {/* Bottom Luxury Floating Control Pill */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 bg-black/85 backdrop-blur-md border border-white/20 rounded-full text-white z-10 shadow-2xl pointer-events-auto">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1 bg-[#080808]/90 backdrop-blur-md border border-white/15 rounded-full text-white z-10 shadow-2xl pointer-events-auto">
         {/* Rotation Hint */}
-        <div className="px-3 py-1 text-[11px] text-neutral-300 font-medium flex items-center gap-1.5 border-r border-white/15 hidden sm:flex">
-          <RotateCw size={13} className="text-[#B89A5A]" />
-          <span className="tracking-wider uppercase text-[10px]">DRAG TO ROTATE</span>
+        <div className="px-3 py-1 text-[9px] font-mono tracking-[0.2em] text-[#9c978e] flex items-center gap-1.5 border-r border-white/15 hidden sm:flex">
+          <RotateCw size={11} className="text-[#b89a5a]" />
+          <span>DRAG TO ROTATE</span>
         </div>
 
         {/* Auto Spin Toggle (hidden if reduced motion preferred) */}
@@ -313,15 +319,15 @@ export function Interactive360Viewer({
               e.stopPropagation();
               setIsPlaying(!isPlaying);
             }}
-            className={`p-2 rounded-full transition-all ${
+            className={`p-2 rounded-full transition-all duration-200 ${
               isPlaying
-                ? "bg-[#B89A5A] text-black font-semibold shadow-md"
-                : "hover:bg-white/15 text-white"
+                ? "bg-[#b89a5a] text-[#080808] font-semibold shadow-md"
+                : "hover:bg-white/10 text-[#f3f0e8]"
             }`}
             title={isPlaying ? "Pause Spin (Space)" : "Auto Spin (Space)"}
             aria-label={isPlaying ? "Pause automatic 360 spin" : "Start automatic 360 spin"}
           >
-            {isPlaying ? <Pause size={15} /> : <Play size={15} />}
+            {isPlaying ? <Pause size={14} /> : <Play size={14} />}
           </button>
         )}
 
@@ -334,11 +340,11 @@ export function Interactive360Viewer({
             setCurrentFrame(0);
             setIsPlaying(false);
           }}
-          className="p-2 hover:bg-white/15 rounded-full text-white transition-colors"
+          className="p-2 hover:bg-white/10 rounded-full text-[#f3f0e8] hover:text-white transition-colors"
           title="Reset to Front Angle (Frame 01)"
           aria-label="Reset to front angle"
         >
-          <RefreshCw size={15} />
+          <RefreshCw size={14} />
         </button>
       </div>
     </div>

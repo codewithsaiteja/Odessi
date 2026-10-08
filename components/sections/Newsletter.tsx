@@ -104,7 +104,7 @@ export default function Newsletter() {
                     <p className="text-[10px] font-mono tracking-widest uppercase text-[var(--color-odessi-stone)]">
                       YOUR EXCLUSIVE VOUCHER
                     </p>
-                    <p className="font-mono text-base font-bold text-amber-400 tracking-wider">
+                    <p className="font-mono text-base font-bold text-[#b89a5a] tracking-wider">
                       {response.couponCode}
                     </p>
                   </div>

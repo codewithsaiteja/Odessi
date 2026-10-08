@@ -8,7 +8,7 @@ import { siteConfig } from "@/config/site";
 import { useCart } from "@/lib/cart-context";
 import { useWishlist } from "@/lib/wishlist-context";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import CartDrawer from "@/components/cart/CartDrawer";
 import SearchOverlay from "@/components/shop/SearchOverlay";
 
@@ -20,6 +20,9 @@ export default function Navbar() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [activeMegaMenu, setActiveMegaMenu] = useState<"shop" | "collections" | null>(null);
   const megaMenuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pathname = usePathname();
+  const isHome = pathname === "/";
+  const isSolid = !isHome || scrolled;
 
   const handleNavMouseEnter = (label: string) => {
     if (megaMenuTimeoutRef.current) clearTimeout(megaMenuTimeoutRef.current);
@@ -91,10 +94,10 @@ export default function Navbar() {
         role="banner"
         className={`
           fixed top-[var(--announcement-height)] left-0 right-0 z-40
-          transition-all duration-400 ease-out
-          ${scrolled
-            ? "bg-[var(--color-odessi-warmwhite)]/97 backdrop-blur-sm border-b border-[var(--color-odessi-smoke)]"
-            : "bg-transparent"
+          transition-all duration-300 ease-out
+          ${isSolid
+            ? "bg-[#080808]/95 backdrop-blur-md border-b border-white/[0.08]"
+            : "bg-transparent border-b border-transparent"
           }
         `}
         style={{ height: "var(--navbar-height)" }}
@@ -103,7 +106,7 @@ export default function Navbar() {
 
           {/* ── Mobile: Hamburger ── */}
           <button
-            className="lg:hidden p-2 -ml-2 focus-visible:outline-2 focus-visible:outline-offset-2 rounded-sm"
+            className="lg:hidden p-2 -ml-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
             onClick={() => setMobileOpen(true)}
             aria-label="Open navigation menu"
             aria-expanded={mobileOpen}
@@ -112,7 +115,7 @@ export default function Navbar() {
             <Menu
               size={22}
               strokeWidth={1.5}
-              className={scrolled ? "text-[var(--color-odessi-black)]" : "text-white"}
+              className="text-[#f3f0e8] hover:text-white transition-colors"
             />
           </button>
 
@@ -120,15 +123,15 @@ export default function Navbar() {
           <Link
             href="/"
             aria-label="Odessi.tfi — Home"
-            className="flex-shrink-0 lg:mr-auto focus-visible:outline-2 focus-visible:outline-offset-4 rounded-sm flex items-center"
+            className="flex-shrink-0 lg:mr-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm flex items-center"
           >
             <Image
-              src={scrolled ? "/logo-dark.png" : "/logo-light.png"}
+              src="/logo-light.png"
               alt="Odessi.tfi — WEAR YOUR STORY"
               width={220}
               height={40}
               priority
-              className="h-10 sm:h-11 w-auto object-contain transition-opacity duration-300"
+              className="h-9 sm:h-10 w-auto object-contain transition-opacity duration-300"
             />
           </Link>
 
@@ -148,11 +151,8 @@ export default function Navbar() {
                   onMouseEnter={() => (isMegaTarget ? handleNavMouseEnter(link.label) : setActiveMegaMenu(null))}
                   className={`
                     type-nav link-underline transition-all duration-200 py-2 relative
-                    ${scrolled
-                      ? "text-[var(--color-odessi-black)] hover:opacity-60"
-                      : "text-white hover:opacity-70"
-                    }
-                    ${activeMegaMenu === lower ? "opacity-100 font-bold text-[#D4AF37]" : ""}
+                    text-[#d4d0c7] hover:text-[#f3f0e8]
+                    ${activeMegaMenu === lower ? "opacity-100 font-semibold text-[#b89a5a]" : ""}
                   `}
                 >
                   {link.label}
@@ -167,9 +167,7 @@ export default function Navbar() {
             <button
               onClick={() => setSearchOpen(true)}
               aria-label="Search"
-              className={`p-2 transition-opacity hover:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 rounded-sm ${
-                scrolled ? "text-[var(--color-odessi-black)]" : "text-white"
-              }`}
+              className="p-2 transition-all duration-200 text-[#d4d0c7] hover:text-white hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
             >
               <Search size={19} strokeWidth={1.5} />
             </button>
@@ -182,33 +180,25 @@ export default function Navbar() {
                     onClick={() => setAccountMenuOpen(!accountMenuOpen)}
                     aria-label="Account menu"
                     aria-expanded={accountMenuOpen}
-                    className={`p-2 transition-opacity hover:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 rounded-sm flex items-center gap-1 ${
-                      scrolled ? "text-[var(--color-odessi-black)]" : "text-white"
-                    }`}
+                    className="p-2 transition-all duration-200 text-[#d4d0c7] hover:text-white hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm flex items-center gap-1"
                   >
                     <User size={19} strokeWidth={1.5} />
                     {user.role === "ADMIN" && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Admin user" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#b89a5a]" title="Admin user" />
                     )}
                   </button>
 
                   {/* Editorial Account Dropdown */}
                   {accountMenuOpen && (
                     <div
-                      className={`
-                        absolute right-0 mt-2 w-52 py-2 rounded-sm shadow-xl border z-50
-                        ${scrolled
-                          ? "bg-[var(--color-odessi-warmwhite)] border-[var(--color-odessi-smoke)] text-[var(--color-odessi-black)]"
-                          : "bg-[#111111]/95 backdrop-blur-md border-white/10 text-white"
-                        }
-                      `}
+                      className="absolute right-0 mt-2 w-52 py-2 rounded-sm shadow-2xl border z-50 bg-[#0d0d0d]/98 backdrop-blur-md border-white/10 text-white"
                     >
                       {/* User Summary Header */}
                       <div className="px-4 py-2 border-b border-stone-500/20">
-                        <p className="text-[10px] uppercase tracking-widest text-[var(--color-odessi-stone)] font-medium">
+                        <p className="text-[10px] uppercase tracking-widest text-[#9c978e] font-medium">
                           Signed in as
                         </p>
-                        <p className="text-xs font-semibold truncate mt-0.5">
+                        <p className="text-xs font-semibold truncate mt-0.5 text-[#f3f0e8]">
                           {user.firstName ? `${user.firstName} ${user.lastName || ""}` : user.email}
                         </p>
                       </div>
@@ -274,9 +264,7 @@ export default function Navbar() {
                 <Link
                   href="/login"
                   aria-label="Account Login"
-                  className={`p-2 transition-opacity hover:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 rounded-sm ${
-                    scrolled ? "text-[var(--color-odessi-black)]" : "text-white"
-                  }`}
+                  className="p-2 transition-all duration-200 text-[#d4d0c7] hover:text-[#f3f0e8] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
                 >
                   <User size={19} strokeWidth={1.5} />
                 </Link>
@@ -287,15 +275,13 @@ export default function Navbar() {
             <Link
               href="/wishlist"
               aria-label={`Wishlist${wishlistCount > 0 ? `, ${wishlistCount} items` : ""}`}
-              className={`p-2 relative transition-opacity hover:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 rounded-sm ${
-                scrolled ? "text-[var(--color-odessi-black)]" : "text-white"
-              }`}
+              className="p-2 relative transition-all duration-200 text-[#d4d0c7] hover:text-[#f3f0e8] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
             >
               <Heart size={19} strokeWidth={1.5} />
               {wishlistCount > 0 && (
                 <span
                   aria-hidden="true"
-                  className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[var(--color-odessi-black)] text-white text-[9px] font-semibold flex items-center justify-center leading-none"
+                  className="absolute top-1 right-1 min-w-[15px] h-[15px] px-1 rounded-full bg-[#b89a5a] text-[#080808] text-[9px] font-mono font-bold flex items-center justify-center leading-none"
                 >
                   {wishlistCount}
                 </span>
@@ -312,15 +298,13 @@ export default function Navbar() {
                 }
               }}
               aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ""}`}
-              className={`relative p-2 transition-opacity hover:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 rounded-sm ${
-                scrolled ? "text-[var(--color-odessi-black)]" : "text-white"
-              }`}
+              className="relative p-2 transition-all duration-200 text-[#d4d0c7] hover:text-[#f3f0e8] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
             >
               <ShoppingBag size={19} strokeWidth={1.5} />
               {!authLoading && user && cartCount > 0 && (
                 <span
                   aria-hidden="true"
-                  className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[var(--color-odessi-black)] text-white text-[9px] font-semibold flex items-center justify-center leading-none"
+                  className="absolute top-1 right-1 min-w-[15px] h-[15px] px-1 rounded-full bg-[#b89a5a] text-[#080808] text-[9px] font-mono font-bold flex items-center justify-center leading-none"
                 >
                   {cartCount}
                 </span>
@@ -336,13 +320,7 @@ export default function Navbar() {
               if (megaMenuTimeoutRef.current) clearTimeout(megaMenuTimeoutRef.current);
             }}
             onMouseLeave={handleNavMouseLeave}
-            className={`
-              hidden lg:block absolute top-full left-0 right-0 border-b shadow-2xl py-8 px-12 animate-in fade-in slide-in-from-top-2 duration-200
-              ${scrolled
-                ? "bg-[var(--color-odessi-warmwhite)]/98 border-[var(--color-odessi-smoke)] text-[var(--color-odessi-black)]"
-                : "bg-[#0A0A0A]/98 backdrop-blur-md border-neutral-800 text-white"
-              }
-            `}
+            className="hidden lg:block absolute top-full left-0 right-0 border-b border-white/10 shadow-2xl py-8 px-12 animate-in fade-in slide-in-from-top-2 duration-200 bg-[#0A0A0A]/98 backdrop-blur-md text-[#f3f0e8]"
           >
             <div className="max-w-7xl mx-auto grid grid-cols-3 gap-12">
               {activeMegaMenu === "shop" ? (
@@ -424,24 +402,22 @@ export default function Navbar() {
                     </ul>
                   </div>
 
-                  <div className={`rounded-xl p-5 flex flex-col justify-between border ${
-                    scrolled ? "bg-white/80 border-neutral-200" : "bg-neutral-900/80 border-neutral-800"
-                  }`}>
+                  <div className="rounded-sm p-5 flex flex-col justify-between border bg-[#121212] border-white/10 hover:border-[#b89a5a]/40 transition-colors">
                     <div>
-                      <span className="text-[10px] font-mono tracking-widest text-[#D4AF37] uppercase font-bold block mb-1">
+                      <span className="text-[10px] font-mono tracking-widest text-[#b89a5a] uppercase font-bold block mb-1">
                         EDITORIAL SPOTLIGHT
                       </span>
-                      <h4 className="text-base font-serif font-bold uppercase tracking-tight mb-2">
+                      <h4 className="text-base font-serif font-bold uppercase tracking-tight mb-2 text-[#f3f0e8]">
                         THE DARK VERSE ATELIER
                       </h4>
-                      <p className="text-xs opacity-75 leading-relaxed mb-4">
+                      <p className="text-xs text-[#9c978e] leading-relaxed mb-4">
                         Cinematic silhouettes crafted with heavyweight textures and understated dark embroidery.
                       </p>
                     </div>
                     <Link
                       href="/shop?collection=dark-verse"
                       onClick={() => setActiveMegaMenu(null)}
-                      className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#D4AF37] hover:underline"
+                      className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#b89a5a] hover:text-[#d4af37] transition-colors"
                     >
                       EXPLORE COLLECTION →
                     </Link>
@@ -519,24 +495,22 @@ export default function Navbar() {
                     </ul>
                   </div>
 
-                  <div className={`rounded-xl p-5 flex flex-col justify-between border ${
-                    scrolled ? "bg-white/80 border-neutral-200" : "bg-neutral-900/80 border-neutral-800"
-                  }`}>
+                  <div className="rounded-sm p-5 flex flex-col justify-between border bg-[#121212] border-white/10 hover:border-[#b89a5a]/40 transition-colors">
                     <div>
-                      <span className="text-[10px] font-mono tracking-widest text-[#D4AF37] uppercase font-bold block mb-1">
+                      <span className="text-[10px] font-mono tracking-widest text-[#b89a5a] uppercase font-bold block mb-1">
                         BRAND PHILOSOPHY
                       </span>
-                      <h4 className="text-base font-serif font-bold uppercase tracking-tight mb-2">
+                      <h4 className="text-base font-serif font-bold uppercase tracking-tight mb-2 text-[#f3f0e8]">
                         WEAR YOUR STORY
                       </h4>
-                      <p className="text-xs opacity-75 leading-relaxed mb-4">
+                      <p className="text-xs text-[#9c978e] leading-relaxed mb-4">
                         Clothing inspired by the heroes of Indian cinema, engineered for those who carry their own legend.
                       </p>
                     </div>
                     <Link
                       href="/about"
                       onClick={() => setActiveMegaMenu(null)}
-                      className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#D4AF37] hover:underline"
+                      className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#b89a5a] hover:text-[#d4af37] transition-colors"
                     >
                       READ OUR STORY →
                     </Link>

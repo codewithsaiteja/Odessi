@@ -417,6 +417,29 @@ body {
   animation: trailFade 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes emblemFloat {
+  0% {
+    transform: translateY(0px) rotateY(0deg) rotateX(2deg);
+  }
+  25% {
+    transform: translateY(-8px) rotateY(4deg) rotateX(-2deg);
+  }
+  50% {
+    transform: translateY(0px) rotateY(0deg) rotateX(1deg);
+  }
+  75% {
+    transform: translateY(6px) rotateY(-4deg) rotateX(3deg);
+  }
+  100% {
+    transform: translateY(0px) rotateY(0deg) rotateX(2deg);
+  }
+}
+
+.animate-emblem-float {
+  animation: emblemFloat 16s ease-in-out infinite;
+  transform-style: preserve-3d;
+}
+
 /* Animation delays */
 .delay-100  { animation-delay: 0.1s; }
 .delay-200  { animation-delay: 0.2s; }

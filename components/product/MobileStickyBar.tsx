@@ -47,11 +47,11 @@ export function MobileStickyBar({
   const imageSrc = getMediaUrl(rawImage);
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[var(--color-odessi-smoke)] px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] animate-in slide-in-from-bottom duration-300">
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#080808]/95 backdrop-blur-md border-t border-white/10 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.5)] pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] animate-in slide-in-from-bottom duration-300">
       <div className="flex items-center justify-between gap-3">
         {/* Product thumb & name */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="relative w-11 h-11 shrink-0 bg-[#F3F0E8] rounded-sm overflow-hidden border border-neutral-200">
+          <div className="relative w-11 h-11 shrink-0 bg-[#121212] rounded-none overflow-hidden border border-white/10">
             <Image
               src={imageSrc}
               alt={product.name}
@@ -61,15 +61,15 @@ export function MobileStickyBar({
             />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-[var(--color-odessi-black)] truncate">
+            <p className="text-xs font-medium text-[#f3f0e8] truncate">
               {product.name}
             </p>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-[var(--color-odessi-black)]">
+              <span className="text-xs font-mono font-semibold text-[#b89a5a]">
                 {formatPrice(product.price)}
               </span>
               {selectedSize && (
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 bg-neutral-100 rounded text-neutral-600">
+                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 bg-[#171717] border border-white/10 rounded-none text-[#f3f0e8]">
                   {selectedSize}
                 </span>
               )}
@@ -83,18 +83,18 @@ export function MobileStickyBar({
             <button
               type="button"
               onClick={onOpenTryOn}
-              className="p-2.5 bg-neutral-900 border border-[#D4AF37]/60 text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black rounded-sm transition-colors flex items-center justify-center shadow-sm"
+              className="p-2.5 bg-[#171717] border border-[#b89a5a]/40 text-[#b89a5a] hover:bg-[#b89a5a] hover:text-[#080808] rounded-none transition-colors flex items-center justify-center shadow-sm"
               title="Virtual Try-On with Camera"
               aria-label="Virtual Try-On with Camera"
             >
-              <Camera size={16} />
+              <Camera size={15} />
             </button>
           )}
 
           {isOutOfStock ? (
             <button
               onClick={onNotifyMe}
-              className="px-4 py-2.5 bg-[#0A0A0A] hover:bg-[#1A1A1A] text-white text-xs font-semibold uppercase tracking-wider rounded-sm shadow-sm"
+              className="px-4 py-2.5 bg-[#171717] hover:bg-[#222222] text-[#f3f0e8] text-[10px] font-mono uppercase tracking-[0.15em] border border-white/10 rounded-none shadow-sm"
             >
               NOTIFY ME
             </button>
@@ -102,10 +102,10 @@ export function MobileStickyBar({
             <button
               onClick={onAddToCart}
               className={`
-                px-5 py-2.5 text-xs font-semibold uppercase tracking-wider rounded-sm transition-all shadow-sm
+                px-5 py-2.5 text-[11px] font-mono font-semibold uppercase tracking-[0.15em] rounded-none transition-all duration-300 shadow-sm
                 ${addedToCart
-                  ? "bg-green-600 text-white"
-                  : "bg-[var(--color-odessi-black)] text-white hover:bg-[var(--color-odessi-stone)]"
+                  ? "bg-[#171717] text-[#b89a5a] border border-[#b89a5a]/50"
+                  : "bg-[#f3f0e8] text-[#080808] hover:bg-[#b89a5a] hover:text-[#080808]"
                 }
               `}
             >

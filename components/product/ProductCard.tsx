@@ -97,19 +97,19 @@ export default function ProductCard({
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300" />
 
           {/* Badges */}
-          <div className="absolute top-3 left-3 flex flex-col gap-1">
+          <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
             {product.newDrop && (
-              <span className="px-2 py-1 text-[10px] font-semibold tracking-wide bg-[var(--color-odessi-black)] text-white rounded-full">
-                NEW
+              <span className="px-2 py-0.5 text-[9px] font-mono tracking-widest uppercase bg-[#080808]/90 text-[#f3f0e8] border border-white/10 backdrop-blur-sm rounded-none">
+                NEW DROP
               </span>
             )}
             {product.bestseller && !product.newDrop && (
-              <span className="px-2 py-1 text-[10px] font-semibold tracking-wide bg-[var(--color-odessi-stone)] text-white rounded-full">
+              <span className="px-2 py-0.5 text-[9px] font-mono tracking-widest uppercase bg-[#171717]/90 text-[#f3f0e8] border border-[#b89a5a]/30 backdrop-blur-sm rounded-none">
                 BESTSELLER
               </span>
             )}
             {discount > 0 && (
-              <span className="px-2 py-1 text-[10px] font-semibold tracking-wide bg-red-600 text-white rounded-full">
+              <span className="px-2 py-0.5 text-[9px] font-mono tracking-widest uppercase bg-[#080808]/90 text-[#b89a5a] border border-[#b89a5a]/40 backdrop-blur-sm rounded-none">
                 -{discount}%
               </span>
             )}
@@ -117,15 +117,15 @@ export default function ProductCard({
 
           {/* Stock Status */}
           {isOutOfStock && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-              <span className="px-3 py-1 text-xs font-semibold tracking-wide bg-white text-[var(--color-odessi-black)] rounded-full">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center z-10">
+              <span className="px-3.5 py-1 text-[10px] font-mono tracking-widest uppercase bg-[#080808]/95 text-[#f3f0e8] border border-white/20">
                 OUT OF STOCK
               </span>
             </div>
           )}
           {isComingSoon && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-              <span className="px-3 py-1 text-xs font-semibold tracking-wide bg-white text-[var(--color-odessi-black)] rounded-full">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center z-10">
+              <span className="px-3.5 py-1 text-[10px] font-mono tracking-widest uppercase bg-[#080808]/95 text-[#b89a5a] border border-[#b89a5a]/40">
                 COMING SOON
               </span>
             </div>
@@ -133,8 +133,8 @@ export default function ProductCard({
 
           {/* Low Stock Warning */}
           {isLowStock && !isOutOfStock && (
-            <div className="absolute bottom-3 left-3">
-              <span className="px-2 py-1 text-[10px] font-semibold tracking-wide bg-orange-500 text-white rounded-full">
+            <div className="absolute bottom-3 left-3 z-10">
+              <span className="px-2 py-0.5 text-[9px] font-mono tracking-widest uppercase bg-[#171717]/90 text-[#b89a5a] border border-[#b89a5a]/40 backdrop-blur-sm">
                 LOW STOCK
               </span>
             </div>
@@ -144,10 +144,10 @@ export default function ProductCard({
           <button
             onClick={handleWishlistClick}
             className={`
-              absolute top-3 right-3 p-2 rounded-full transition-all duration-200
+              absolute top-3 right-3 p-2 rounded-full transition-all duration-300 backdrop-blur-md z-10
               ${isWishlisted 
-                ? "bg-[var(--color-odessi-black)] text-white" 
-                : "bg-white/90 text-[var(--color-odessi-black)] hover:bg-white"
+                ? "bg-[#080808] text-[#b89a5a] border border-[#b89a5a]/50" 
+                : "bg-[#080808]/60 text-[#f3f0e8] hover:bg-[#080808] border border-white/10 hover:border-white/30"
               }
               opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100
               transform translate-y-0 sm:translate-y-1 sm:group-hover:translate-y-0
@@ -155,7 +155,7 @@ export default function ProductCard({
             aria-label={`${isWishlisted ? "Remove from" : "Add to"} wishlist`}
           >
             <Heart
-              size={14}
+              size={13}
               strokeWidth={1.5}
               className={isWishlisted ? "fill-current" : ""}
             />
@@ -168,8 +168,9 @@ export default function ProductCard({
               onClick={handleQuickAdd}
               className="
                 absolute bottom-3 right-3 p-2 rounded-full 
-                bg-[var(--color-odessi-black)] text-white
-                hover:bg-[var(--color-odessi-stone)] transition-all duration-200
+                bg-[#080808]/75 text-[#f3f0e8] hover:bg-[#080808] hover:text-[#b89a5a]
+                border border-white/10 hover:border-[#b89a5a]/40 backdrop-blur-md
+                transition-all duration-300
                 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100
                 transform translate-y-0 sm:translate-y-1 sm:group-hover:translate-y-0 z-10
               "
@@ -186,10 +187,10 @@ export default function ProductCard({
                 e.preventDefault();
                 e.stopPropagation();
               }}
-              className="absolute inset-x-0 bottom-0 bg-[#0A0A0A]/95 backdrop-blur-sm p-3 border-t border-neutral-800 z-20 animate-in slide-in-from-bottom duration-200"
+              className="absolute inset-x-0 bottom-0 bg-[#080808]/95 backdrop-blur-md p-3.5 border-t border-white/10 z-20 animate-in slide-in-from-bottom duration-200"
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-300">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-[9px] font-mono uppercase tracking-[0.2em] text-[#9c978e]">
                   {justAdded ? "✓ Added to Bag" : "Select Size"}
                 </span>
                 <button
@@ -199,7 +200,7 @@ export default function ProductCard({
                     e.stopPropagation();
                     setQuickAddOpen(false);
                   }}
-                  className="text-neutral-400 hover:text-white p-0.5"
+                  className="text-[#9c978e] hover:text-[#f3f0e8] p-0.5 transition-colors"
                   aria-label="Close size selector"
                 >
                   <X size={12} />
@@ -207,8 +208,8 @@ export default function ProductCard({
               </div>
 
               {justAdded ? (
-                <div className="py-2 text-center text-xs font-semibold text-[#D4AF37] flex items-center justify-center gap-1.5">
-                  <Check size={14} />
+                <div className="py-2 text-center text-xs font-mono tracking-wider text-[#b89a5a] flex items-center justify-center gap-1.5">
+                  <Check size={13} />
                   <span>Added to your bag</span>
                 </div>
               ) : (
@@ -245,12 +246,12 @@ export default function ProductCard({
                         }
                       }}
                       className={`
-                        py-1.5 px-2 text-[11px] font-mono font-medium rounded-sm border transition-all text-center
+                        py-1.5 px-2 text-[11px] font-mono font-medium rounded-none border transition-all text-center
                         ${!s.available
                           ? "border-neutral-800 text-neutral-600 cursor-not-allowed line-through"
                           : addingSize === s.label
-                          ? "bg-[#D4AF37] text-black border-[#D4AF37]"
-                          : "border-neutral-700 bg-neutral-900 text-white hover:border-neutral-400"
+                          ? "bg-[#b89a5a] text-[#080808] border-[#b89a5a] font-bold"
+                          : "border-white/10 bg-[#121212] text-[#f3f0e8] hover:border-[#b89a5a]/60 hover:text-[#b89a5a]"
                         }
                       `}
                     >
@@ -264,27 +265,27 @@ export default function ProductCard({
         </SpotlightCard>
 
         {/* Product Info */}
-        <div className="pt-4 space-y-2">
+        <div className="pt-3.5 space-y-1.5">
           {/* Category */}
-          <p className="text-xs tracking-wide text-[var(--color-odessi-stone)] uppercase font-medium">
+          <p className="text-[10px] font-mono tracking-[0.2em] text-[#9c978e] uppercase font-medium">
             {categoryName}
           </p>
 
           {/* Product Name */}
-          <h3 className="type-body font-semibold text-[var(--color-odessi-black)] line-clamp-2 group-hover:text-[var(--color-odessi-stone)] transition-colors duration-200">
+          <h3 className="type-body font-medium text-[#080808] line-clamp-1 group-hover:text-[#9c978e] transition-colors duration-200">
             {product.name}
           </h3>
 
           {/* Authoritative Real Rating (Shown ONLY when approved reviews exist) */}
           {product.rating && product.rating > 0 && product.reviewCount && product.reviewCount > 0 ? (
             <div className="flex items-center gap-1.5 text-xs pt-0.5">
-              <div className="flex items-center text-[#D4AF37]">
-                <Star size={11} className="fill-[#D4AF37] text-[#D4AF37]" />
+              <div className="flex items-center text-[#b89a5a]">
+                <Star size={11} className="fill-[#b89a5a] text-[#b89a5a]" />
               </div>
               <span className="font-semibold text-neutral-800 text-[11px] font-mono">
                 {product.rating.toFixed(1)}
               </span>
-              <span className="text-neutral-400 text-[10px] font-mono">
+              <span className="text-[#9c978e] text-[10px] font-mono">
                 ({product.reviewCount})
               </span>
             </div>
@@ -292,19 +293,18 @@ export default function ProductCard({
 
           {/* Tagline */}
           {product.tagline && (
-            <p className="text-sm text-[var(--color-odessi-stone)] line-clamp-1">
+            <p className="text-xs text-[#9c978e] line-clamp-1">
               {product.tagline}
             </p>
           )}
 
-
           {/* Price */}
-          <div className="flex items-center gap-2">
-            <span className="type-body font-semibold text-[var(--color-odessi-black)]">
+          <div className="flex items-baseline gap-2 pt-0.5">
+            <span className="text-sm font-semibold tracking-tight text-[#080808] font-mono">
               {formatPrice(product.price)}
             </span>
             {product.compareAtPrice && product.compareAtPrice > product.price && (
-              <span className="text-sm text-[var(--color-odessi-stone)] line-through">
+              <span className="text-xs text-[#9c978e] line-through font-mono">
                 {formatPrice(product.compareAtPrice)}
               </span>
             )}

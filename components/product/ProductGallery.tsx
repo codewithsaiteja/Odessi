@@ -136,15 +136,15 @@ export default function ProductGallery({
                 <button
                   type="button"
                   onClick={() => setViewMode("2d")}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all ${
+                  className={`px-3.5 py-1 text-[10px] font-mono tracking-widest uppercase flex items-center gap-1.5 transition-all border ${
                     viewMode === "2d"
-                      ? "bg-[var(--color-odessi-black)] text-white shadow-sm"
-                      : "bg-white border border-[var(--color-odessi-smoke)] text-[var(--color-odessi-stone)] hover:text-black"
+                      ? "bg-[#080808] text-[#f3f0e8] border-[#080808] shadow-sm"
+                      : "bg-white border-[#EAE7DF] text-[#9c978e] hover:text-[#080808]"
                   }`}
                   aria-pressed={viewMode === "2d"}
                   aria-label="View 2D photos gallery"
                 >
-                  <ImageIcon size={13} />
+                  <ImageIcon size={12} />
                   PHOTOS (2D)
                 </button>
 
@@ -152,16 +152,16 @@ export default function ProductGallery({
                 <button
                   type="button"
                   onClick={() => setViewMode("360")}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all ${
+                  className={`px-3.5 py-1 text-[10px] font-mono tracking-widest uppercase flex items-center gap-1.5 transition-all border ${
                     viewMode === "360"
-                      ? "bg-[var(--color-odessi-black)] text-white shadow-sm"
-                      : "bg-white border border-[var(--color-odessi-smoke)] text-[var(--color-odessi-stone)] hover:text-black"
+                      ? "bg-[#080808] text-[#f3f0e8] border-[#080808] shadow-sm"
+                      : "bg-white border-[#EAE7DF] text-[#9c978e] hover:text-[#080808]"
                   }`}
                   aria-pressed={viewMode === "360"}
                   aria-label="View 360 degree worn product experience"
                 >
-                  <Layers size={13} className="text-[var(--color-odessi-gold)]" />
-                  360° WORN VIEW
+                  <Layers size={12} className="text-[#b89a5a]" />
+                  360° FIT STUDIO
                 </button>
               </>
             )}
@@ -173,12 +173,12 @@ export default function ProductGallery({
                   console.log("[TryOn] button clicked");
                   onOpenTryOn();
                 }}
-                className="px-3 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all bg-gradient-to-r from-amber-500/10 via-[#D4AF37]/20 to-amber-500/10 border border-[#D4AF37]/60 text-[#8C6D1F] hover:text-[#0A0A0A] hover:border-[#D4AF37] hover:bg-[#D4AF37]/30 shadow-sm ml-auto cursor-pointer"
+                className="px-3.5 py-1 text-[10px] font-mono tracking-widest uppercase flex items-center gap-1.5 transition-all bg-[#080808] border border-[#b89a5a]/40 text-[#b89a5a] hover:bg-[#111111] shadow-sm ml-auto cursor-pointer"
                 aria-label="Try this piece on with Decart Anywear"
               >
-                <Move size={12} className="text-[#B89A5A]" />
-                <span className="text-[11px] font-semibold tracking-wider uppercase">TRY WITH ANYWEAR</span>
-                <span className="text-[9px] px-1.5 py-0.5 bg-[#D4AF37] text-black font-extrabold rounded-xs uppercase tracking-wider">CHROME</span>
+                <Move size={12} className="text-[#b89a5a]" />
+                <span>TRY WITH ANYWEAR</span>
+                <span className="text-[8px] px-1 py-0.2 bg-[#b89a5a] text-[#080808] font-bold uppercase tracking-wider">CHROME</span>
               </button>
             )}
           </div>
@@ -281,8 +281,8 @@ export default function ProductGallery({
 
               {/* Image Counter */}
               {images.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/70 text-white text-xs rounded-full">
-                  {currentIndex + 1} / {images.length}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#080808]/85 text-[#f3f0e8] text-[10px] font-mono border border-white/10 tracking-widest">
+                  {String(currentIndex + 1).padStart(2, "0")} / {String(images.length).padStart(2, "0")}
                 </div>
               )}
             </div>

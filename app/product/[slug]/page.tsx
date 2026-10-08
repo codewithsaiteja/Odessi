@@ -408,15 +408,15 @@ export default function ProductPage() {
 
               {/* Price */}
               <div className="flex items-center gap-3 mb-6">
-                <span className="type-h2 text-[var(--color-odessi-black)]">
+                <span className="type-h2 font-serif text-[var(--color-odessi-black)] font-medium">
                   {formatPrice(product.price)}
                 </span>
                 {product.compareAtPrice && product.compareAtPrice > product.price && (
                   <>
-                    <span className="type-body text-[var(--color-odessi-stone)] line-through">
+                    <span className="type-body text-[var(--color-odessi-stone)] line-through font-mono">
                       {formatPrice(product.compareAtPrice)}
                     </span>
-                    <span className="px-2 py-1 text-xs font-semibold bg-red-600 text-white rounded-full">
+                    <span className="px-2 py-0.5 text-[10px] font-mono tracking-widest uppercase bg-[#080808] text-[#b89a5a] border border-[#b89a5a]/40">
                       SAVE {discount}%
                     </span>
                   </>
@@ -438,17 +438,17 @@ export default function ProductPage() {
               {/* Badges */}
               <div className="flex flex-wrap gap-2 mb-6">
                 {product.newDrop && (
-                  <span className="px-3 py-1 text-xs font-semibold tracking-wide bg-[var(--color-odessi-black)] text-white rounded-full">
+                  <span className="px-2.5 py-1 text-[10px] font-mono tracking-widest uppercase bg-[#080808] text-[#f3f0e8] border border-white/10">
                     NEW DROP
                   </span>
                 )}
                 {product.bestseller && (
-                  <span className="px-3 py-1 text-xs font-semibold tracking-wide bg-[var(--color-odessi-stone)] text-white rounded-full">
+                  <span className="px-2.5 py-1 text-[10px] font-mono tracking-widest uppercase bg-[#171717] text-[#f3f0e8] border border-[#b89a5a]/30">
                     BESTSELLER
                   </span>
                 )}
                 {isLowStock && (
-                  <span className="px-3 py-1 text-xs font-semibold tracking-wide bg-orange-500 text-white rounded-full">
+                  <span className="px-2.5 py-1 text-[10px] font-mono tracking-widest uppercase bg-[#171717] text-[#b89a5a] border border-[#b89a5a]/40">
                     LOW STOCK
                   </span>
                 )}
@@ -637,19 +637,19 @@ export default function ProductPage() {
                     <button
                       onClick={handleAddToCart}
                       className={`
-                        w-full py-4 px-6 text-center type-nav font-semibold rounded-sm transition-all
+                        w-full py-4 px-6 text-center text-xs font-mono font-semibold uppercase tracking-[0.2em] transition-all duration-300 rounded-none
                         ${addedToCart
-                          ? 'bg-green-600 text-white'
-                          : 'bg-[var(--color-odessi-black)] text-white hover:bg-[var(--color-odessi-stone)]'
+                          ? 'bg-[#171717] text-[#b89a5a] border border-[#b89a5a]/50'
+                          : 'bg-[#080808] text-[#f3f0e8] hover:bg-[#1a1a1a] border border-transparent'
                         }
                       `}
                     >
-                      {addedToCart ? "✓ ADDED TO CART" : "ADD TO CART"}
+                      {addedToCart ? "✓ ADDED TO BAG" : "ADD TO BAG"}
                     </button>
 
                     <button
                       onClick={handleBuyNow}
-                      className="w-full py-4 px-6 border-2 border-[var(--color-odessi-black)] text-[var(--color-odessi-black)] text-center type-nav font-semibold rounded-sm hover:bg-[var(--color-odessi-smoke)] transition-colors"
+                      className="w-full py-4 px-6 border border-[#080808] text-[#080808] text-center text-xs font-mono font-semibold uppercase tracking-[0.2em] hover:bg-[#080808] hover:text-[#f3f0e8] transition-all duration-300 rounded-none"
                     >
                       BUY NOW
                     </button>

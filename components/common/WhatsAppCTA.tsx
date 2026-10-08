@@ -21,10 +21,10 @@ export function WhatsAppCTA({ message = "Hello Odessi.tfi, I would like to inqui
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Join ODESSI.TFI WhatsApp Concierge (opens in new tab)"
-      className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 group"
+      className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-3.5 py-2.5 bg-[#080808]/90 hover:bg-[#111111] text-[#f3f0e8] border border-white/15 hover:border-[#b89a5a]/40 rounded-full shadow-2xl backdrop-blur-md transition-all duration-300 group"
     >
-      <MessageCircle className="w-5 h-5 fill-current" />
-      <span className="text-xs font-semibold uppercase tracking-wider hidden sm:inline-block max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-500">
+      <MessageCircle className="w-4 h-4 text-[#25D366]" />
+      <span className="text-[10px] font-mono font-medium uppercase tracking-[0.18em] hidden sm:inline-block max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-500">
         WhatsApp Concierge
       </span>
     </a>

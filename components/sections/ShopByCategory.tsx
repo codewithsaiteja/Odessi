@@ -107,7 +107,7 @@ export default async function ShopByCategory() {
                 }}
               >
                 <SpotlightCard
-                  spotlightColor="rgba(255, 255, 255, 0.15)"
+                  spotlightColor="rgba(184, 154, 90, 0.18)"
                   className="w-full h-full relative"
                 >
                   {/* Category image */}
