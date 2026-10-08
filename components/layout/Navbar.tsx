@@ -128,10 +128,11 @@ export default function Navbar() {
             <Image
               src="/logo-light.png"
               alt="Odessi.tfi — WEAR YOUR STORY"
-              width={220}
-              height={40}
+              width={702}
+              height={718}
               priority
-              className="h-9 sm:h-10 w-auto object-contain transition-opacity duration-300"
+              unoptimized
+              className="h-10 sm:h-11 w-auto object-contain transition-opacity duration-300"
             />
           </Link>
 
@@ -568,8 +569,9 @@ export default function Navbar() {
               <Image
                 src="/logo-dark.png"
                 alt="Odessi.tfi — WEAR YOUR STORY"
-                width={200}
-                height={36}
+                width={702}
+                height={718}
+                unoptimized
                 className="h-9.5 w-auto object-contain"
               />
             </Link>
