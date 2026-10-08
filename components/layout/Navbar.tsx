@@ -94,7 +94,7 @@ export default function Navbar() {
         role="banner"
         className={`
           fixed top-[var(--announcement-height)] left-0 right-0 z-40
-          transition-all duration-300 ease-out
+          transition-all duration-300 ease-out text-[#f3f0e8]
           ${isSolid
             ? "bg-[#080808]/95 backdrop-blur-md border-b border-white/[0.08]"
             : "bg-transparent border-b border-transparent"
@@ -102,11 +102,11 @@ export default function Navbar() {
         `}
         style={{ height: "var(--navbar-height)" }}
       >
-        <div className="container-odessi h-full flex items-center justify-between gap-4">
+        <div className="container-odessi h-full flex items-center justify-between gap-4 text-[#f3f0e8]">
 
           {/* ── Mobile: Hamburger ── */}
           <button
-            className="lg:hidden p-2 -ml-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
+            className="lg:hidden p-2 -ml-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm text-[#f3f0e8]"
             onClick={() => setMobileOpen(true)}
             aria-label="Open navigation menu"
             aria-expanded={mobileOpen}
@@ -115,7 +115,7 @@ export default function Navbar() {
             <Menu
               size={22}
               strokeWidth={1.5}
-              className="text-[#f3f0e8] hover:text-white transition-colors"
+              className="text-[#f3f0e8] hover:text-[#b89a5a] transition-colors"
             />
           </button>
 
@@ -139,35 +139,47 @@ export default function Navbar() {
           <nav
             aria-label="Primary navigation"
             onMouseLeave={handleNavMouseLeave}
-            className="hidden lg:flex items-center gap-8 absolute left-1/2 -translate-x-1/2"
+            className="hidden lg:flex items-center gap-8 absolute left-1/2 -translate-x-1/2 text-[#f3f0e8]"
           >
             {navLinks.map((link) => {
               const lower = link.label.toLowerCase();
               const isMegaTarget = lower === "shop" || lower === "collections";
+              const cleanHref = link.href.split("?")[0];
+              const isActive = pathname === link.href || (cleanHref !== "/" && pathname === cleanHref);
+
               return (
                 <Link
                   key={link.href}
                   href={link.href}
                   onMouseEnter={() => (isMegaTarget ? handleNavMouseEnter(link.label) : setActiveMegaMenu(null))}
                   className={`
-                    type-nav link-underline transition-all duration-200 py-2 relative
-                    text-[#d4d0c7] hover:text-[#f3f0e8]
-                    ${activeMegaMenu === lower ? "opacity-100 font-semibold text-[#b89a5a]" : ""}
+                    type-nav link-underline transition-colors duration-200 py-2 relative
+                    ${isActive
+                      ? "text-[#f3f0e8] font-semibold"
+                      : "text-[#f3f0e8] hover:text-[#b89a5a]"
+                    }
+                    ${activeMegaMenu === lower ? "text-[#b89a5a] font-semibold" : ""}
                   `}
                 >
                   {link.label}
+                  {isActive && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#b89a5a]"
+                    />
+                  )}
                 </Link>
               );
             })}
           </nav>
 
           {/* ── Right action icons: Search | Account | Wishlist | Bag ── */}
-          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 ml-auto lg:ml-0">
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 ml-auto lg:ml-0 text-[#f3f0e8]">
             {/* 1. Search */}
             <button
               onClick={() => setSearchOpen(true)}
               aria-label="Search"
-              className="p-2 transition-all duration-200 text-[#d4d0c7] hover:text-white hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
+              className="p-2 transition-all duration-200 text-[#f3f0e8] hover:text-[#b89a5a] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
             >
               <Search size={19} strokeWidth={1.5} />
             </button>
@@ -180,7 +192,7 @@ export default function Navbar() {
                     onClick={() => setAccountMenuOpen(!accountMenuOpen)}
                     aria-label="Account menu"
                     aria-expanded={accountMenuOpen}
-                    className="p-2 transition-all duration-200 text-[#d4d0c7] hover:text-white hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm flex items-center gap-1"
+                    className="p-2 transition-all duration-200 text-[#f3f0e8] hover:text-[#b89a5a] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm flex items-center gap-1"
                   >
                     <User size={19} strokeWidth={1.5} />
                     {user.role === "ADMIN" && (
@@ -264,7 +276,7 @@ export default function Navbar() {
                 <Link
                   href="/login"
                   aria-label="Account Login"
-                  className="p-2 transition-all duration-200 text-[#d4d0c7] hover:text-[#f3f0e8] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
+                  className="p-2 transition-all duration-200 text-[#f3f0e8] hover:text-[#b89a5a] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
                 >
                   <User size={19} strokeWidth={1.5} />
                 </Link>
@@ -275,7 +287,7 @@ export default function Navbar() {
             <Link
               href="/wishlist"
               aria-label={`Wishlist${wishlistCount > 0 ? `, ${wishlistCount} items` : ""}`}
-              className="p-2 relative transition-all duration-200 text-[#d4d0c7] hover:text-[#f3f0e8] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
+              className="p-2 relative transition-all duration-200 text-[#f3f0e8] hover:text-[#b89a5a] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
             >
               <Heart size={19} strokeWidth={1.5} />
               {wishlistCount > 0 && (
@@ -298,7 +310,7 @@ export default function Navbar() {
                 }
               }}
               aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ""}`}
-              className="relative p-2 transition-all duration-200 text-[#d4d0c7] hover:text-[#f3f0e8] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
+              className="relative p-2 transition-all duration-200 text-[#f3f0e8] hover:text-[#b89a5a] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#b89a5a] rounded-sm"
             >
               <ShoppingBag size={19} strokeWidth={1.5} />
               {!authLoading && user && cartCount > 0 && (
