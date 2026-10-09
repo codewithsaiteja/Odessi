@@ -30,6 +30,9 @@ import {
   ArrowRight,
   Package,
   RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  FileText,
 } from "lucide-react";
 
 const MILESTONE_IMAGES: Record<number, string> = {
@@ -65,6 +68,7 @@ export default function AccountSeller() {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [submittingApp, setSubmittingApp] = useState(false);
   const [reapplyMode, setReapplyMode] = useState(false);
+  const [showApplicationDetails, setShowApplicationDetails] = useState(false);
 
   // Reward claim modal state
   const [selectedRewardToClaim, setSelectedRewardToClaim] = useState<SellerRewardResponse | null>(null);
@@ -330,6 +334,117 @@ export default function AccountSeller() {
             <RefreshCw className={`w-3.5 h-3.5 text-stone-600 ${refreshing ? "animate-spin" : ""}`} />
             {refreshing ? "Syncing..." : "Sync Live Sales"}
           </button>
+        </div>
+
+        {/* Phase 3 & 4: Persistent Application & Verification Record Card */}
+        <div className="bg-white border border-stone-200 rounded-2xl p-5 sm:p-6 shadow-2xs">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-stone-100">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-bold text-stone-900 font-serif flex items-center gap-2">
+                  Application &amp; Verification Record
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full font-mono text-[9px] font-bold uppercase tracking-wider">
+                    Approved
+                  </span>
+                </h4>
+                <p className="text-[11px] text-stone-500 mt-0.5">
+                  Verified seller identity, original application details, and credentials snapshot.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowApplicationDetails((prev) => !prev)}
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-stone-600 hover:text-stone-900 transition bg-stone-50 hover:bg-stone-100 px-2.5 py-1.5 rounded-lg border border-stone-200 cursor-pointer"
+            >
+              <FileText className="w-3.5 h-3.5 text-stone-500" />
+              <span>{showApplicationDetails ? "Hide Application Details" : "View Application Details"}</span>
+              {showApplicationDetails ? <ChevronUp className="w-3.5 h-3.5 ml-0.5" /> : <ChevronDown className="w-3.5 h-3.5 ml-0.5" />}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 text-xs">
+            <div>
+              <span className="text-[10px] uppercase font-mono text-stone-400 block font-semibold">
+                Application Code
+              </span>
+              <span className="font-mono font-bold text-stone-900 mt-0.5 block">
+                {sellerStatus.sellerCode}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-mono text-stone-400 block font-semibold">
+                Submitted On
+              </span>
+              <span className="text-stone-700 mt-0.5 block">
+                {new Date(sellerStatus.createdAt).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-mono text-stone-400 block font-semibold">
+                Approval Date
+              </span>
+              <span className="text-stone-700 mt-0.5 block">
+                {sellerStatus.approvedAt
+                  ? new Date(sellerStatus.approvedAt).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "Verified"}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-mono text-stone-400 block font-semibold">
+                Channel Handle
+              </span>
+              <span className="font-mono text-stone-700 mt-0.5 block truncate">
+                {sellerStatus.socialChannel}
+              </span>
+            </div>
+          </div>
+
+          {showApplicationDetails && (
+            <div className="mt-4 pt-4 border-t border-stone-150 space-y-3 bg-stone-50/70 p-3.5 rounded-xl border">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <span className="text-[10px] uppercase font-mono text-stone-500 font-semibold block">Applicant Name</span>
+                  <span className="font-semibold text-stone-900">{sellerStatus.fullName}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-mono text-stone-500 font-semibold block">Email Address</span>
+                  <span className="font-mono text-stone-800">{sellerStatus.email}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-mono text-stone-500 font-semibold block">Contact Phone</span>
+                  <span className="font-mono text-stone-800">{sellerStatus.phone}</span>
+                </div>
+              </div>
+
+              {sellerStatus.applicationReason && (
+                <div className="text-xs pt-2">
+                  <span className="text-[10px] uppercase font-mono text-stone-500 font-semibold block mb-0.5">
+                    Original Application Statement
+                  </span>
+                  <p className="text-stone-700 text-[11px] leading-relaxed italic bg-white p-2.5 rounded-lg border border-stone-200">
+                    &ldquo;{sellerStatus.applicationReason}&rdquo;
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-[10px] text-stone-400 font-mono pt-1">
+                <span>Application ID: #{sellerStatus.id} &bull; Terms Accepted: Verified</span>
+                <span>Account Status: Active &amp; Good Standing</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Phase 4 Live Summary Metrics KPI Cards */}

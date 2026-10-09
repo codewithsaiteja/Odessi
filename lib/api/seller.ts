@@ -31,6 +31,8 @@ export interface SellerResponse {
   verifiedSalesCount: number;
   createdAt: string;
   approvedAt?: string;
+  rejectedAt?: string;
+  suspendedAt?: string;
 }
 
 export interface SellerMilestoneConfigResponse {

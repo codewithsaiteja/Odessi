@@ -18,7 +18,9 @@ public record SellerResponse(
     String suspensionReason,
     int verifiedSalesCount,
     Instant createdAt,
-    Instant approvedAt
+    Instant approvedAt,
+    Instant rejectedAt,
+    Instant suspendedAt
 ) {
     public static SellerResponse fromEntity(Seller s) {
         if (s == null) return null;
@@ -36,7 +38,9 @@ public record SellerResponse(
             s.getSuspensionReason(),
             s.getVerifiedSalesCount(),
             s.getCreatedAt(),
-            s.getApprovedAt()
+            s.getApprovedAt(),
+            s.getRejectedAt(),
+            s.getSuspendedAt()
         );
     }
 }

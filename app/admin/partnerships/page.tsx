@@ -49,6 +49,7 @@ import {
   Copy,
   Clock,
   Package,
+  RefreshCw,
 } from "lucide-react";
 
 export type AdminSection =
@@ -82,6 +83,8 @@ export default function AdminPartnershipsPage() {
     seller: SellerResponse;
   } | null>(null);
   const [updatingSellerStatus, setUpdatingSellerStatus] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [syncingRealtime, setSyncingRealtime] = useState(false);
 
   // ──────────────────────────────────────────────────────────────────────────
   // 2. REWARD FULFILLMENT STATE
@@ -187,8 +190,8 @@ export default function AdminPartnershipsPage() {
     }
   };
 
-  const fetchSellers = useCallback(async () => {
-    setLoadingSellers(true);
+  const fetchSellers = useCallback(async (silent = false) => {
+    if (!silent) setLoadingSellers(true);
     try {
       const res = await sellerApi.getAdminSellers({
         status: sellerStatusFilter || undefined,
@@ -197,15 +200,16 @@ export default function AdminPartnershipsPage() {
         size: 100,
       });
       setSellers(res.content || []);
+      setLastUpdated(new Date());
     } catch (err: any) {
-      toast.error(err?.message || "Failed to load seller list");
+      if (!silent) toast.error(err?.message || "Failed to load seller list");
     } finally {
-      setLoadingSellers(false);
+      if (!silent) setLoadingSellers(false);
     }
-  }, [sellerStatusFilter, sellerSearch]);
+  }, [sellerStatusFilter, sellerSearch, toast]);
 
-  const fetchRewardClaims = useCallback(async () => {
-    setLoadingRewards(true);
+  const fetchRewardClaims = useCallback(async (silent = false) => {
+    if (!silent) setLoadingRewards(true);
     try {
       const res = await sellerApi.getAdminRewardClaims({
         status: rewardStatusFilter || undefined,
@@ -213,15 +217,16 @@ export default function AdminPartnershipsPage() {
         size: 50,
       });
       setRewardClaims(res.content || []);
+      setLastUpdated(new Date());
     } catch (err: any) {
-      toast.error(err?.message || "Failed to load reward claims");
+      if (!silent) toast.error(err?.message || "Failed to load reward claims");
     } finally {
-      setLoadingRewards(false);
+      if (!silent) setLoadingRewards(false);
     }
-  }, [rewardStatusFilter]);
+  }, [rewardStatusFilter, toast]);
 
-  const fetchAttributions = useCallback(async () => {
-    setLoadingAttributions(true);
+  const fetchAttributions = useCallback(async (silent = false) => {
+    if (!silent) setLoadingAttributions(true);
     try {
       const res = await sellerApi.getAdminAttributions({
         status: attributionStatusFilter || undefined,
@@ -229,51 +234,55 @@ export default function AdminPartnershipsPage() {
         size: 100,
       });
       setAttributions(res.content || []);
+      setLastUpdated(new Date());
     } catch (err: any) {
-      toast.error(err?.message || "Failed to load sales attributions");
+      if (!silent) toast.error(err?.message || "Failed to load sales attributions");
     } finally {
-      setLoadingAttributions(false);
+      if (!silent) setLoadingAttributions(false);
     }
-  }, [attributionStatusFilter]);
+  }, [attributionStatusFilter, toast]);
 
-  const fetchPerformanceStats = useCallback(async () => {
-    setLoadingStats(true);
+  const fetchPerformanceStats = useCallback(async (silent = false) => {
+    if (!silent) setLoadingStats(true);
     try {
       const res = await sellerApi.getAdminPerformanceStats();
       setStats(res);
+      setLastUpdated(new Date());
     } catch (err: any) {
-      toast.error(err?.message || "Failed to load performance stats");
+      if (!silent) toast.error(err?.message || "Failed to load performance stats");
     } finally {
-      setLoadingStats(false);
+      if (!silent) setLoadingStats(false);
     }
-  }, []);
+  }, [toast]);
 
-  const fetchMilestones = useCallback(async () => {
-    setLoadingMilestones(true);
+  const fetchMilestones = useCallback(async (silent = false) => {
+    if (!silent) setLoadingMilestones(true);
     try {
       const res = await sellerApi.getAdminMilestones();
       setMilestones(res || []);
+      setLastUpdated(new Date());
     } catch (err: any) {
-      toast.error(err?.message || "Failed to load milestones");
+      if (!silent) toast.error(err?.message || "Failed to load milestones");
     } finally {
-      setLoadingMilestones(false);
+      if (!silent) setLoadingMilestones(false);
     }
-  }, []);
+  }, [toast]);
 
-  const fetchGlobalAuditLogs = useCallback(async () => {
-    setLoadingGlobalAudit(true);
+  const fetchGlobalAuditLogs = useCallback(async (silent = false) => {
+    if (!silent) setLoadingGlobalAudit(true);
     try {
       const res = await sellerApi.getAllAdminAuditLogs({ page: 0, size: 100 });
       setGlobalAuditLogs(res.content || []);
+      setLastUpdated(new Date());
     } catch (err: any) {
-      toast.error(err?.message || "Failed to load audit history");
+      if (!silent) toast.error(err?.message || "Failed to load audit history");
     } finally {
-      setLoadingGlobalAudit(false);
+      if (!silent) setLoadingGlobalAudit(false);
     }
-  }, []);
+  }, [toast]);
 
-  const fetchWholesale = useCallback(async () => {
-    setLoadingWholesale(true);
+  const fetchWholesale = useCallback(async (silent = false) => {
+    if (!silent) setLoadingWholesale(true);
     try {
       const res = await growthApi.getPartnerships({
         status: wholesaleStatusFilter || undefined,
@@ -282,26 +291,36 @@ export default function AdminPartnershipsPage() {
         size: 50,
       });
       setWholesaleApps(res.content || []);
+      setLastUpdated(new Date());
     } catch (err: any) {
-      toast.error(err?.message || "Failed to load wholesale partnerships");
+      if (!silent) toast.error(err?.message || "Failed to load wholesale partnerships");
     } finally {
-      setLoadingWholesale(false);
+      if (!silent) setLoadingWholesale(false);
     }
-  }, [wholesaleStatusFilter, wholesaleSearch]);
+  }, [wholesaleStatusFilter, wholesaleSearch, toast]);
 
-  // Load based on active tab
-  useEffect(() => {
-    if (activeTab === "applications" || activeTab === "directory") fetchSellers();
-    else if (activeTab === "rewards") fetchRewardClaims();
-    else if (activeTab === "attributions") fetchAttributions();
-    else if (activeTab === "performance") fetchPerformanceStats();
-    else if (activeTab === "milestones") {
-      fetchMilestones();
-      fetchGiftMedia();
+  // Real-time synchronization helper
+  const syncCurrentTab = useCallback(async (silent = true) => {
+    if (activeTab === "applications" || activeTab === "directory") {
+      await fetchSellers(silent);
+      await fetchPerformanceStats(true);
+    } else if (activeTab === "rewards") {
+      await fetchRewardClaims(silent);
+      await fetchPerformanceStats(true);
+    } else if (activeTab === "attributions") {
+      await fetchAttributions(silent);
+      await fetchPerformanceStats(true);
+    } else if (activeTab === "performance") {
+      await fetchPerformanceStats(silent);
+    } else if (activeTab === "milestones") {
+      await fetchMilestones(silent);
     } else if (activeTab === "media") {
-      fetchGiftMedia();
-    } else if (activeTab === "audit") fetchGlobalAuditLogs();
-    else if (activeTab === "wholesale") fetchWholesale();
+      await fetchGiftMedia();
+    } else if (activeTab === "audit") {
+      await fetchGlobalAuditLogs(silent);
+    } else if (activeTab === "wholesale") {
+      await fetchWholesale(silent);
+    }
   }, [
     activeTab,
     fetchSellers,
@@ -313,6 +332,38 @@ export default function AdminPartnershipsPage() {
     fetchGlobalAuditLogs,
     fetchWholesale,
   ]);
+
+  // Load based on active tab
+  useEffect(() => {
+    syncCurrentTab(false);
+  }, [syncCurrentTab]);
+
+  // Window focus & tab visibility listeners for live updates
+  useEffect(() => {
+    const handleFocus = () => {
+      syncCurrentTab(true);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncCurrentTab(true);
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [syncCurrentTab]);
+
+  // Bounded polling every 15s for live admin updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      syncCurrentTab(true);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [syncCurrentTab]);
 
   // Load audit logs when seller selected
   const handleSelectSeller = async (seller: SellerResponse) => {
@@ -346,6 +397,8 @@ export default function AdminPartnershipsPage() {
       toast.success(`Seller status updated to ${newStatus}`);
       setActionModal(null);
       setStatusActionReason("");
+      await fetchPerformanceStats(true);
+      setLastUpdated(new Date());
     } catch (err: any) {
       toast.error(err?.message || "Failed to update seller status");
     } finally {
@@ -378,6 +431,8 @@ export default function AdminPartnershipsPage() {
       if (newStatus === "DELIVERED" || newStatus === "SHIPPED") {
         setSelectedReward(null);
       }
+      await fetchPerformanceStats(true);
+      setLastUpdated(new Date());
     } catch (err: any) {
       toast.error(err?.message || "Failed to update reward status");
     } finally {
@@ -473,10 +528,26 @@ export default function AdminPartnershipsPage() {
       }
       setEditingMilestone(null);
       setIsCreatingMilestone(false);
+      await fetchMilestones(true);
+      await fetchGiftMedia();
+      setLastUpdated(new Date());
     } catch (err: any) {
       toast.error(err?.message || "Failed to save milestone configuration");
     } finally {
       setSavingMilestone(false);
+    }
+  };
+
+  const handleManualSync = async () => {
+    setSyncingRealtime(true);
+    try {
+      await syncCurrentTab(false);
+      setLastUpdated(new Date());
+      toast.success("Admin dashboard refreshed with live seller events.");
+    } catch {
+      toast.error("Failed to sync live data.");
+    } finally {
+      setSyncingRealtime(false);
     }
   };
 
@@ -523,6 +594,28 @@ export default function AdminPartnershipsPage() {
             <p className="text-xs text-slate-500 mt-1">
               Comprehensive administrative portal for Trusted Sellers onboarding, verified sales attributions, reward fulfillment, milestones, and wholesale B2B inquiries.
             </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-lg text-xs text-slate-600">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="font-medium text-slate-700">Live Admin Sync</span>
+              <span className="text-slate-400">&bull;</span>
+              <span className="text-slate-500 font-mono text-[11px]">
+                {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </span>
+            </div>
+            <button
+              onClick={handleManualSync}
+              disabled={syncingRealtime}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 active:scale-98 transition disabled:opacity-50 shadow-2xs cursor-pointer"
+              title="Force sync latest applications, sales, and milestone states from database"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${syncingRealtime ? "animate-spin text-amber-600" : ""}`} />
+              <span>{syncingRealtime ? "Syncing..." : "Sync Live Data"}</span>
+            </button>
           </div>
         </div>
 
@@ -679,7 +772,7 @@ export default function AdminPartnershipsPage() {
             </div>
 
             <button
-              onClick={fetchSellers}
+              onClick={() => fetchSellers(false)}
               className="px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Refresh List
@@ -990,7 +1083,7 @@ export default function AdminPartnershipsPage() {
               </button>
 
               <button
-                onClick={fetchAttributions}
+                onClick={() => fetchAttributions(false)}
                 className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1.5"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Refresh
@@ -1170,7 +1263,7 @@ export default function AdminPartnershipsPage() {
               </p>
             </div>
             <button
-              onClick={fetchPerformanceStats}
+              onClick={() => fetchPerformanceStats(false)}
               className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Refresh Analytics
@@ -1653,7 +1746,7 @@ export default function AdminPartnershipsPage() {
             </div>
 
             <button
-              onClick={fetchRewardClaims}
+              onClick={() => fetchRewardClaims(false)}
               className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Refresh Claims
@@ -2245,7 +2338,7 @@ export default function AdminPartnershipsPage() {
               </p>
             </div>
             <button
-              onClick={fetchGlobalAuditLogs}
+              onClick={() => fetchGlobalAuditLogs(false)}
               className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Refresh Audit Trail
@@ -2335,7 +2428,7 @@ export default function AdminPartnershipsPage() {
             </div>
 
             <button
-              onClick={fetchWholesale}
+              onClick={() => fetchWholesale(false)}
               className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Refresh List
