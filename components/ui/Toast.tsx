@@ -42,8 +42,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const warning = useCallback((message: string) => showToast(message, "warning"), [showToast]);
   const info = useCallback((message: string) => showToast(message, "info"), [showToast]);
 
+  const value = React.useMemo<ToastContextValue>(
+    () => ({ showToast, success, error, warning, info }),
+    [showToast, success, error, warning, info]
+  );
+
   return (
-    <ToastContext.Provider value={{ showToast, success, error, warning, info }}>
+    <ToastContext.Provider value={value}>
       {children}
       {/* Toast Render Container */}
       <div className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2 max-w-md w-full pointer-events-none px-4">
@@ -83,17 +88,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+const STATIC_FALLBACK_TOAST: ToastContextValue = {
+  showToast: (msg) => console.log("[Toast]", msg),
+  success: (msg) => console.log("[Toast Success]", msg),
+  error: (msg) => console.error("[Toast Error]", msg),
+  warning: (msg) => console.warn("[Toast Warning]", msg),
+  info: (msg) => console.log("[Toast Info]", msg),
+};
+
 export function useToast(): ToastContextValue {
   const context = useContext(ToastContext);
-  if (!context) {
-    // Fallback if rendered outside provider
-    return {
-      showToast: (msg) => console.log("[Toast]", msg),
-      success: (msg) => console.log("[Toast Success]", msg),
-      error: (msg) => console.error("[Toast Error]", msg),
-      warning: (msg) => console.warn("[Toast Warning]", msg),
-      info: (msg) => console.log("[Toast Info]", msg),
-    };
-  }
-  return context;
+  return context ?? STATIC_FALLBACK_TOAST;
 }

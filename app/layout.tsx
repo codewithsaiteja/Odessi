@@ -3,6 +3,7 @@ import { Inter, Cormorant_Garamond } from "next/font/google";
 import { CartProvider } from "@/lib/cart-context";
 import { WishlistProvider } from "@/lib/wishlist-context";
 import { AuthProvider } from "@/lib/auth/AuthContext";
+import { ToastProvider } from "@/components/ui/Toast";
 import "./globals.css";
 import SellerAttributionTracker from "@/components/seller/SellerAttributionTracker";
 
@@ -88,14 +89,16 @@ export default function RootLayout({
       className={`${inter.variable} ${cormorant.variable} scroll-smooth`}
     >
       <body className="antialiased">
-        <AuthProvider>
-          <WishlistProvider>
-            <CartProvider>
-              <SellerAttributionTracker />
-              {children}
-            </CartProvider>
-          </WishlistProvider>
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <WishlistProvider>
+              <CartProvider>
+                <SellerAttributionTracker />
+                {children}
+              </CartProvider>
+            </WishlistProvider>
+          </AuthProvider>
+        </ToastProvider>
       </body>
     </html>
   );

@@ -72,8 +72,8 @@ export default function AdminPartnershipsPage() {
   // ──────────────────────────────────────────────────────────────────────────
   const [sellers, setSellers] = useState<SellerResponse[]>([]);
   const [loadingSellers, setLoadingSellers] = useState(false);
-  const [sellerStatusFilter, setSellerStatusFilter] = useState<string>("");
-  const [sellerSearch, setSellerSearch] = useState<string>("");
+  const [sellerStatusFilter, setSellerStatusFilter] = useState<string>("PENDING");
+  const [sellerSearch, setSellerSearch] = useState<string>("" );
   const [selectedSeller, setSelectedSeller] = useState<SellerResponse | null>(null);
   const [sellerAuditLogs, setSellerAuditLogs] = useState<SellerAuditLogResponse[]>([]);
   const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
@@ -85,6 +85,16 @@ export default function AdminPartnershipsPage() {
   const [updatingSellerStatus, setUpdatingSellerStatus] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [syncingRealtime, setSyncingRealtime] = useState(false);
+
+  // Section Error States
+  const [sellerError, setSellerError] = useState<string | null>(null);
+  const [rewardsError, setRewardsError] = useState<string | null>(null);
+  const [attributionsError, setAttributionsError] = useState<string | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [milestonesError, setMilestonesError] = useState<string | null>(null);
+  const [giftMediaError, setGiftMediaError] = useState<string | null>(null);
+  const [globalAuditError, setGlobalAuditError] = useState<string | null>(null);
+  const [wholesaleError, setWholesaleError] = useState<string | null>(null);
 
   // ──────────────────────────────────────────────────────────────────────────
   // 2. REWARD FULFILLMENT STATE
@@ -162,12 +172,16 @@ export default function AdminPartnershipsPage() {
 
   // ── Data Fetchers ──────────────────────────────────────────────────────────
 
-  const fetchGiftMedia = useCallback(async () => {
-    setLoadingGiftMedia(true);
+  const fetchGiftMedia = useCallback(async (silent = false) => {
+    if (!silent) setLoadingGiftMedia(true);
     try {
       const res = await sellerApi.getGiftMediaList();
       setGiftMedia(res || []);
-    } catch {
+      setGiftMediaError(null);
+      setLastUpdated(new Date());
+    } catch (err: any) {
+      const msg = err?.message || "Failed to load gift media list";
+      setGiftMediaError(msg);
       setGiftMedia([]);
     } finally {
       setLoadingGiftMedia(false);
@@ -180,7 +194,7 @@ export default function AdminPartnershipsPage() {
     try {
       const res = await sellerApi.uploadGiftMedia(file);
       toast.success(`Gift image "${res.filename}" uploaded successfully!`);
-      await fetchGiftMedia();
+      await fetchGiftMedia(false);
       return res.url;
     } catch (err: any) {
       toast.error(err?.message || "Failed to upload gift image");
@@ -200,11 +214,14 @@ export default function AdminPartnershipsPage() {
         size: 100,
       });
       setSellers(res.content || []);
+      setSellerError(null);
       setLastUpdated(new Date());
     } catch (err: any) {
-      if (!silent) toast.error(err?.message || "Failed to load seller list");
+      const msg = err?.message || "Failed to load seller list";
+      setSellerError(msg);
+      if (!silent) toast.error(msg);
     } finally {
-      if (!silent) setLoadingSellers(false);
+      setLoadingSellers(false);
     }
   }, [sellerStatusFilter, sellerSearch, toast]);
 
@@ -217,11 +234,14 @@ export default function AdminPartnershipsPage() {
         size: 50,
       });
       setRewardClaims(res.content || []);
+      setRewardsError(null);
       setLastUpdated(new Date());
     } catch (err: any) {
-      if (!silent) toast.error(err?.message || "Failed to load reward claims");
+      const msg = err?.message || "Failed to load reward claims";
+      setRewardsError(msg);
+      if (!silent) toast.error(msg);
     } finally {
-      if (!silent) setLoadingRewards(false);
+      setLoadingRewards(false);
     }
   }, [rewardStatusFilter, toast]);
 
@@ -234,11 +254,14 @@ export default function AdminPartnershipsPage() {
         size: 100,
       });
       setAttributions(res.content || []);
+      setAttributionsError(null);
       setLastUpdated(new Date());
     } catch (err: any) {
-      if (!silent) toast.error(err?.message || "Failed to load sales attributions");
+      const msg = err?.message || "Failed to load sales attributions";
+      setAttributionsError(msg);
+      if (!silent) toast.error(msg);
     } finally {
-      if (!silent) setLoadingAttributions(false);
+      setLoadingAttributions(false);
     }
   }, [attributionStatusFilter, toast]);
 
@@ -247,11 +270,14 @@ export default function AdminPartnershipsPage() {
     try {
       const res = await sellerApi.getAdminPerformanceStats();
       setStats(res);
+      setStatsError(null);
       setLastUpdated(new Date());
     } catch (err: any) {
-      if (!silent) toast.error(err?.message || "Failed to load performance stats");
+      const msg = err?.message || "Failed to load performance stats";
+      setStatsError(msg);
+      if (!silent) toast.error(msg);
     } finally {
-      if (!silent) setLoadingStats(false);
+      setLoadingStats(false);
     }
   }, [toast]);
 
@@ -260,11 +286,14 @@ export default function AdminPartnershipsPage() {
     try {
       const res = await sellerApi.getAdminMilestones();
       setMilestones(res || []);
+      setMilestonesError(null);
       setLastUpdated(new Date());
     } catch (err: any) {
-      if (!silent) toast.error(err?.message || "Failed to load milestones");
+      const msg = err?.message || "Failed to load milestones";
+      setMilestonesError(msg);
+      if (!silent) toast.error(msg);
     } finally {
-      if (!silent) setLoadingMilestones(false);
+      setLoadingMilestones(false);
     }
   }, [toast]);
 
@@ -273,11 +302,14 @@ export default function AdminPartnershipsPage() {
     try {
       const res = await sellerApi.getAllAdminAuditLogs({ page: 0, size: 100 });
       setGlobalAuditLogs(res.content || []);
+      setGlobalAuditError(null);
       setLastUpdated(new Date());
     } catch (err: any) {
-      if (!silent) toast.error(err?.message || "Failed to load audit history");
+      const msg = err?.message || "Failed to load audit history";
+      setGlobalAuditError(msg);
+      if (!silent) toast.error(msg);
     } finally {
-      if (!silent) setLoadingGlobalAudit(false);
+      setLoadingGlobalAudit(false);
     }
   }, [toast]);
 
@@ -291,35 +323,39 @@ export default function AdminPartnershipsPage() {
         size: 50,
       });
       setWholesaleApps(res.content || []);
+      setWholesaleError(null);
       setLastUpdated(new Date());
     } catch (err: any) {
-      if (!silent) toast.error(err?.message || "Failed to load wholesale partnerships");
+      const msg = err?.message || "Failed to load wholesale partnerships";
+      setWholesaleError(msg);
+      if (!silent) toast.error(msg);
     } finally {
-      if (!silent) setLoadingWholesale(false);
+      setLoadingWholesale(false);
     }
   }, [wholesaleStatusFilter, wholesaleSearch, toast]);
 
-  // Real-time synchronization helper
+  // Real-time synchronization helper for active section
   const syncCurrentTab = useCallback(async (silent = true) => {
-    if (activeTab === "applications" || activeTab === "directory") {
-      await fetchSellers(silent);
-      await fetchPerformanceStats(true);
-    } else if (activeTab === "rewards") {
-      await fetchRewardClaims(silent);
-      await fetchPerformanceStats(true);
-    } else if (activeTab === "attributions") {
-      await fetchAttributions(silent);
-      await fetchPerformanceStats(true);
-    } else if (activeTab === "performance") {
-      await fetchPerformanceStats(silent);
-    } else if (activeTab === "milestones") {
-      await fetchMilestones(silent);
-    } else if (activeTab === "media") {
-      await fetchGiftMedia();
-    } else if (activeTab === "audit") {
-      await fetchGlobalAuditLogs(silent);
-    } else if (activeTab === "wholesale") {
-      await fetchWholesale(silent);
+    try {
+      if (activeTab === "applications" || activeTab === "directory") {
+        await fetchSellers(silent);
+      } else if (activeTab === "rewards") {
+        await fetchRewardClaims(silent);
+      } else if (activeTab === "attributions") {
+        await fetchAttributions(silent);
+      } else if (activeTab === "performance") {
+        await fetchPerformanceStats(silent);
+      } else if (activeTab === "milestones") {
+        await fetchMilestones(silent);
+      } else if (activeTab === "media") {
+        await fetchGiftMedia(silent);
+      } else if (activeTab === "audit") {
+        await fetchGlobalAuditLogs(silent);
+      } else if (activeTab === "wholesale") {
+        await fetchWholesale(silent);
+      }
+    } catch (e) {
+      console.error("[AdminPartnerships] Sync error for tab:", activeTab, e);
     }
   }, [
     activeTab,
@@ -781,9 +817,33 @@ export default function AdminPartnershipsPage() {
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
             {loadingSellers ? (
-              <div className="p-12 text-center text-slate-400 text-xs font-mono">Loading sellers...</div>
+              <div className="p-12 text-center text-slate-400 text-xs font-mono flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-amber-500" />
+                <span>Loading seller records...</span>
+              </div>
+            ) : sellerError ? (
+              <div className="p-8 text-center space-y-3">
+                <div className="inline-flex items-center gap-2 text-rose-600 text-xs font-semibold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{sellerError}</span>
+                </div>
+                <div>
+                  <button
+                    onClick={() => fetchSellers(false)}
+                    className="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition shadow-xs"
+                  >
+                    Retry Loading
+                  </button>
+                </div>
+              </div>
             ) : sellers.length === 0 ? (
-              <div className="p-12 text-center text-slate-500 text-xs">No seller records found matching filters.</div>
+              <div className="p-12 text-center text-slate-500 text-xs">
+                {sellerStatusFilter === "PENDING"
+                  ? "No pending seller applications awaiting review."
+                  : sellerStatusFilter === "APPROVED"
+                  ? "No approved sellers found in directory."
+                  : "No seller records found matching filters."}
+              </div>
             ) : (
               <table className="w-full text-left text-xs text-slate-700">
                 <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-semibold border-b border-slate-200">
@@ -1093,7 +1153,25 @@ export default function AdminPartnershipsPage() {
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
             {loadingAttributions ? (
-              <div className="p-12 text-center text-slate-400 text-xs font-mono">Loading attributions...</div>
+              <div className="p-12 text-center text-slate-400 text-xs font-mono flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-amber-500" />
+                <span>Loading attributions...</span>
+              </div>
+            ) : attributionsError ? (
+              <div className="p-8 text-center space-y-3">
+                <div className="inline-flex items-center gap-2 text-rose-600 text-xs font-semibold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{attributionsError}</span>
+                </div>
+                <div>
+                  <button
+                    onClick={() => fetchAttributions(false)}
+                    className="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition shadow-xs"
+                  >
+                    Retry Loading
+                  </button>
+                </div>
+              </div>
             ) : attributions.length === 0 ? (
               <div className="p-12 text-center text-slate-500 text-xs">No attributed orders recorded.</div>
             ) : (
@@ -1270,8 +1348,30 @@ export default function AdminPartnershipsPage() {
             </button>
           </div>
 
-          {loadingStats || !stats ? (
-            <div className="p-12 text-center text-slate-400 text-xs font-mono">Loading performance metrics...</div>
+          {loadingStats ? (
+            <div className="p-12 text-center text-slate-400 text-xs font-mono flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin text-amber-500" />
+              <span>Loading performance metrics...</span>
+            </div>
+          ) : statsError ? (
+            <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-3">
+              <div className="inline-flex items-center gap-2 text-rose-600 text-xs font-semibold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200">
+                <AlertCircle className="w-4 h-4" />
+                <span>{statsError}</span>
+              </div>
+              <div>
+                <button
+                  onClick={() => fetchPerformanceStats(false)}
+                  className="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition shadow-xs"
+                >
+                  Retry Loading
+                </button>
+              </div>
+            </div>
+          ) : !stats ? (
+            <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center text-slate-500 text-xs">
+              No performance metrics recorded yet.
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
@@ -1399,7 +1499,25 @@ export default function AdminPartnershipsPage() {
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
             {loadingMilestones ? (
-              <div className="p-12 text-center text-slate-400 text-xs font-mono">Loading milestone tiers...</div>
+              <div className="p-12 text-center text-slate-400 text-xs font-mono flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-amber-500" />
+                <span>Loading milestone tiers...</span>
+              </div>
+            ) : milestonesError ? (
+              <div className="p-8 text-center space-y-3">
+                <div className="inline-flex items-center gap-2 text-rose-600 text-xs font-semibold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{milestonesError}</span>
+                </div>
+                <div>
+                  <button
+                    onClick={() => fetchMilestones(false)}
+                    className="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition shadow-xs"
+                  >
+                    Retry Loading
+                  </button>
+                </div>
+              </div>
             ) : milestones.length === 0 ? (
               <div className="p-12 text-center text-slate-500 text-xs">No milestones configured yet.</div>
             ) : (
@@ -1755,7 +1873,25 @@ export default function AdminPartnershipsPage() {
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
             {loadingRewards ? (
-              <div className="p-12 text-center text-slate-400 text-xs font-mono">Loading rewards...</div>
+              <div className="p-12 text-center text-slate-400 text-xs font-mono flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-amber-500" />
+                <span>Loading reward claims...</span>
+              </div>
+            ) : rewardsError ? (
+              <div className="p-8 text-center space-y-3">
+                <div className="inline-flex items-center gap-2 text-rose-600 text-xs font-semibold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{rewardsError}</span>
+                </div>
+                <div>
+                  <button
+                    onClick={() => fetchRewardClaims(false)}
+                    className="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition shadow-xs"
+                  >
+                    Retry Loading
+                  </button>
+                </div>
+              </div>
             ) : rewardClaims.length === 0 ? (
               <div className="p-12 text-center text-slate-500 text-xs">No reward claims found.</div>
             ) : (
@@ -2136,7 +2272,7 @@ export default function AdminPartnershipsPage() {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={fetchGiftMedia}
+                onClick={() => fetchGiftMedia(false)}
                 className="px-3.5 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1.5 transition"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Refresh Assets
@@ -2251,8 +2387,24 @@ export default function AdminPartnershipsPage() {
             </div>
 
             {loadingGiftMedia ? (
-              <div className="bg-white p-12 text-center text-slate-400 text-xs font-mono rounded-2xl border border-slate-200">
-                Scanning seller gift media directory...
+              <div className="bg-white p-12 text-center text-slate-400 text-xs font-mono rounded-2xl border border-slate-200 flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-amber-500" />
+                <span>Scanning seller gift media directory...</span>
+              </div>
+            ) : giftMediaError ? (
+              <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-3">
+                <div className="inline-flex items-center gap-2 text-rose-600 text-xs font-semibold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{giftMediaError}</span>
+                </div>
+                <div>
+                  <button
+                    onClick={() => fetchGiftMedia(false)}
+                    className="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition shadow-xs"
+                  >
+                    Retry Loading
+                  </button>
+                </div>
               </div>
             ) : giftMedia.length === 0 ? (
               <div className="bg-white p-10 text-center rounded-2xl border border-dashed border-slate-200 space-y-2">
@@ -2347,7 +2499,25 @@ export default function AdminPartnershipsPage() {
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
             {loadingGlobalAudit ? (
-              <div className="p-12 text-center text-slate-400 text-xs font-mono">Loading audit logs...</div>
+              <div className="p-12 text-center text-slate-400 text-xs font-mono flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-amber-500" />
+                <span>Loading audit trail...</span>
+              </div>
+            ) : globalAuditError ? (
+              <div className="p-8 text-center space-y-3">
+                <div className="inline-flex items-center gap-2 text-rose-600 text-xs font-semibold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{globalAuditError}</span>
+                </div>
+                <div>
+                  <button
+                    onClick={() => fetchGlobalAuditLogs(false)}
+                    className="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition shadow-xs"
+                  >
+                    Retry Loading
+                  </button>
+                </div>
+              </div>
             ) : globalAuditLogs.length === 0 ? (
               <div className="p-12 text-center text-slate-500 text-xs">No audit events recorded yet.</div>
             ) : (
@@ -2437,7 +2607,25 @@ export default function AdminPartnershipsPage() {
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
             {loadingWholesale ? (
-              <div className="p-12 text-center text-slate-400 text-xs font-mono">Loading partnership records...</div>
+              <div className="p-12 text-center text-slate-400 text-xs font-mono flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-amber-500" />
+                <span>Loading partnership records...</span>
+              </div>
+            ) : wholesaleError ? (
+              <div className="p-8 text-center space-y-3">
+                <div className="inline-flex items-center gap-2 text-rose-600 text-xs font-semibold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{wholesaleError}</span>
+                </div>
+                <div>
+                  <button
+                    onClick={() => fetchWholesale(false)}
+                    className="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition shadow-xs"
+                  >
+                    Retry Loading
+                  </button>
+                </div>
+              </div>
             ) : wholesaleApps.length === 0 ? (
               <div className="p-12 text-center text-slate-500 text-xs">No partnership applications found matching criteria.</div>
             ) : (
