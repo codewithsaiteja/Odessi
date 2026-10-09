@@ -147,6 +147,22 @@ export interface SellerRewardStatusUpdateRequest {
   adminNotes?: string;
 }
 
+export interface SellerPerformanceStatsResponse {
+  totalApplications: number;
+  pendingApplications: number;
+  approvedSellers: number;
+  rejectedSellers: number;
+  suspendedSellers: number;
+  verifiedQualifyingSales: number;
+  totalEligibleOrderValue: number;
+  pendingAttributions: number;
+  disqualifiedAttributions: number;
+  milestonesUnlocked: number;
+  rewardsAwaitingApproval: number;
+  rewardsAwaitingShipment: number;
+  rewardsDelivered: number;
+}
+
 // ── Customer Seller API ──────────────────────────────────────────────────────
 
 export const sellerApi = {
@@ -268,5 +284,17 @@ export const sellerApi = {
       qualifying,
       reason,
     });
+  },
+
+  async getAdminPerformanceStats(): Promise<SellerPerformanceStatsResponse> {
+    return apiGet<SellerPerformanceStatsResponse>("/api/admin/sellers/stats");
+  },
+
+  async getAllAdminAuditLogs(params?: {
+    page?: number;
+    size?: number;
+  }): Promise<PageResponse<SellerAuditLogResponse>> {
+    const query = buildQueryString(params || {});
+    return apiGet<PageResponse<SellerAuditLogResponse>>(`/api/admin/sellers/audit-logs${query}`);
   },
 };

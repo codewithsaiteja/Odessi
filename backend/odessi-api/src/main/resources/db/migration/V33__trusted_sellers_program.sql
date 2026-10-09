@@ -140,8 +140,8 @@ INSERT INTO seller_milestone_configs (
     tier_level, milestone_name, qualifying_sales_threshold,
     reward_title, reward_description, reward_type, image_url, active, version
 ) VALUES
-(1, 'Rising Seller', 10, 'Appreciation Certificate & Sticker Pack', 'ODDSI appreciation certificate + exclusive sticker pack.', 'PHYSICAL_GIFT', '/images/rewards/tier1_certificate.png', TRUE, 1),
-(2, 'Trusted Seller', 25, 'Exclusive ODESSI T-Shirt', 'One exclusive ODESSI T shirt as a gift.', 'PHYSICAL_GIFT', '/images/rewards/tier2_tshirt.png', TRUE, 1),
-(3, 'Elite Seller', 50, 'Exclusive ODESSI Hoodie & Badge', 'One exclusive ODESSI hoodie + a trusted seller badge.', 'PHYSICAL_GIFT', '/images/rewards/tier3_hoodie.png', TRUE, 1),
-(4, 'ODDSI Brand Ambassador', 100, 'Premium Gift Box & Ambassador Recognition', 'Exclusive premium gift box, ambassador recognition and early access to new drops.', 'PHYSICAL_GIFT', '/images/rewards/tier4_ambassador.png', TRUE, 1)
+(1, 'Rising Seller', 10, 'Appreciation Certificate & Sticker Pack', 'ODESSI appreciation certificate + exclusive sticker pack.', 'PHYSICAL_GIFT', '/sellers/seller-level-1-rising.jpg', TRUE, 1),
+(2, 'Trusted Seller', 25, 'Exclusive ODESSI T-Shirt', 'One exclusive ODESSI T shirt as a gift.', 'PHYSICAL_GIFT', '/sellers/seller-level-2-trusted.jpg', TRUE, 1),
+(3, 'Elite Seller', 50, 'Exclusive ODESSI Hoodie & Badge', 'One exclusive ODESSI hoodie + a trusted seller badge.', 'PHYSICAL_GIFT', '/sellers/seller-level-3-elite.jpg', TRUE, 1),
+(4, 'ODDSI Brand Ambassador', 100, 'Premium Gift Box & Ambassador Recognition', 'Exclusive premium gift box, ambassador recognition and early access to new drops.', 'PHYSICAL_GIFT', '/sellers/seller-level-4-ambassador.jpg', TRUE, 1)
 ON CONFLICT (tier_level) DO NOTHING;

@@ -157,4 +157,23 @@ public class AdminSellerController {
         SellerAttributionResponse response = adminSellerService.overrideAttribution(admin, id, qualifying, reason);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
+
+    // ── Performance Dashboard & System Audit ────────────────────────────────
+
+    @GetMapping("/stats")
+    @Operation(summary = "Get executive KPI metrics and performance stats for seller program")
+    public ResponseEntity<ApiResponse<SellerPerformanceStatsResponse>> getPerformanceStats() {
+        SellerPerformanceStatsResponse stats = adminSellerService.getPerformanceStats();
+        return ResponseEntity.ok(ApiResponse.ok(stats));
+    }
+
+    @GetMapping("/audit-logs")
+    @Operation(summary = "Get global audit log history across all sellers")
+    public ResponseEntity<ApiResponse<Page<SellerAuditLogResponse>>> getAllAuditLogs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PageRequest pageRequest = PageRequest.of(page, Math.min(size, 100), Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<SellerAuditLogResponse> logs = adminSellerService.getAllAuditLogs(pageRequest);
+        return ResponseEntity.ok(ApiResponse.ok(logs));
+    }
 }

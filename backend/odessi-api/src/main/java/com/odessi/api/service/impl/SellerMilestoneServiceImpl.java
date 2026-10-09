@@ -37,10 +37,10 @@ public class SellerMilestoneServiceImpl implements SellerMilestoneService {
     private void ensureDefaultMilestones() {
         if (milestoneRepository.count() == 0) {
             milestoneRepository.saveAll(List.of(
-                new SellerMilestoneConfig(1, "Rising Seller", 10, "Appreciation Certificate & Sticker Pack", "ODDSI appreciation certificate + exclusive sticker pack.", "PHYSICAL_GIFT", "/images/rewards/tier1_certificate.png", true),
-                new SellerMilestoneConfig(2, "Trusted Seller", 25, "Exclusive ODESSI T-Shirt", "One exclusive ODESSI T shirt as a gift.", "PHYSICAL_GIFT", "/images/rewards/tier2_tshirt.png", true),
-                new SellerMilestoneConfig(3, "Elite Seller", 50, "Exclusive ODESSI Hoodie & Badge", "One exclusive ODESSI hoodie + a trusted seller badge.", "PHYSICAL_GIFT", "/images/rewards/tier3_hoodie.png", true),
-                new SellerMilestoneConfig(4, "ODDSI Brand Ambassador", 100, "Premium Gift Box & Ambassador Recognition", "Exclusive premium gift box, ambassador recognition and early access to new drops.", "PHYSICAL_GIFT", "/images/rewards/tier4_ambassador.png", true)
+                new SellerMilestoneConfig(1, "Rising Seller", 10, "Appreciation Certificate & Sticker Pack", "ODESSI appreciation certificate + exclusive sticker pack.", "PHYSICAL_GIFT", "/sellers/seller-level-1-rising.jpg", true),
+                new SellerMilestoneConfig(2, "Trusted Seller", 25, "Exclusive ODESSI T-Shirt", "One exclusive ODESSI T shirt as a gift.", "PHYSICAL_GIFT", "/sellers/seller-level-2-trusted.jpg", true),
+                new SellerMilestoneConfig(3, "Elite Seller", 50, "Exclusive ODESSI Hoodie & Badge", "One exclusive ODESSI hoodie + a trusted seller badge.", "PHYSICAL_GIFT", "/sellers/seller-level-3-elite.jpg", true),
+                new SellerMilestoneConfig(4, "ODDSI Brand Ambassador", 100, "Premium Gift Box & Ambassador Recognition", "Exclusive premium gift box, ambassador recognition and early access to new drops.", "PHYSICAL_GIFT", "/sellers/seller-level-4-ambassador.jpg", true)
             ));
         }
     }

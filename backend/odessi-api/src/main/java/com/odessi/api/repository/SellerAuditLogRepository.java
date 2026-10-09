@@ -14,4 +14,6 @@ public interface SellerAuditLogRepository extends JpaRepository<SellerAuditLog, 
     List<SellerAuditLog> findAllBySellerIdOrderByCreatedAtDesc(Long sellerId);
 
     Page<SellerAuditLog> findAllBySellerIdOrderByCreatedAtDesc(Long sellerId, Pageable pageable);
+
+    Page<SellerAuditLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
 }

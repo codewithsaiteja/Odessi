@@ -31,4 +31,16 @@ public interface SellerAttributionRepository extends JpaRepository<SellerAttribu
     Page<SellerAttribution> findAttributionsWithFilter(@Param("sellerId") Long sellerId,
                                                       @Param("status") String status,
                                                       Pageable pageable);
+
+    @Query("SELECT COUNT(a) FROM SellerAttribution a WHERE a.isQualifying = true")
+    long countTotalQualifyingSales();
+
+    @Query("SELECT COALESCE(SUM(a.orderTotal), 0) FROM SellerAttribution a WHERE a.isQualifying = true")
+    java.math.BigDecimal sumTotalQualifyingOrderValue();
+
+    @Query("SELECT COUNT(a) FROM SellerAttribution a WHERE a.qualificationStatus = 'PENDING'")
+    long countPendingAttributions();
+
+    @Query("SELECT COUNT(a) FROM SellerAttribution a WHERE a.qualificationStatus LIKE 'DISQUALIFIED%'")
+    long countDisqualifiedAttributions();
 }

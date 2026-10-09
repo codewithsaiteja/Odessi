@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
   sellerApi,
@@ -28,6 +29,20 @@ import {
   ArrowRight,
   Package,
 } from "lucide-react";
+
+const MILESTONE_IMAGES: Record<number, string> = {
+  1: "/sellers/seller-level-1-rising.jpg",
+  2: "/sellers/seller-level-2-trusted.jpg",
+  3: "/sellers/seller-level-3-elite.jpg",
+  4: "/sellers/seller-level-4-ambassador.jpg",
+};
+
+function getMilestoneImage(tierLevel: number, serverUrl?: string): string {
+  if (serverUrl && !serverUrl.includes("/images/rewards/")) {
+    return serverUrl;
+  }
+  return MILESTONE_IMAGES[tierLevel] || "/sellers/seller-level-1-rising.jpg";
+}
 
 export default function AccountSeller() {
   const { user } = useAuth();
@@ -278,12 +293,18 @@ export default function AccountSeller() {
             </p>
           </div>
 
-          {/* Next Milestone Sub-Card — Screenshot 1 */}
+          {/* Next Milestone Sub-Card — Screenshot 1 with Dedicated Image */}
           {nextMilestone && (
             <div className="mt-6 bg-[#141823] border border-[#22293A] rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-lg bg-[#0A0D14] border border-[#2B344A] flex items-center justify-center shrink-0 text-[#B89A5A] overflow-hidden">
-                  <Gift className="w-7 h-7" />
+                <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 border border-[#2B344A] bg-[#0A0D14]">
+                  <Image
+                    src={getMilestoneImage(nextMilestone.tierLevel, nextMilestone.imageUrl)}
+                    alt={nextMilestone.milestoneName}
+                    fill
+                    className="object-cover"
+                    sizes="80px"
+                  />
                 </div>
                 <div>
                   <span className="text-[10px] font-mono tracking-widest uppercase text-[#B89A5A] font-semibold block">
@@ -344,12 +365,12 @@ export default function AccountSeller() {
           </div>
         </div>
 
-        {/* Unlocked & Claimed Rewards Shelf */}
+        {/* Unlocked & Claimed Rewards Shelf with Images */}
         <div className="bg-white border border-stone-200 rounded-2xl p-6 sm:p-8 shadow-xs">
           <div className="flex items-center justify-between pb-4 border-b border-stone-200 mb-6">
             <div>
               <h3 className="text-lg font-bold text-stone-900 font-serif flex items-center gap-2">
-                <Gift className="w-5 h-5 text-amber-600" /> Earned Physical Rewards & Gifts
+                <Gift className="w-5 h-5 text-amber-600" /> Earned Physical Rewards &amp; Gifts
               </h3>
               <p className="text-xs text-stone-500 mt-0.5">
                 Physical merchandise rewards unlocked through your verified sales milestones.
@@ -375,42 +396,53 @@ export default function AccountSeller() {
                   key={reward.id}
                   className="p-5 rounded-xl border border-stone-200 bg-stone-50/60 flex flex-col justify-between space-y-4"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-700">
-                        {reward.milestoneNameSnapshot}
-                      </span>
-                      <h4 className="font-bold text-stone-900 text-sm mt-0.5">
+                  <div className="flex items-start gap-4">
+                    <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-stone-300 bg-stone-100">
+                      <Image
+                        src={getMilestoneImage(reward.tierLevel)}
+                        alt={reward.rewardTitleSnapshot}
+                        fill
+                        className="object-cover"
+                        sizes="64px"
+                      />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-700">
+                          {reward.milestoneNameSnapshot}
+                        </span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0 ${
+                            reward.status === "UNLOCKED"
+                              ? "bg-amber-100 text-amber-800 border-amber-300"
+                              : reward.status === "CLAIMED"
+                              ? "bg-blue-100 text-blue-800 border-blue-300"
+                              : reward.status === "APPROVED"
+                              ? "bg-purple-100 text-purple-800 border-purple-300"
+                              : reward.status === "SHIPPED"
+                              ? "bg-indigo-100 text-indigo-800 border-indigo-300"
+                              : "bg-emerald-100 text-emerald-800 border-emerald-300"
+                          }`}
+                        >
+                          {reward.status === "UNLOCKED"
+                            ? "Ready to Claim"
+                            : reward.status === "CLAIMED"
+                            ? "Claimed"
+                            : reward.status === "APPROVED"
+                            ? "Approved"
+                            : reward.status === "SHIPPED"
+                            ? "Dispatched"
+                            : "Delivered"}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-stone-900 text-sm mt-0.5 truncate">
                         {reward.rewardTitleSnapshot}
                       </h4>
-                      <p className="text-xs text-stone-600 mt-1">
+                      <p className="text-xs text-stone-600 mt-1 line-clamp-2">
                         {reward.rewardDescriptionSnapshot}
                       </p>
                     </div>
-
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0 ${
-                        reward.status === "UNLOCKED"
-                          ? "bg-amber-100 text-amber-800 border-amber-300"
-                          : reward.status === "CLAIMED"
-                          ? "bg-blue-100 text-blue-800 border-blue-300"
-                          : reward.status === "APPROVED"
-                          ? "bg-purple-100 text-purple-800 border-purple-300"
-                          : reward.status === "SHIPPED"
-                          ? "bg-indigo-100 text-indigo-800 border-indigo-300"
-                          : "bg-emerald-100 text-emerald-800 border-emerald-300"
-                      }`}
-                    >
-                      {reward.status === "UNLOCKED"
-                        ? "Ready to Claim"
-                        : reward.status === "CLAIMED"
-                        ? "Claimed"
-                        : reward.status === "APPROVED"
-                        ? "Approved"
-                        : reward.status === "SHIPPED"
-                        ? "Dispatched"
-                        : "Delivered"}
-                    </span>
                   </div>
 
                   {/* Shipment Tracking details if dispatched */}
@@ -438,7 +470,7 @@ export default function AccountSeller() {
                   {reward.status === "DELIVERED" && (
                     <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 text-xs text-emerald-800 flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>Reward successfully delivered. Enjoy your ODESSI merchandise!</span>
+                      <span>Reward successfully delivered. Enjoy your exclusive merchandise!</span>
                     </div>
                   )}
 
@@ -456,7 +488,7 @@ export default function AccountSeller() {
           )}
         </div>
 
-        {/* Milestone Roadmap Progression (Screenshot 2) */}
+        {/* Milestone Roadmap Progression (Screenshot 2 / Reference) */}
         <div className="bg-white border border-stone-200 rounded-2xl p-6 sm:p-8 shadow-xs">
           <div className="pb-4 border-b border-stone-200 mb-6">
             <h3 className="text-lg font-bold text-stone-900 font-serif">
@@ -482,20 +514,18 @@ export default function AccountSeller() {
                       ? "bg-amber-50/50 border-amber-200"
                       : isCurrent
                       ? "bg-stone-900 text-white border-stone-800 shadow-md"
-                      : "bg-stone-50 border-stone-200 text-stone-700 opacity-80"
+                      : "bg-stone-50 border-stone-200 text-stone-700 opacity-90"
                   }`}
                 >
                   <div className="flex items-center gap-4">
-                    <div
-                      className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 border ${
-                        isAchieved
-                          ? "bg-amber-500 text-stone-950 border-amber-600 font-bold"
-                          : isCurrent
-                          ? "bg-[#1E2536] text-[#B89A5A] border-[#2A344A]"
-                          : "bg-white text-stone-400 border-stone-200"
-                      }`}
-                    >
-                      {isAchieved ? <CheckCircle2 className="w-6 h-6" /> : <Gift className="w-6 h-6" />}
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 border border-stone-300 bg-stone-950">
+                      <Image
+                        src={getMilestoneImage(milestone.tierLevel, milestone.imageUrl)}
+                        alt={milestone.milestoneName}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 640px) 64px, 80px"
+                      />
                     </div>
 
                     <div>
@@ -508,12 +538,12 @@ export default function AccountSeller() {
                           Level {milestone.tierLevel}
                         </span>
                         <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                          className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                             isCurrent
                               ? "bg-amber-400/20 text-amber-300 border border-amber-400/30"
                               : isAchieved
                               ? "bg-emerald-100 text-emerald-800"
-                              : "bg-stone-200 text-stone-600"
+                              : "bg-stone-200 text-stone-700"
                           }`}
                         >
                           {milestone.qualifyingSalesThreshold} sales
@@ -552,16 +582,24 @@ export default function AccountSeller() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/70 backdrop-blur-xs">
             <div className="bg-white w-full max-w-lg rounded-2xl p-6 sm:p-8 border border-stone-200 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex justify-between items-start border-b border-stone-200 pb-4">
-                <div>
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-amber-700 font-bold block">
-                    Claim Physical Gift Reward
-                  </span>
-                  <h3 className="font-bold text-stone-900 text-lg sm:text-xl font-serif">
-                    {selectedRewardToClaim.rewardTitleSnapshot}
-                  </h3>
-                  <p className="text-xs text-stone-500 mt-1">
-                    Please provide your delivery shipping address and apparel size.
-                  </p>
+                <div className="flex items-center gap-3">
+                  <div className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-stone-300 bg-stone-100">
+                    <Image
+                      src={getMilestoneImage(selectedRewardToClaim.tierLevel)}
+                      alt={selectedRewardToClaim.rewardTitleSnapshot}
+                      fill
+                      className="object-cover"
+                      sizes="56px"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-amber-700 font-bold block">
+                      Claim Physical Gift Reward
+                    </span>
+                    <h3 className="font-bold text-stone-900 text-base sm:text-lg font-serif">
+                      {selectedRewardToClaim.rewardTitleSnapshot}
+                    </h3>
+                  </div>
                 </div>
                 <button
                   onClick={() => setSelectedRewardToClaim(null)}
@@ -740,7 +778,7 @@ export default function AccountSeller() {
           </div>
         </div>
 
-        {/* Milestone roadmap preview */}
+        {/* Milestone roadmap preview with Images */}
         <MilestoneTiersPreview />
       </div>
     );
@@ -810,7 +848,7 @@ export default function AccountSeller() {
                   onClick={() => setReapplyMode(true)}
                   className="px-5 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-semibold transition"
                 >
-                  Update Application & Reapply
+                  Update Application &amp; Reapply
                 </button>
               </div>
             </div>
@@ -834,7 +872,7 @@ export default function AccountSeller() {
             <Crown className="w-5 h-5" />
           </div>
           <span className="text-[11px] font-mono uppercase tracking-widest text-[#B89A5A] font-semibold">
-            ODESSI CREATOR & TRUSTED SELLERS NETWORK
+            ODESSI CREATOR &amp; TRUSTED SELLERS NETWORK
           </span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-serif mt-2">
@@ -845,7 +883,7 @@ export default function AccountSeller() {
         </p>
       </div>
 
-      {/* 4 Milestone Tiers Roadmap (Screenshot 2) */}
+      {/* 4 Milestone Tiers Roadmap matching Reference Screenshot 2 */}
       <MilestoneTiersPreview />
 
       {/* Application Form */}
@@ -985,7 +1023,7 @@ export default function AccountSeller() {
 }
 
 /**
- * 4 Milestone Tiers presentation matching Screenshot 2
+ * 4 Milestone Tiers presentation matching Reference Screenshot 2 with Dedicated Images
  */
 function MilestoneTiersPreview() {
   const TIERS = [
@@ -994,24 +1032,28 @@ function MilestoneTiersPreview() {
       title: "Rising Seller",
       sales: "10 successful sales",
       reward: "ODISSI appreciation certificate + exclusive sticker pack.",
+      image: "/sellers/seller-level-1-rising.jpg",
     },
     {
       level: 2,
       title: "Trusted Seller",
       sales: "25 successful sales",
-      reward: "One exclusive ODESSI T-shirt as a gift.",
+      reward: "One exclusive ODESSI T shirt as a gift.",
+      image: "/sellers/seller-level-2-trusted.jpg",
     },
     {
       level: 3,
       title: "Elite Seller",
       sales: "50 successful sales",
       reward: "One exclusive ODESSI hoodie + a trusted seller badge.",
+      image: "/sellers/seller-level-3-elite.jpg",
     },
     {
       level: 4,
       title: "ODISSI Brand Ambassador",
       sales: "100 successful sales",
-      reward: "Exclusive premium gift box, ambassador recognition, and early access to new drops.",
+      reward: "Exclusive premium gift box, ambassador recognition and early access to new drops.",
+      image: "/sellers/seller-level-4-ambassador.jpg",
     },
   ];
 
@@ -1030,24 +1072,31 @@ function MilestoneTiersPreview() {
         {TIERS.map((tier) => (
           <div
             key={tier.level}
-            className="p-5 rounded-xl border border-stone-200 bg-stone-50/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+            className="p-5 rounded-xl border border-stone-200 bg-stone-50/70 hover:bg-stone-50 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-lg bg-stone-900 text-[#B89A5A] border border-stone-800 flex items-center justify-center shrink-0">
-                <Gift className="w-6 h-6" />
+            <div className="flex items-center gap-4 sm:gap-5">
+              <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden shrink-0 border border-stone-300 bg-[#0A0D14] shadow-xs">
+                <Image
+                  src={tier.image}
+                  alt={tier.title}
+                  fill
+                  className="object-cover transition-transform hover:scale-105 duration-300"
+                  sizes="(max-width: 640px) 80px, 96px"
+                />
               </div>
+
               <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="font-bold text-stone-900 text-sm sm:text-base">
-                    Level {tier.level} &mdash; {tier.title}
-                  </h4>
-                </div>
+                <h4 className="font-bold text-stone-900 text-sm sm:text-base tracking-tight">
+                  Level {tier.level} &mdash; {tier.title}
+                </h4>
                 <div className="mt-1">
                   <span className="inline-block px-2.5 py-0.5 bg-stone-200 text-stone-800 text-[10px] font-mono font-bold rounded">
                     {tier.sales}
                   </span>
                 </div>
-                <p className="text-xs text-stone-600 mt-1">{tier.reward}</p>
+                <p className="text-xs text-stone-600 mt-1 leading-relaxed">
+                  {tier.reward}
+                </p>
               </div>
             </div>
           </div>

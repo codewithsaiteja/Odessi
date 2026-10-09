@@ -1,10 +1,7 @@
 package com.odessi.api.service.impl;
 
 import com.odessi.api.dto.request.SellerRewardStatusUpdateRequest;
-import com.odessi.api.dto.response.SellerAttributionResponse;
-import com.odessi.api.dto.response.SellerAuditLogResponse;
-import com.odessi.api.dto.response.SellerResponse;
-import com.odessi.api.dto.response.SellerRewardResponse;
+import com.odessi.api.dto.response.*;
 import com.odessi.api.entity.*;
 import com.odessi.api.exception.BadRequestException;
 import com.odessi.api.exception.ResourceNotFoundException;
@@ -248,5 +245,48 @@ public class AdminSellerServiceImpl implements AdminSellerService {
                 .stream()
                 .map(SellerAuditLogResponse::fromEntity)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<SellerAuditLogResponse> getAllAuditLogs(Pageable pageable) {
+        return auditLogRepository.findAllByOrderByCreatedAtDesc(pageable)
+                .map(SellerAuditLogResponse::fromEntity);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SellerPerformanceStatsResponse getPerformanceStats() {
+        long totalApplications = sellerRepository.count();
+        long pendingApplications = sellerRepository.countByStatus(SellerStatus.PENDING);
+        long approvedSellers = sellerRepository.countByStatus(SellerStatus.APPROVED);
+        long rejectedSellers = sellerRepository.countByStatus(SellerStatus.REJECTED);
+        long suspendedSellers = sellerRepository.countByStatus(SellerStatus.SUSPENDED);
+
+        long verifiedQualifyingSales = attributionRepository.countTotalQualifyingSales();
+        java.math.BigDecimal totalEligibleOrderValue = attributionRepository.sumTotalQualifyingOrderValue();
+        long pendingAttributions = attributionRepository.countPendingAttributions();
+        long disqualifiedAttributions = attributionRepository.countDisqualifiedAttributions();
+
+        long milestonesUnlocked = rewardRepository.count();
+        long rewardsAwaitingApproval = rewardRepository.countByStatus(SellerRewardStatus.CLAIMED);
+        long rewardsAwaitingShipment = rewardRepository.countByStatus(SellerRewardStatus.APPROVED);
+        long rewardsDelivered = rewardRepository.countByStatus(SellerRewardStatus.DELIVERED);
+
+        return new SellerPerformanceStatsResponse(
+            totalApplications,
+            pendingApplications,
+            approvedSellers,
+            rejectedSellers,
+            suspendedSellers,
+            verifiedQualifyingSales,
+            totalEligibleOrderValue,
+            pendingAttributions,
+            disqualifiedAttributions,
+            milestonesUnlocked,
+            rewardsAwaitingApproval,
+            rewardsAwaitingShipment,
+            rewardsDelivered
+        );
     }
 }
