@@ -139,7 +139,8 @@ public class SecurityConfig {
                     "/api/homepage/content/**",
                     "/uploads/**",
                     "/api/media/**",
-                    "/api/try-on/**"
+                    "/api/try-on/**",
+                    "/api/seller/validate-code"
                 ).permitAll()
                 .requestMatchers(
                     "/api/auth/register",

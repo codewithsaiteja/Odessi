@@ -10,4 +10,6 @@ public interface EmailService {
     void sendTestEmail(String to);
     void sendOrderConfirmationEmail(Order order);
     void sendOrderStatusUpdateEmail(Order order, OrderStatus previousStatus, OrderStatus newStatus);
+    void sendSellerApplicationApprovedEmail(String to, String sellerName, String sellerCode);
+    void sendSellerApplicationRejectedEmail(String to, String sellerName, String reason);
 }

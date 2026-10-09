@@ -17,7 +17,6 @@ import {
   Truck,
   Tag,
   Star,
-  Share2,
   LogOut,
   Menu,
   X,
@@ -77,7 +76,6 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: "Coupons", href: "/admin/coupons", icon: Tag },
       { name: "Reviews", href: "/admin/reviews", icon: Star },
-      { name: "Referrals", href: "/admin/referrals", icon: Share2 },
       { name: "Limited Drops", href: "/admin/drops", icon: Timer },
     ],
   },
@@ -93,7 +91,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "BUSINESS",
     items: [
       { name: "Shipping", href: "/admin/shipping", icon: Truck },
-      { name: "Partnerships", href: "/admin/partnerships", icon: Building2 },
+      { name: "Seller Network", href: "/admin/partnerships", icon: Building2 },
       { name: "Custom Orders", href: "/admin/custom-orders", icon: Shirt },
     ],
   },
@@ -168,8 +166,6 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         return "Instagram / Social Feed Management";
       case "content":
         return "Storefront Editorial & Homepage Content";
-      case "referrals":
-        return "Customer Referrals & Rewards Audit";
       case "categories":
         return "Category Hierarchy";
       case "collections":
@@ -177,7 +173,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       case "audit":
         return "System Audit Trail";
       case "partnerships":
-        return "Partner Applications";
+        return "Seller Network & Partnerships";
       case "custom-orders":
         return "Custom Order Requests";
       case "drops":

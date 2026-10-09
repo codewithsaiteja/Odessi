@@ -67,19 +67,10 @@ function RegisterContent() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [referralCode, setReferralCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-
-  // Extract referral code from URL search param if present (e.g. ?ref=CODE)
-  useEffect(() => {
-    const refParam = searchParams.get("ref");
-    if (refParam && refParam.trim()) {
-      setReferralCode(refParam.trim().toUpperCase());
-    }
-  }, [searchParams]);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -102,7 +93,7 @@ function RegisterContent() {
     setLoading(true);
 
     try {
-      await register({ firstName, lastName, email, password, referralCode: referralCode.trim() });
+      await register({ firstName, lastName, email, password });
       setSuccess(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Registration failed";
@@ -293,32 +284,6 @@ function RegisterContent() {
             )}
           </div>
 
-          {/* Referral Code (Optional) Input */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label
-                htmlFor="reg-referral-code"
-                className="block text-[10px] font-medium uppercase tracking-[0.18em] text-[#9C978E]"
-              >
-                Referral Code <span className="text-[#555555] normal-case">(optional)</span>
-              </label>
-              {referralCode.trim().length > 0 ? (
-                <span className="text-[10px] text-[#CBB57B] font-mono">
-                  CODE APPLIED
-                </span>
-              ) : null}
-            </div>
-            <input
-              id="reg-referral-code"
-              type="text"
-              name="referralCode"
-              value={referralCode}
-              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-              className="w-full px-4 py-3 bg-[#101010] border border-[#222222] rounded-[2px] text-xs font-mono tracking-wider text-[#FAF9F6] placeholder:text-[#555555] focus:outline-none focus:border-[#9C978E] uppercase transition-colors disabled:opacity-50"
-              placeholder="e.g. ODESSI-REF"
-              disabled={loading}
-            />
-          </div>
 
           {/* Submit Button */}
           <div className="pt-2">

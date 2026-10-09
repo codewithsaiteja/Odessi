@@ -77,7 +77,7 @@ public class AdminServiceImpl implements AdminService {
     private com.odessi.api.repository.OrderStatusEmailLogRepository orderStatusEmailLogRepository;
 
     @Autowired(required = false)
-    private com.odessi.api.service.ReferralService referralService;
+    private com.odessi.api.service.SellerAttributionService sellerAttributionService;
 
     public void setEmailService(com.odessi.api.service.EmailService emailService) {
         this.emailService = emailService;
@@ -87,8 +87,8 @@ public class AdminServiceImpl implements AdminService {
         this.orderStatusEmailLogRepository = orderStatusEmailLogRepository;
     }
 
-    public void setReferralService(com.odessi.api.service.ReferralService referralService) {
-        this.referralService = referralService;
+    public void setSellerAttributionService(com.odessi.api.service.SellerAttributionService sellerAttributionService) {
+        this.sellerAttributionService = sellerAttributionService;
     }
 
     @Autowired
@@ -1076,19 +1076,14 @@ public class AdminServiceImpl implements AdminService {
         order.setStatus(newStatus);
         Order updated = orderRepository.save(order);
 
+        if (newStatus == OrderStatus.CANCELLED && sellerAttributionService != null) {
+            sellerAttributionService.disqualifyOrder(orderId, "DISQUALIFIED_CANCELLED");
+        }
+
         auditService.logAction(admin, "ORDER_STATUS_CHANGED", "Order", orderId.toString(),
             "Updated status from " + currentStatus + " to " + newStatus);
 
         sendStatusUpdateEmailIfEligible(updated, currentStatus, newStatus);
-
-        // Process referral qualification if order reached DELIVERED status
-        if (newStatus == OrderStatus.DELIVERED && referralService != null) {
-            try {
-                referralService.processQualifyingOrder(updated.getUser(), updated);
-            } catch (Exception e) {
-                log.error("Failed to process referral qualification for delivered order id={}: {}", updated.getId(), e.getMessage(), e);
-            }
-        }
 
         return orderMapper.toResponse(updated);
     }

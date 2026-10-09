@@ -4,6 +4,7 @@ import { CartProvider } from "@/lib/cart-context";
 import { WishlistProvider } from "@/lib/wishlist-context";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import "./globals.css";
+import SellerAttributionTracker from "@/components/seller/SellerAttributionTracker";
 
 /* ── Fonts ── */
 const inter = Inter({
@@ -90,6 +91,7 @@ export default function RootLayout({
         <AuthProvider>
           <WishlistProvider>
             <CartProvider>
+              <SellerAttributionTracker />
               {children}
             </CartProvider>
           </WishlistProvider>

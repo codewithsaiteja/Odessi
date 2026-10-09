@@ -75,4 +75,25 @@ public class DevelopmentEmailService implements EmailService {
         logger.info("Subject: {}", subject);
         logger.info("==================================================");
     }
+
+    @Override
+    public void sendSellerApplicationApprovedEmail(String to, String sellerName, String sellerCode) {
+        logger.info("==================================================");
+        logger.info("MOCK EMAIL SENT: Seller Application Approved");
+        logger.info("To: {}", to);
+        logger.info("Seller Name: {}", sellerName);
+        logger.info("Seller Code: {}", sellerCode);
+        logger.info("Dashboard Link: http://localhost:3000/account?tab=seller");
+        logger.info("==================================================");
+    }
+
+    @Override
+    public void sendSellerApplicationRejectedEmail(String to, String sellerName, String reason) {
+        logger.info("==================================================");
+        logger.info("MOCK EMAIL SENT: Seller Application Decision");
+        logger.info("To: {}", to);
+        logger.info("Seller Name: {}", sellerName);
+        logger.info("Reason: {}", reason);
+        logger.info("==================================================");
+    }
 }

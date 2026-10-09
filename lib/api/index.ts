@@ -20,3 +20,4 @@ export * from "./reviews";
 export * from "./user";
 export * from "./growth";
 export * from "./try-on";
+export * from "./seller";

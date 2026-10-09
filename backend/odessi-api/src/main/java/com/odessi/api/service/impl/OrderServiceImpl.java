@@ -41,6 +41,37 @@ public class OrderServiceImpl implements OrderService {
     private final AddressMapper addressMapper;
     private final AppProperties appProperties;
     private final ObjectMapper objectMapper;
+    private final com.odessi.api.service.SellerAttributionService sellerAttributionService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public OrderServiceImpl(
+            OrderRepository orderRepository,
+            CartRepository cartRepository,
+            UserRepository userRepository,
+            AddressRepository addressRepository,
+            PaymentRepository paymentRepository,
+            InventoryService inventoryService,
+            ShippingService shippingService,
+            CouponService couponService,
+            OrderMapper orderMapper,
+            AddressMapper addressMapper,
+            AppProperties appProperties,
+            ObjectMapper objectMapper,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.odessi.api.service.SellerAttributionService sellerAttributionService) {
+        this.orderRepository = orderRepository;
+        this.cartRepository = cartRepository;
+        this.userRepository = userRepository;
+        this.addressRepository = addressRepository;
+        this.paymentRepository = paymentRepository;
+        this.inventoryService = inventoryService;
+        this.shippingService = shippingService;
+        this.couponService = couponService;
+        this.orderMapper = orderMapper;
+        this.addressMapper = addressMapper;
+        this.appProperties = appProperties;
+        this.objectMapper = objectMapper;
+        this.sellerAttributionService = sellerAttributionService;
+    }
 
     public OrderServiceImpl(
             OrderRepository orderRepository,
@@ -55,18 +86,9 @@ public class OrderServiceImpl implements OrderService {
             AddressMapper addressMapper,
             AppProperties appProperties,
             ObjectMapper objectMapper) {
-        this.orderRepository = orderRepository;
-        this.cartRepository = cartRepository;
-        this.userRepository = userRepository;
-        this.addressRepository = addressRepository;
-        this.paymentRepository = paymentRepository;
-        this.inventoryService = inventoryService;
-        this.shippingService = shippingService;
-        this.couponService = couponService;
-        this.orderMapper = orderMapper;
-        this.addressMapper = addressMapper;
-        this.appProperties = appProperties;
-        this.objectMapper = objectMapper;
+        this(orderRepository, cartRepository, userRepository, addressRepository, paymentRepository,
+             inventoryService, shippingService, couponService, orderMapper, addressMapper,
+             appProperties, objectMapper, null);
     }
 
     @Override
@@ -232,6 +254,11 @@ public class OrderServiceImpl implements OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
+        // Attribute seller if seller code provided
+        if (sellerAttributionService != null && request.sellerCode() != null && !request.sellerCode().isBlank()) {
+            sellerAttributionService.attributeOrder(savedOrder, request.sellerCode());
+        }
+
         // Atomically reserve coupon usage
         if (appliedCouponCode != null) {
             couponService.reserveCouponUsage(appliedCouponCode, user, savedOrder, subtotal);
@@ -325,6 +352,10 @@ public class OrderServiceImpl implements OrderService {
 
         inventoryService.releaseReservations(order.getId());
         couponService.releaseCouponUsage(order.getId());
+
+        if (sellerAttributionService != null) {
+            sellerAttributionService.disqualifyOrder(order.getId(), "DISQUALIFIED_CANCELLED");
+        }
 
         return orderMapper.toResponse(order);
     }

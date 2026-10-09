@@ -48,6 +48,7 @@ export interface CreateOrderData {
   shippingMethodId?: number;
   shippingMethodCode?: string;
   couponCode?: string;
+  sellerCode?: string;
 }
 
 export interface CheckoutResponse {

@@ -37,13 +37,7 @@ public class RazorpayPaymentService {
     private final CartService cartService;
     private final OrderMapper orderMapper;
     private final EmailService emailService;
-
-    @Autowired(required = false)
-    private ReferralService referralService;
-
-    public void setReferralService(ReferralService referralService) {
-        this.referralService = referralService;
-    }
+    private final com.odessi.api.service.SellerAttributionService sellerAttributionService;
 
     @Autowired
     public RazorpayPaymentService(
@@ -55,7 +49,8 @@ public class RazorpayPaymentService {
             CouponService couponService,
             CartService cartService,
             OrderMapper orderMapper,
-            @Autowired(required = false) EmailService emailService) {
+            @Autowired(required = false) EmailService emailService,
+            @Autowired(required = false) com.odessi.api.service.SellerAttributionService sellerAttributionService) {
         this.appProperties = appProperties;
         this.orderRepository = orderRepository;
         this.paymentRepository = paymentRepository;
@@ -65,6 +60,21 @@ public class RazorpayPaymentService {
         this.cartService = cartService;
         this.orderMapper = orderMapper;
         this.emailService = emailService;
+        this.sellerAttributionService = sellerAttributionService;
+    }
+
+    public RazorpayPaymentService(
+            AppProperties appProperties,
+            OrderRepository orderRepository,
+            PaymentRepository paymentRepository,
+            PaymentWebhookEventRepository webhookEventRepository,
+            InventoryService inventoryService,
+            CouponService couponService,
+            CartService cartService,
+            OrderMapper orderMapper,
+            EmailService emailService) {
+        this(appProperties, orderRepository, paymentRepository, webhookEventRepository,
+             inventoryService, couponService, cartService, orderMapper, emailService, null);
     }
 
     public RazorpayPaymentService(
@@ -77,7 +87,7 @@ public class RazorpayPaymentService {
             CartService cartService,
             OrderMapper orderMapper) {
         this(appProperties, orderRepository, paymentRepository, webhookEventRepository,
-             inventoryService, couponService, cartService, orderMapper, null);
+             inventoryService, couponService, cartService, orderMapper, null, null);
     }
 
     /**
@@ -161,6 +171,11 @@ public class RazorpayPaymentService {
         // Clear user's server cart after successful payment
         cartService.clearCart(userId);
 
+        // Qualify seller attribution if order was attributed to an approved seller
+        if (sellerAttributionService != null) {
+            sellerAttributionService.qualifyOrder(order.getId());
+        }
+
         log.info("Successfully verified payment and confirmed order {}", order.getOrderNumber());
 
         // Send order confirmation email exactly once
@@ -173,15 +188,6 @@ public class RazorpayPaymentService {
                 orderRepository.save(order);
             } catch (Exception e) {
                 log.error("[EMAIL] Confirmation email dispatch failed for order {}: {}", order.getOrderNumber(), e.getMessage());
-            }
-        }
-
-        // Process referral qualification if configured for ORDER_PAID trigger
-        if (referralService != null) {
-            try {
-                referralService.processQualifyingOrder(order.getUser(), order);
-            } catch (Exception e) {
-                log.error("Referral qualification check failed on payment verification for order {}: {}", order.getOrderNumber(), e.getMessage());
             }
         }
 
@@ -287,6 +293,11 @@ public class RazorpayPaymentService {
             couponService.consumeCouponUsage(order.getId());
             cartService.clearCart(order.getUser().getId());
 
+            // Qualify seller attribution if order was attributed to an approved seller
+            if (sellerAttributionService != null) {
+                sellerAttributionService.qualifyOrder(order.getId());
+            }
+
             log.info("Webhook updated order {} to CONFIRMED via event {}", order.getOrderNumber(), eventType);
 
             // Send order confirmation email exactly once
@@ -301,16 +312,6 @@ public class RazorpayPaymentService {
                     log.error("[EMAIL] Webhook confirmation email dispatch failed for order {}: {}", order.getOrderNumber(), e.getMessage());
                 }
             }
-
-            // Process referral qualification if configured for ORDER_PAID trigger
-            if (referralService != null) {
-                try {
-                    referralService.processQualifyingOrder(order.getUser(), order);
-                } catch (Exception e) {
-                    log.error("Referral qualification check failed on webhook confirmation for order {}: {}", order.getOrderNumber(), e.getMessage());
-                }
-            }
-
         } else if ("payment.failed".equalsIgnoreCase(eventType)) {
             if (order.getStatus() == OrderStatus.PENDING_PAYMENT || order.getStatus() == OrderStatus.PENDING) {
                 payment.setStatus(PaymentStatus.FAILED);

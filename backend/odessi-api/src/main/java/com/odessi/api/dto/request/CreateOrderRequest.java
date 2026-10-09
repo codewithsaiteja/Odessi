@@ -12,8 +12,26 @@ public record CreateOrderRequest(
     String country,
     Long shippingMethodId,
     String shippingMethodCode,
-    String couponCode
+    String couponCode,
+    String sellerCode
 ) {
+    public CreateOrderRequest(
+        Long addressId,
+        String fullName,
+        String phone,
+        String addressLine1,
+        String addressLine2,
+        String city,
+        String state,
+        String postalCode,
+        String country,
+        Long shippingMethodId,
+        String shippingMethodCode,
+        String couponCode
+    ) {
+        this(addressId, fullName, phone, addressLine1, addressLine2, city, state, postalCode, country, shippingMethodId, shippingMethodCode, couponCode, null);
+    }
+
     public CreateOrderRequest(
         Long addressId,
         String fullName,
@@ -25,10 +43,10 @@ public record CreateOrderRequest(
         String postalCode,
         String country
     ) {
-        this(addressId, fullName, phone, addressLine1, addressLine2, city, state, postalCode, country, null, null, null);
+        this(addressId, fullName, phone, addressLine1, addressLine2, city, state, postalCode, country, null, null, null, null);
     }
 
     public CreateOrderRequest(Long addressId) {
-        this(addressId, null, null, null, null, null, null, null, null, null, null, null);
+        this(addressId, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 }

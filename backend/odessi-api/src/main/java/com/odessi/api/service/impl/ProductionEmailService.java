@@ -1273,4 +1273,40 @@ public class ProductionEmailService implements EmailService {
                    .replace("\"", "&quot;")
                    .replace("'", "&#39;");
     }
+
+    @Override
+    public void sendSellerApplicationApprovedEmail(String to, String sellerName, String sellerCode) {
+        if (to == null || to.isBlank()) return;
+        String subject = "Welcome to ODESSI Trusted Sellers Program — Your Application is Approved!";
+        String htmlBody = "<div style='font-family:sans-serif;max-width:600px;margin:0 auto;background:#101010;color:#F3F0E8;padding:32px;border-radius:8px;'>"
+            + "<h1 style='color:#CBB57B;font-size:20px;margin-bottom:16px;'>ODISSI TRUSTED SELLERS PROGRAM</h1>"
+            + "<p>Dear " + escapeHtml(sellerName) + ",</p>"
+            + "<p>Congratulations! Your application to become an <strong>ODISSI Trusted Seller</strong> has been approved by our team.</p>"
+            + "<div style='background:#1c1c1c;border:1px solid #333;padding:16px;margin:24px 0;border-radius:4px;'>"
+            + "<p style='margin:0;color:#9C978E;font-size:12px;'>YOUR UNIQUE SELLER CODE:</p>"
+            + "<h2 style='margin:8px 0;color:#CBB57B;letter-spacing:2px;font-family:monospace;'>" + escapeHtml(sellerCode) + "</h2>"
+            + "<p style='margin:0;color:#9C978E;font-size:12px;'>Share your link or code with your audience to generate verified sales and unlock exclusive milestone gifts.</p>"
+            + "</div>"
+            + "<p><a href='https://www.odessitfi.me/account?tab=seller' style='display:inline-block;background:#F3F0E8;color:#080808;padding:12px 24px;text-decoration:none;font-weight:bold;border-radius:2px;'>OPEN SELLER DASHBOARD</a></p>"
+            + "<p style='color:#777;font-size:11px;margin-top:32px;'>ODISSI.TFI · Luxury Architectural Streetwear</p>"
+            + "</div>";
+
+        sendHtmlEmail(to, subject, htmlBody);
+    }
+
+    @Override
+    public void sendSellerApplicationRejectedEmail(String to, String sellerName, String reason) {
+        if (to == null || to.isBlank()) return;
+        String subject = "Update Regarding Your ODESSI Seller Application";
+        String htmlBody = "<div style='font-family:sans-serif;max-width:600px;margin:0 auto;background:#101010;color:#F3F0E8;padding:32px;border-radius:8px;'>"
+            + "<h1 style='color:#CBB57B;font-size:20px;margin-bottom:16px;'>ODISSI TRUSTED SELLERS PROGRAM</h1>"
+            + "<p>Dear " + escapeHtml(sellerName) + ",</p>"
+            + "<p>Thank you for your interest in the ODESSI Trusted Sellers Program. After reviewing your application, we regret to inform you that we are unable to approve your application at this time.</p>"
+            + (reason != null && !reason.isBlank() ? "<p><strong>Reason:</strong> " + escapeHtml(reason) + "</p>" : "")
+            + "<p>You are welcome to re-apply in the future. If you have questions, please reach out to our team at support@odessitfi.me.</p>"
+            + "<p style='color:#777;font-size:11px;margin-top:32px;'>ODISSI.TFI · Luxury Architectural Streetwear</p>"
+            + "</div>";
+
+        sendHtmlEmail(to, subject, htmlBody);
+    }
 }

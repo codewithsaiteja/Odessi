@@ -70,31 +70,6 @@ export interface BackInStockResponse {
   createdAt: string;
 }
 
-export interface ReferralResponse {
-  /** Customer's referral code */
-  code: string;
-  /** Full share URL with code embedded */
-  shareUrl?: string;
-  /** Total registered referees (all statuses) */
-  totalReferrals: number;
-  /** Number of referrals that reached QUALIFIED status */
-  qualifiedReferrals: number;
-  /** Total rewards earned by this customer (historical, from immutable ledger) */
-  totalRewardsEarned: number;
-  /** Available spendable Odessi store credit from the store credit ledger */
-  availableCredit?: number;
-  /**
-   * Current eligible reward per successful referral (up to ₹100) — fetched from admin-controlled
-   * backend settings. NEVER hardcode this value on the frontend.
-   */
-  referrerRewardAmount: number;
-  /** Referred customer reward — always 0. Do not display as a benefit. */
-  refereeRewardAmount: number;
-  /** Whether the referral program is currently enabled by admin. */
-  programEnabled: boolean;
-  createdAt?: string;
-}
-
 export interface LoyaltyAccountResponse {
   tier: "STANDARD" | "MEMBER";
   status: string;
@@ -158,10 +133,7 @@ export const growthApi = {
     return apiPut<Product>(`/api/admin/drops/${productId}/configure`, data);
   },
 
-  // ── Referral & Loyalty ───────────────────────────────────────────────────
-  getMyReferralCode(): Promise<ReferralResponse> {
-    return apiGet<ReferralResponse>("/api/referral/my-code");
-  },
+  // ── Loyalty ──────────────────────────────────────────────────────────────
   getLoyaltyStatus(): Promise<LoyaltyAccountResponse> {
     return apiGet<LoyaltyAccountResponse>("/api/loyalty/status");
   },

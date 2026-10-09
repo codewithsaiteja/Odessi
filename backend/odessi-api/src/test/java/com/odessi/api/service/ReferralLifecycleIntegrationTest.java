@@ -1,9 +1,7 @@
 package com.odessi.api.service;
 
-import com.odessi.api.dto.request.RegisterRequest;
 import com.odessi.api.dto.response.ReferralResponse;
 import com.odessi.api.entity.*;
-import com.odessi.api.exception.BadRequestException;
 import com.odessi.api.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -63,103 +61,45 @@ class ReferralLifecycleIntegrationTest {
         userA = new User("User", "A", "usera.lifecycle@test.com", "hash");
         userRepository.save(userA);
 
-        // Generate code for User A
-        ReferralResponse refResponse = referralService.getMyReferralCode(userA);
-        codeA = referralCodeRepository.findByCode(refResponse.code()).orElseThrow();
+        // Pre-create code for User A
+        codeA = referralCodeRepository.save(new ReferralCode(userA, "ODESSI-REF-USERA"));
 
         // Create User B
         userB = new User("User", "B", "userb.lifecycle@test.com", "hash");
         userRepository.save(userB);
 
-        // Ensure settings are seeded
+        // Ensure settings are disabled
         ReferralSettings settings = referralSettingsRepository.getSingleton().orElseGet(() -> {
             ReferralSettings s = new ReferralSettings();
             s.setId(1);
-            s.setEnabled(true);
-            s.setReferrerRewardAmount(new BigDecimal("100.00"));
+            s.setEnabled(false);
+            s.setReferrerRewardAmount(BigDecimal.ZERO);
             s.setRewardTrigger("ORDER_DELIVERED");
             return referralSettingsRepository.save(s);
         });
-        settings.setEnabled(true);
-        settings.setReferrerRewardAmount(new BigDecimal("100.00"));
-        settings.setRewardTrigger("ORDER_DELIVERED");
+        settings.setEnabled(false);
+        settings.setReferrerRewardAmount(BigDecimal.ZERO);
         referralSettingsRepository.save(settings);
     }
 
     @Test
-    @DisplayName("1. Referral registration creates PENDING referral linking referrer and referee")
-    void referralRegistrationCreatesPending() {
+    @DisplayName("1. Discontinued referral scheme prevents new referral records")
+    void discontinuedSchemePreventsNewReferrals() {
         referralService.recordReferral(userB, codeA.getCode());
 
         Optional<Referral> refOpt = referralRepository.findByRefereeId(userB.getId());
-        assertThat(refOpt).isPresent();
-        Referral referral = refOpt.get();
-        assertThat(referral.getReferrer().getId()).isEqualTo(userA.getId());
-        assertThat(referral.getReferee().getId()).isEqualTo(userB.getId());
-        assertThat(referral.getCodeUsed()).isEqualTo(codeA.getCode());
-        assertThat(referral.getStatus()).isEqualTo(ReferralStatus.PENDING);
-        assertThat(referral.getQualifyingOrder()).isNull();
+        assertThat(refOpt).isEmpty();
     }
 
     @Test
-    @DisplayName("2. Self-referral is rejected")
-    void selfReferralRejected() {
-        assertThatThrownBy(() -> referralService.recordReferral(userA, codeA.getCode()))
-            .isInstanceOf(BadRequestException.class)
-            .hasMessageContaining("Self-referral");
-    }
-
-    @Test
-    @DisplayName("3. Referral remains PENDING when order is only created or payment failed")
-    void paymentFailureDoesNotReward() {
-        referralService.recordReferral(userB, codeA.getCode());
+    @DisplayName("2. Delivered + captured order does NOT qualify referral or issue credits under discontinued scheme")
+    void deliveredAndCapturedOrderDoesNotReward() {
+        // Create a pre-existing PENDING referral in DB
+        Referral referral = new Referral(userA, userB, codeA.getCode());
+        referralRepository.save(referral);
 
         Order order = new Order();
-        order.setOrderNumber("ODR-TEST-FAIL-01");
-        order.setUser(userB);
-        order.setSubtotal(new BigDecimal("1200.00"));
-        order.setTotalAmount(new BigDecimal("1200.00"));
-        order.setStatus(OrderStatus.PAYMENT_FAILED);
-        order.setPaymentStatus(PaymentStatus.FAILED);
-        orderRepository.save(order);
-
-        referralService.processQualifyingOrder(userB, order);
-
-        Referral referral = referralRepository.findByRefereeId(userB.getId()).orElseThrow();
-        assertThat(referral.getStatus()).isEqualTo(ReferralStatus.PENDING);
-        assertThat(referralRewardRepository.existsByReferralId(referral.getId())).isFalse();
-        assertThat(storeCreditService.getAvailableBalance(userA)).isEqualByComparingTo(BigDecimal.ZERO);
-    }
-
-    @Test
-    @DisplayName("4. Cancelled order does not reward and referral remains PENDING")
-    void cancelledOrderDoesNotReward() {
-        referralService.recordReferral(userB, codeA.getCode());
-
-        Order order = new Order();
-        order.setOrderNumber("ODR-TEST-CANCEL-01");
-        order.setUser(userB);
-        order.setSubtotal(new BigDecimal("1200.00"));
-        order.setTotalAmount(new BigDecimal("1200.00"));
-        order.setStatus(OrderStatus.CANCELLED);
-        order.setPaymentStatus(PaymentStatus.REFUNDED);
-        orderRepository.save(order);
-
-        referralService.processQualifyingOrder(userB, order);
-
-        Referral referral = referralRepository.findByRefereeId(userB.getId()).orElseThrow();
-        assertThat(referral.getStatus()).isEqualTo(ReferralStatus.PENDING);
-        assertThat(referralRewardRepository.existsByReferralId(referral.getId())).isFalse();
-        assertThat(storeCreditService.getAvailableBalance(userA)).isEqualByComparingTo(BigDecimal.ZERO);
-    }
-
-    @Test
-    @DisplayName("5. Delivered + captured order qualifies referral and credits store credit")
-    void deliveredAndCapturedOrderQualifiesAndCredits() {
-        referralService.recordReferral(userB, codeA.getCode());
-
-        Order order = new Order();
-        order.setOrderNumber("ODR-TEST-DELIV-01");
+        order.setOrderNumber("ODR-TEST-DISC-01");
         order.setUser(userB);
         order.setSubtotal(new BigDecimal("1200.00"));
         order.setTotalAmount(new BigDecimal("1200.00"));
@@ -167,107 +107,50 @@ class ReferralLifecycleIntegrationTest {
         order.setPaymentStatus(PaymentStatus.CAPTURED);
         orderRepository.save(order);
 
+        // Process qualifying order attempt
         referralService.processQualifyingOrder(userB, order);
 
-        // Referral status = QUALIFIED
-        Referral referral = referralRepository.findByRefereeId(userB.getId()).orElseThrow();
-        assertThat(referral.getStatus()).isEqualTo(ReferralStatus.QUALIFIED);
-        assertThat(referral.getQualifyingOrder().getId()).isEqualTo(order.getId());
-        assertThat(referral.getRewardAmount()).isEqualByComparingTo("100.00");
+        // Status remains PENDING, no qualifying order attached, no reward amount
+        Referral unchangedReferral = referralRepository.findByRefereeId(userB.getId()).orElseThrow();
+        assertThat(unchangedReferral.getStatus()).isEqualTo(ReferralStatus.PENDING);
+        assertThat(unchangedReferral.getQualifyingOrder()).isNull();
+        assertThat(unchangedReferral.getRewardAmount()).isNull();
 
-        // ReferralReward record exists
-        Optional<ReferralReward> rewardOpt = referralRewardRepository.findByReferralId(referral.getId());
-        assertThat(rewardOpt).isPresent();
-        ReferralReward reward = rewardOpt.get();
-        assertThat(reward.getRewardAmount()).isEqualByComparingTo("100.00");
-        assertThat(reward.getStatus()).isEqualTo("ISSUED");
+        // NO ReferralReward row created
+        assertThat(referralRewardRepository.existsByReferralId(unchangedReferral.getId())).isFalse();
 
-        // Store credit credited to User A
-        BigDecimal availableBalance = storeCreditService.getAvailableBalance(userA);
-        assertThat(availableBalance).isEqualByComparingTo("100.00");
-
-        StoreCreditAccount account = storeCreditAccountRepository.findByUserId(userA.getId()).orElseThrow();
-        assertThat(account.getAvailableBalance()).isEqualByComparingTo("100.00");
-        assertThat(account.getLifetimeCredited()).isEqualByComparingTo("100.00");
-
-        // StoreCreditTransaction ledger check
-        String idempotencyKey = "REF_REWARD_" + referral.getId();
-        Optional<StoreCreditTransaction> txOpt = storeCreditTransactionRepository.findByIdempotencyKey(idempotencyKey);
-        assertThat(txOpt).isPresent();
-        StoreCreditTransaction tx = txOpt.get();
-        assertThat(tx.getAmount()).isEqualByComparingTo("100.00");
-        assertThat(tx.getBalanceAfter()).isEqualByComparingTo("100.00");
-        assertThat(tx.getTransactionType()).isEqualTo(StoreCreditTransactionType.REFERRAL_REWARD);
-        assertThat(tx.getReferenceType()).isEqualTo(StoreCreditReferenceType.REFERRAL);
-        assertThat(tx.getReferenceId()).isEqualTo(referral.getId());
+        // User A received NO store credit
+        BigDecimal balance = storeCreditService.getAvailableBalance(userA);
+        assertThat(balance).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test
-    @DisplayName("6. Variable reward amount below ₹100 (e.g. ₹75) credits exactly ₹75")
-    void variableRewardBelowHundredCreditsExactAmount() {
-        ReferralSettings settings = referralSettingsRepository.getSingleton().orElseThrow();
-        settings.setReferrerRewardAmount(new BigDecimal("75.00"));
-        referralSettingsRepository.save(settings);
+    @DisplayName("3. Customer referral response returns programEnabled=false and zero rewards")
+    void customerReferralResponseDisabled() {
+        ReferralResponse res = referralService.getMyReferralCode(userA);
+        assertThat(res.programEnabled()).isFalse();
+        assertThat(res.referrerRewardAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(res.refereeRewardAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
 
-        referralService.recordReferral(userB, codeA.getCode());
-
-        Order order = new Order();
-        order.setOrderNumber("ODR-TEST-75-01");
-        order.setUser(userB);
-        order.setSubtotal(new BigDecimal("1200.00"));
-        order.setTotalAmount(new BigDecimal("1200.00"));
-        order.setStatus(OrderStatus.DELIVERED);
-        order.setPaymentStatus(PaymentStatus.CAPTURED);
-        orderRepository.save(order);
-
-        referralService.processQualifyingOrder(userB, order);
-
-        Referral referral = referralRepository.findByRefereeId(userB.getId()).orElseThrow();
-        assertThat(referral.getRewardAmount()).isEqualByComparingTo("75.00");
+    @Test
+    @DisplayName("4. Existing store credit balances remain completely intact")
+    void existingStoreCreditBalancesIntact() {
+        // Direct credit via store credit subsystem (e.g., admin adjustment or customer compensation)
+        storeCreditService.credit(
+            userA,
+            new BigDecimal("250.00"),
+            StoreCreditTransactionType.ADMIN_ADJUSTMENT,
+            StoreCreditReferenceType.ADMIN,
+            999L,
+            "ADJUST_TEST_1",
+            "Customer goodwill compensation"
+        );
 
         BigDecimal balance = storeCreditService.getAvailableBalance(userA);
-        assertThat(balance).isEqualByComparingTo("75.00");
-    }
+        assertThat(balance).isEqualByComparingTo("250.00");
 
-    @Test
-    @DisplayName("7. Duplicate qualification attempts are strictly idempotent and do not double-credit")
-    void duplicateQualificationIsIdempotent() {
-        referralService.recordReferral(userB, codeA.getCode());
-
-        Order order = new Order();
-        order.setOrderNumber("ODR-TEST-DUP-01");
-        order.setUser(userB);
-        order.setSubtotal(new BigDecimal("1200.00"));
-        order.setTotalAmount(new BigDecimal("1200.00"));
-        order.setStatus(OrderStatus.DELIVERED);
-        order.setPaymentStatus(PaymentStatus.CAPTURED);
-        orderRepository.save(order);
-
-        // First attempt: succeeds
-        referralService.processQualifyingOrder(userB, order);
-
-        BigDecimal balanceFirst = storeCreditService.getAvailableBalance(userA);
-        assertThat(balanceFirst).isEqualByComparingTo("100.00");
-
-        // Second attempt: must be safely ignored
-        referralService.processQualifyingOrder(userB, order);
-
-        BigDecimal balanceSecond = storeCreditService.getAvailableBalance(userA);
-        assertThat(balanceSecond).isEqualByComparingTo("100.00");
-
-        // Third attempt with another order on same referee: also safely ignored
-        Order order2 = new Order();
-        order2.setOrderNumber("ODR-TEST-DUP-02");
-        order2.setUser(userB);
-        order2.setSubtotal(new BigDecimal("1500.00"));
-        order2.setTotalAmount(new BigDecimal("1500.00"));
-        order2.setStatus(OrderStatus.DELIVERED);
-        order2.setPaymentStatus(PaymentStatus.CAPTURED);
-        orderRepository.save(order2);
-
-        referralService.processQualifyingOrder(userB, order2);
-
-        BigDecimal balanceThird = storeCreditService.getAvailableBalance(userA);
-        assertThat(balanceThird).isEqualByComparingTo("100.00");
+        ReferralResponse res = referralService.getMyReferralCode(userA);
+        assertThat(res.availableCredit()).isEqualByComparingTo("250.00");
     }
 }

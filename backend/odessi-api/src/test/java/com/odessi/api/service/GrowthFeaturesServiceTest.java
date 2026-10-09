@@ -164,45 +164,27 @@ class GrowthFeaturesServiceTest {
         assertThat(p.getLaunchAt().isAfter(Instant.now())).isTrue();
     }
 
-    // ── Referrals ─────────────────────────────────────────────────
+    // ── Referrals (Discontinued) ─────────────────────────────────
 
     @Test
-    @DisplayName("Referral — Prevents self-referral")
-    void referral_preventsSelfReferral() {
-        ReferralCode code = new ReferralCode(mockUser, "ODESSI-REF-SELF");
-
-        given(referralCodeRepository.findByCode("ODESSI-REF-SELF")).willReturn(Optional.of(code));
-
-        assertThatThrownBy(() -> referralService.recordReferral(mockUser, "ODESSI-REF-SELF"))
-            .isInstanceOf(BadRequestException.class)
-            .hasMessageContaining("Self-referral is not allowed");
+    @DisplayName("Referral — Discontinued scheme ignores new referral registration")
+    void referral_discontinuedIgnoresRegistration() {
+        referralService.recordReferral(mockUser, "ODESSI-REF-SELF");
+        then(referralRepository).should(never()).save(any());
     }
 
     @Test
-    @DisplayName("Referral — Qualifies only when order payment status is CAPTURED or PAID and order is DELIVERED")
-    void referral_qualifiesOnCapturedPayment() {
-        User referrer = new User(); referrer.setId(1L);
+    @DisplayName("Referral — Discontinued scheme does not qualify order on delivery or payment")
+    void referral_discontinuedDoesNotQualifyOnDelivery() {
         User referee = new User(); referee.setId(2L);
-
-        // Stub settings — program enabled, trigger = ORDER_DELIVERED
-        com.odessi.api.entity.ReferralSettings settings = new com.odessi.api.entity.ReferralSettings();
-        settings.setEnabled(true);
-        settings.setReferrerRewardAmount(new java.math.BigDecimal("100.00"));
-        settings.setRewardTrigger("ORDER_DELIVERED");
-        given(referralSettingsRepository.getSingleton()).willReturn(Optional.of(settings));
-        given(referralRewardRepository.existsByReferralId(any())).willReturn(false);
-
-        Referral referral = new Referral(referrer, referee, "ODESSI-REF-1234");
-        given(referralRepository.findByRefereeId(2L)).willReturn(Optional.of(referral));
-        given(referralRepository.save(any())).willReturn(referral);
-        given(referralRewardRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
         Order order = new Order();
         order.setPaymentStatus(PaymentStatus.CAPTURED);
         order.setStatus(OrderStatus.DELIVERED);
 
         referralService.processQualifyingOrder(referee, order);
-        assertThat(referral.getStatus()).isEqualTo(ReferralStatus.QUALIFIED);
+        then(referralRepository).should(never()).save(any());
+        then(referralRewardRepository).should(never()).save(any());
     }
 
     // ── Loyalty Foundation ────────────────────────────────────────

@@ -15,6 +15,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -200,8 +201,8 @@ public class AdminOrderServiceTest {
     private StoreCreditTransactionRepository storeCreditTransactionRepository;
 
     @Test
-    void deliveredOrderStatus_triggersReferralQualificationAndCreditsStoreCredit() {
-        if (referralService == null || referralRepository == null || storeCreditAccountRepository == null) {
+    void deliveredOrderStatus_doesNotIssueDiscontinuedCustomerReferralCredits() {
+        if (referralRepository == null || storeCreditAccountRepository == null) {
             return;
         }
 
@@ -225,23 +226,17 @@ public class AdminOrderServiceTest {
         OrderResponse res = adminService.updateOrderStatus(admin, orderId, OrderStatus.DELIVERED);
         assertEquals(OrderStatus.DELIVERED, res.status());
 
-        // Verify referral was qualified
+        // Verify referral was NOT qualified (scheme discontinued)
         Referral updatedReferral = referralRepository.findByRefereeId(customer.getId()).orElseThrow();
-        assertEquals(ReferralStatus.QUALIFIED, updatedReferral.getStatus());
-        assertEquals(orderId, updatedReferral.getQualifyingOrder().getId());
-        assertNotNull(updatedReferral.getRewardAmount());
-        assertTrue(updatedReferral.getRewardAmount().compareTo(new BigDecimal("100.00")) <= 0);
+        assertEquals(ReferralStatus.PENDING, updatedReferral.getStatus());
+        assertNull(updatedReferral.getQualifyingOrder());
+        assertNull(updatedReferral.getRewardAmount());
 
-        // Verify ReferralReward record
-        assertTrue(referralRewardRepository.existsByReferralId(updatedReferral.getId()));
+        // Verify NO ReferralReward record was created
+        assertFalse(referralRewardRepository.existsByReferralId(updatedReferral.getId()));
 
-        // Verify Referrer's StoreCreditAccount received balance
-        StoreCreditAccount creditAccount = storeCreditAccountRepository.findByUserId(referrerUser.getId()).orElseThrow();
-        assertEquals(updatedReferral.getRewardAmount(), creditAccount.getAvailableBalance());
-        assertEquals(updatedReferral.getRewardAmount(), creditAccount.getLifetimeCredited());
-
-        // Verify StoreCreditTransaction
-        String expectedKey = "REF_REWARD_" + updatedReferral.getId();
-        assertTrue(storeCreditTransactionRepository.existsByIdempotencyKey(expectedKey));
+        // Verify Referrer received NO store credit
+        Optional<StoreCreditAccount> creditAccountOpt = storeCreditAccountRepository.findByUserId(referrerUser.getId());
+        assertTrue(creditAccountOpt.isEmpty() || creditAccountOpt.get().getAvailableBalance().compareTo(BigDecimal.ZERO) == 0);
     }
 }

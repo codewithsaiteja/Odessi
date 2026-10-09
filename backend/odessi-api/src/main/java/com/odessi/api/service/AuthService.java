@@ -103,14 +103,10 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
 
-        // Record referral if referral code is provided
+        // Customer referral program is discontinued; ignore any referral code provided
         if (request.getReferralCode() != null && !request.getReferralCode().isBlank()) {
-            try {
-                referralService.recordReferral(savedUser, request.getReferralCode());
-                log.info("Recorded referral for user id={} with code={}", savedUser.getId(), request.getReferralCode());
-            } catch (Exception e) {
-                log.warn("Failed to record referral code '{}' for user id={}: {}", request.getReferralCode(), savedUser.getId(), e.getMessage());
-            }
+            log.info("Customer referral program discontinued — ignoring referral code '{}' for user id={}",
+                request.getReferralCode(), savedUser.getId());
         }
 
         if (!savedUser.isEmailVerified()) {

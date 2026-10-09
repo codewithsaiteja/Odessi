@@ -10,7 +10,7 @@ import AccountWishlist from "@/components/account/AccountWishlist";
 import AccountProfile from "@/components/account/AccountProfile";
 import AccountSecurity from "@/components/account/AccountSecurity";
 import AccountSupport from "@/components/account/AccountSupport";
-import AccountReferrals from "@/components/account/AccountReferrals";
+import AccountSeller from "@/components/account/AccountSeller";
 
 import { getOrders, Order } from "@/lib/api/orders";
 import { getAddresses, Address } from "@/lib/api/addresses";
@@ -25,9 +25,9 @@ import {
   User as UserIcon,
   Shield,
   HelpCircle,
-  Gift,
   LogOut,
   ChevronRight,
+  Crown,
 } from "lucide-react";
 
 export type AccountTab =
@@ -36,7 +36,7 @@ export type AccountTab =
   | "orders"
   | "addresses"
   | "wishlist"
-  | "referrals"
+  | "seller"
   | "security"
   | "support";
 
@@ -52,7 +52,7 @@ const TABS: TabItem[] = [
   { id: "orders", label: "Orders", icon: ShoppingBag },
   { id: "addresses", label: "Addresses", icon: MapPin },
   { id: "wishlist", label: "Wishlist", icon: Heart },
-  { id: "referrals", label: "Referrals & Rewards", icon: Gift },
+  { id: "seller", label: "Trusted Seller", icon: Crown },
   { id: "security", label: "Security", icon: Shield },
   { id: "support", label: "Support", icon: HelpCircle },
 ];
@@ -377,7 +377,7 @@ function AccountContent() {
                 onRefreshWishlist={fetchWishlist}
               />
             )}
-            {activeTab === "referrals" && <AccountReferrals />}
+            {activeTab === "seller" && <AccountSeller />}
             {activeTab === "security" && <AccountSecurity />}
             {activeTab === "support" && <AccountSupport />}
           </div>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -17,12 +17,10 @@ import {
   ArrowRight,
   User as UserIcon,
   ShieldCheck,
-  HelpCircle,
-  Gift,
   Send,
-  Copy,
   Check,
-  Sparkles,
+  HelpCircle,
+  Crown,
 } from "lucide-react";
 
 interface AccountOverviewProps {
@@ -90,27 +88,7 @@ export default function AccountOverview({
 }: AccountOverviewProps) {
   const [resending, setResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
-  const [copiedCode, setCopiedCode] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
   const { showToast } = useToast();
-
-  const userReferralCode = user?.id ? `ODESSI-REF-U${user.id}` : `ODESSI-REF-LUXE`;
-
-  const copyReferralCode = () => {
-    navigator.clipboard.writeText(userReferralCode);
-    setCopiedCode(true);
-    showToast("Referral code copied to clipboard!", "success");
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
-  const copyReferralLink = () => {
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://odessi.tfi";
-    const link = `${origin}/register?ref=${userReferralCode}`;
-    navigator.clipboard.writeText(link);
-    setCopiedLink(true);
-    showToast("Referral link copied to clipboard!", "success");
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
 
   const memberSince = user.createdAt
     ? new Date(user.createdAt).toLocaleDateString("en-IN", {
@@ -195,8 +173,36 @@ export default function AccountOverview({
         </div>
       )}
 
+      {/* Trusted Sellers Program Banner */}
+      <div className="bg-gradient-to-r from-[#0E121A] via-[#141A26] to-[#0E121A] border border-[#2B3548] rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-[#B89A5A]/20 border border-[#B89A5A]/40 flex items-center justify-center text-[#B89A5A] shrink-0">
+            <Crown size={22} />
+          </div>
+          <div>
+            <span className="text-[10px] font-mono tracking-widest uppercase text-[#B89A5A] font-semibold block">
+              ODESSI REWARDS
+            </span>
+            <h3 className="text-base sm:text-lg font-bold text-white font-serif mt-0.5">
+              Trusted Sellers Program
+            </h3>
+            <p className="text-xs text-neutral-300 mt-1">
+              Promote ODESSI products to unlock exclusive gifts, limited apparel, and brand ambassador privileges.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onNavigateTab("seller")}
+          className="px-4 py-2 bg-[#B89A5A] hover:bg-[#A3864A] text-neutral-950 font-bold text-xs rounded-xl flex items-center gap-1.5 transition shrink-0 self-end sm:self-auto"
+        >
+          <span>View Seller Hub</span>
+          <ArrowRight size={14} />
+        </button>
+      </div>
+
       {/* Quick Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <button
           onClick={() => onNavigateTab("orders")}
           className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 hover:border-amber-400/50 hover:bg-neutral-850 transition-all text-left group"
@@ -238,56 +244,6 @@ export default function AccountOverview({
           <p className="text-3xl font-bold font-heading text-white">{wishlistItems.length}</p>
           <p className="text-neutral-400 text-xs font-medium uppercase tracking-wider mt-1">Wishlist Items</p>
         </button>
-
-        <button
-          onClick={() => onNavigateTab("referrals")}
-          className="bg-neutral-900 border border-amber-500/30 rounded-2xl p-5 hover:border-amber-400 hover:bg-neutral-850 transition-all text-left group relative overflow-hidden"
-        >
-          <div className="flex justify-between items-center mb-3">
-            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-300 group-hover:scale-110 transition-transform">
-              <Gift size={20} />
-            </div>
-            <ArrowRight size={16} className="text-neutral-500 group-hover:text-amber-400 transition-colors" />
-          </div>
-          <p className="text-sm font-bold font-heading text-amber-400 uppercase tracking-wider">Refer & Earn</p>
-          <p className="text-neutral-300 text-xs font-medium uppercase tracking-wider mt-1">Referral Program</p>
-        </button>
-      </div>
-
-      {/* Prominent Referral Code Card */}
-      <div className="bg-gradient-to-r from-amber-950/60 via-neutral-900 to-amber-950/40 border border-amber-500/30 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-md">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold">
-              YOUR EXCLUSIVE REFERRAL CODE
-            </span>
-          </div>
-          <div className="text-2xl sm:text-3xl font-serif font-bold font-mono text-white tracking-widest">
-            {userReferralCode}
-          </div>
-          <p className="text-xs text-neutral-300">
-            Share your code with friends and earn rewards for every successful referral.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <button
-            onClick={copyReferralCode}
-            className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
-          >
-            {copiedCode ? <Check size={14} className="text-neutral-950" /> : <Copy size={14} />}
-            <span>{copiedCode ? "COPIED CODE!" : "COPY CODE"}</span>
-          </button>
-
-          <button
-            onClick={copyReferralLink}
-            className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl border border-neutral-700 transition-all shadow-sm active:scale-95 cursor-pointer"
-          >
-            {copiedLink ? <Check size={14} className="text-emerald-400" /> : <Gift size={14} className="text-amber-400" />}
-            <span>{copiedLink ? "LINK COPIED!" : "COPY LINK"}</span>
-          </button>
-        </div>
       </div>
 
       {/* Main Grid: Recent Orders & Saved Address */}

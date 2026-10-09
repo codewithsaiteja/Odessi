@@ -169,10 +169,21 @@ export default function CheckoutPage() {
         throw new Error("Razorpay SDK failed to load. Please check your internet connection.");
       }
 
+      let sellerCode: string | undefined;
+      try {
+        const stored = typeof window !== "undefined" ? localStorage.getItem("odessi_seller_code") : null;
+        if (stored && stored.trim()) {
+          sellerCode = stored.trim().toUpperCase();
+        }
+      } catch {
+        // Ignore localStorage retrieval issues
+      }
+
       // Step 1: Create order & reserve inventory on server
       const checkoutRes = await checkoutOrder({
         addressId: selectedAddressId,
         couponCode: appliedCouponCode || undefined,
+        sellerCode: sellerCode || undefined,
       });
 
       // Step 2: Configure & launch Razorpay Checkout Popup
