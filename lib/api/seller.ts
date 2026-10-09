@@ -94,7 +94,8 @@ export interface SellerApplyRequest {
   phone: string;
   socialChannel: string;
   applicationReason: string;
-  agreeToTerms: boolean;
+  agreeToTerms?: boolean;
+  termsAccepted?: boolean;
 }
 
 export interface SellerRewardClaimRequest {
@@ -134,6 +135,7 @@ export interface SellerAuditLogResponse {
 }
 
 export interface SellerMilestoneConfigRequest {
+  tierLevel?: number;
   milestoneName: string;
   qualifyingSalesThreshold: number;
   rewardTitle: string;
@@ -186,7 +188,19 @@ export const sellerApi = {
    * Submit application to become a Trusted Seller
    */
   async apply(data: SellerApplyRequest): Promise<SellerResponse> {
-    return apiPost<SellerResponse>("/api/seller/apply", data);
+    const payload = {
+      ...data,
+      termsAccepted: data.termsAccepted ?? data.agreeToTerms ?? true,
+      agreeToTerms: data.agreeToTerms ?? data.termsAccepted ?? true,
+    };
+    return apiPost<SellerResponse>("/api/seller/apply", payload);
+  },
+
+  /**
+   * Fetch active milestone reward tiers for public/storefront display
+   */
+  async getActiveMilestones(): Promise<SellerMilestoneConfigResponse[]> {
+    return apiGet<SellerMilestoneConfigResponse[]>("/api/seller/milestones");
   },
 
   /**

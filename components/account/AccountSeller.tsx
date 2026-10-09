@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
   sellerApi,
@@ -90,34 +91,48 @@ export default function AccountSeller() {
     }
   }, [user]);
 
-  const loadSellerData = useCallback(async () => {
-    setLoading(true);
+  const loadSellerData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
+      if (!user) {
+        setSellerStatus(null);
+        setDashboard(null);
+        return;
+      }
       const statusRes = await sellerApi.getStatus();
       setSellerStatus(statusRes);
 
       if (statusRes && statusRes.status === "APPROVED") {
         const dashRes = await sellerApi.getDashboard();
         setDashboard(dashRes);
+        setLastUpdated(new Date());
+      } else {
+        setDashboard(null);
       }
     } catch (err: any) {
       console.error("Failed to load seller status", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
+      if (!user) {
+        toast.error("Please sign in to view your seller dashboard");
+        return;
+      }
       const statusRes = await sellerApi.getStatus();
       setSellerStatus(statusRes);
       if (statusRes && statusRes.status === "APPROVED") {
         const dashRes = await sellerApi.getDashboard();
         setDashboard(dashRes);
         setLastUpdated(new Date());
+        toast.success("Dashboard refreshed with live sales and gift statuses.");
+      } else {
+        toast.success("Application status refreshed.");
       }
-      toast.success("Dashboard refreshed with live sales and gift statuses.");
     } catch (err: any) {
       toast.error("Failed to refresh seller dashboard");
     } finally {
@@ -129,34 +144,78 @@ export default function AccountSeller() {
     loadSellerData();
   }, [loadSellerData]);
 
+  // Window focus & tab visibility change listener for live synchronization
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        loadSellerData(true);
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && user) {
+        loadSellerData(true);
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user, loadSellerData]);
+
+  // Status polling when application is PENDING
+  useEffect(() => {
+    if (sellerStatus?.status === "PENDING" && user) {
+      const interval = setInterval(() => {
+        loadSellerData(true);
+      }, 15000); // Poll every 15s while pending
+      return () => clearInterval(interval);
+    }
+  }, [sellerStatus?.status, user, loadSellerData]);
+
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!agreeToTerms) {
-      toast.error("Please agree to the Trusted Sellers Program terms.");
+    if (!user) {
+      toast.error("Please sign in to submit your Trusted Seller application.");
       return;
     }
-    if (!phone.trim()) {
-      toast.error("Please provide your contact phone number.");
+    if (!fullName.trim() || fullName.trim().length < 2) {
+      toast.error("Please enter your full legal name.");
       return;
     }
-    if (!socialChannel.trim()) {
+    if (!email.trim() || !email.includes("@")) {
+      toast.error("Please provide a valid email address.");
+      return;
+    }
+    if (!phone.trim() || phone.trim().length < 7) {
+      toast.error("Please provide a valid contact phone number.");
+      return;
+    }
+    if (!socialChannel.trim() || socialChannel.trim().length < 2) {
       toast.error("Please enter your primary social media handle or promotional channel.");
       return;
     }
-    if (!applicationReason.trim()) {
-      toast.error("Please tell us why you would like to join the program.");
+    if (!applicationReason.trim() || applicationReason.trim().length < 10) {
+      toast.error("Please provide at least a short sentence explaining why you would like to join.");
+      return;
+    }
+    if (!agreeToTerms) {
+      toast.error("Please agree to the Trusted Sellers Program terms and conditions.");
       return;
     }
 
     setSubmittingApp(true);
     try {
       const res = await sellerApi.apply({
-        fullName,
-        email,
-        phone,
-        socialChannel,
-        applicationReason,
-        agreeToTerms,
+        fullName: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        socialChannel: socialChannel.trim(),
+        applicationReason: applicationReason.trim(),
+        agreeToTerms: true,
+        termsAccepted: true,
       });
       setSellerStatus(res);
       setReapplyMode(false);
@@ -966,6 +1025,21 @@ export default function AccountSeller() {
               </span>
             </div>
           </div>
+
+          <div className="mt-5 pt-4 border-t border-amber-200/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-[11px] text-amber-900">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span>Live status active &bull; Checking updates automatically</span>
+            </div>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="px-3.5 py-1.5 bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-950 font-semibold text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3 h-3 text-amber-800 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Checking..." : "Check Application Status"}
+            </button>
+          </div>
         </div>
 
         {/* Milestone roadmap preview with Images */}
@@ -1087,6 +1161,24 @@ export default function AccountSeller() {
           </p>
         </div>
 
+        {!user && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 text-xs">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0" />
+              <div>
+                <strong className="block font-semibold">Sign In Required to Apply</strong>
+                <span>Please sign in or create an ODESSI account to submit your application and track milestone rewards.</span>
+              </div>
+            </div>
+            <Link
+              href="/login?redirect=/account?tab=seller"
+              className="px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white font-semibold rounded-lg shrink-0 transition"
+            >
+              Sign In to Apply
+            </Link>
+          </div>
+        )}
+
         <form onSubmit={handleApply} className="space-y-5 text-xs max-w-2xl">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -1179,23 +1271,33 @@ export default function AccountSeller() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={submittingApp}
-              className="px-6 py-3 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition shadow-xs disabled:opacity-50"
-            >
-              {submittingApp ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Submitting Application...
-                </>
-              ) : (
-                <>
-                  <span>Submit Application</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </>
-              )}
-            </button>
+            {!user ? (
+              <Link
+                href="/login?redirect=/account?tab=seller"
+                className="px-6 py-3 bg-amber-700 hover:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition shadow-xs"
+              >
+                <span>Sign In to Submit Application</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            ) : (
+              <button
+                type="submit"
+                disabled={submittingApp}
+                className="px-6 py-3 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition shadow-xs disabled:opacity-50 cursor-pointer"
+              >
+                {submittingApp ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Submitting Application...
+                  </>
+                ) : (
+                  <>
+                    <span>Submit Application</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </>
+                )}
+              </button>
+            )}
             {reapplyMode && (
               <button
                 type="button"
@@ -1213,62 +1315,112 @@ export default function AccountSeller() {
 }
 
 /**
- * 4 Milestone Tiers presentation matching Reference Screenshot 2 with Dedicated Images
+ * Dynamic Milestone Tiers presentation matching Reference Screenshot 2 with Live Admin Sync
  */
 function MilestoneTiersPreview() {
-  const TIERS = [
+  const [milestones, setMilestones] = useState<SellerMilestoneConfigResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    sellerApi
+      .getActiveMilestones()
+      .then((data) => {
+        if (isMounted && data && data.length > 0) {
+          setMilestones(data);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not load dynamic milestones, using fallback", err);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const fallbackTiers: SellerMilestoneConfigResponse[] = [
     {
-      level: 1,
-      title: "Rising Seller",
-      sales: "10 successful sales",
-      reward: "Exclusive ODESSI Matte Bracelet Set & Certificate in velvet pouch.",
-      image: "/sellers/gifts/milestone-10.webp",
+      id: 1,
+      tierLevel: 1,
+      milestoneName: "Rising Seller",
+      qualifyingSalesThreshold: 10,
+      rewardTitle: "Exclusive ODESSI Matte Bracelet Set",
+      rewardDescription: "Custom matte-black ODESSI branded silicone band and velvet pouch with certificate.",
+      rewardType: "PHYSICAL_GIFT",
+      imageUrl: "/sellers/gifts/milestone-10.webp",
+      active: true,
+      version: 1,
     },
     {
-      level: 2,
-      title: "Trusted Seller",
-      sales: "25 successful sales",
-      reward: "Exclusive ODESSI T-Shirt Gift Set in luxury presentation box.",
-      image: "/sellers/gifts/milestone-25.webp",
+      id: 2,
+      tierLevel: 2,
+      milestoneName: "Trusted Seller",
+      qualifyingSalesThreshold: 25,
+      rewardTitle: "Exclusive ODESSI T-Shirt Gift Set",
+      rewardDescription: "Luxury matte box with custom tissue wrap containing an exclusive ODESSI tee.",
+      rewardType: "PHYSICAL_GIFT",
+      imageUrl: "/sellers/gifts/milestone-25.webp",
+      active: true,
+      version: 1,
     },
     {
-      level: 3,
-      title: "Elite Seller",
-      sales: "50 successful sales",
-      reward: "Luxury ODESSI French Terry Hoodie & Gift Box with VIP correspondence.",
-      image: "/sellers/gifts/milestone-50.webp",
+      id: 3,
+      tierLevel: 3,
+      milestoneName: "Elite Seller",
+      qualifyingSalesThreshold: 50,
+      rewardTitle: "Luxury ODESSI French Terry Hoodie & Gift Box",
+      rewardDescription: "Premium heavyweight ODESSI French terry hoodie in luxury presentation packaging with VIP correspondence.",
+      rewardType: "PHYSICAL_GIFT",
+      imageUrl: "/sellers/gifts/milestone-50.webp",
+      active: true,
+      version: 1,
     },
     {
-      level: 4,
-      title: "ODDSI Brand Ambassador",
-      sales: "100 successful sales",
-      reward: "ODDSI Brand Ambassador Luxury Hamper (Chest, hoodie, tee, thermos, cap & gold recognition).",
-      image: "/sellers/gifts/milestone-100.webp",
+      id: 4,
+      tierLevel: 4,
+      milestoneName: "ODDSI Brand Ambassador",
+      qualifyingSalesThreshold: 100,
+      rewardTitle: "ODDSI Brand Ambassador Luxury Hamper",
+      rewardDescription: "The complete luxury ambassador unboxing chest with hoodie, tee, stainless thermos, cap, socks, keychain, and gold membership recognition.",
+      rewardType: "PHYSICAL_GIFT",
+      imageUrl: "/sellers/gifts/milestone-100.webp",
+      active: true,
+      version: 1,
     },
   ];
 
+  const items = milestones.length > 0 ? milestones : fallbackTiers;
+
   return (
     <div className="bg-white border border-stone-200 rounded-2xl p-6 sm:p-8 shadow-xs">
-      <div className="pb-4 border-b border-stone-200 mb-6">
-        <h3 className="text-lg font-bold text-stone-900 font-serif">
-          ODESSI Trusted Sellers Program Milestones
-        </h3>
-        <p className="text-xs text-stone-500 mt-0.5">
-          Progress through tiers by generating attributable sales. All physical merchandise rewards include complimentary shipping.
-        </p>
+      <div className="pb-4 border-b border-stone-200 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div>
+          <h3 className="text-lg font-bold text-stone-900 font-serif">
+            ODESSI Trusted Sellers Program Milestones
+          </h3>
+          <p className="text-xs text-stone-500 mt-0.5">
+            Progress through tiers by generating attributable sales. All physical merchandise rewards include complimentary shipping.
+          </p>
+        </div>
+        {loading && (
+          <span className="text-[10px] font-mono text-stone-400">Loading active tiers...</span>
+        )}
       </div>
 
       <div className="space-y-4">
-        {TIERS.map((tier) => (
+        {items.map((tier) => (
           <div
-            key={tier.level}
+            key={tier.tierLevel}
             className="p-5 rounded-xl border border-stone-200 bg-stone-50/70 hover:bg-stone-50 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
           >
             <div className="flex items-center gap-4 sm:gap-5">
               <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden shrink-0 border border-stone-300 bg-[#0A0D14] shadow-xs">
                 <Image
-                  src={tier.image}
-                  alt={tier.title}
+                  src={getMilestoneImage(tier.tierLevel, tier.imageUrl)}
+                  alt={tier.rewardTitle || tier.milestoneName}
                   fill
                   className="object-cover transition-transform hover:scale-105 duration-300"
                   sizes="(max-width: 640px) 80px, 96px"
@@ -1277,15 +1429,18 @@ function MilestoneTiersPreview() {
 
               <div>
                 <h4 className="font-bold text-stone-900 text-sm sm:text-base tracking-tight">
-                  Level {tier.level} &mdash; {tier.title}
+                  Level {tier.tierLevel} &mdash; {tier.milestoneName}
                 </h4>
                 <div className="mt-1">
                   <span className="inline-block px-2.5 py-0.5 bg-stone-200 text-stone-800 text-[10px] font-mono font-bold rounded">
-                    {tier.sales}
+                    {tier.qualifyingSalesThreshold} successful sales
                   </span>
                 </div>
-                <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                  {tier.reward}
+                <p className="text-xs font-semibold text-stone-800 mt-1">
+                  {tier.rewardTitle}
+                </p>
+                <p className="text-xs text-stone-600 mt-0.5 leading-relaxed">
+                  {tier.rewardDescription}
                 </p>
               </div>
             </div>

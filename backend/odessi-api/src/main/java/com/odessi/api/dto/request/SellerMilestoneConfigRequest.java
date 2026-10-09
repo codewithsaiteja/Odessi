@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record SellerMilestoneConfigRequest(
-    @NotNull(message = "Tier level is required")
     @Min(value = 1, message = "Tier level must be positive")
     Integer tierLevel,
 

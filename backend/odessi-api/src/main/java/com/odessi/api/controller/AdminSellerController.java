@@ -56,12 +56,18 @@ public class AdminSellerController {
     @GetMapping
     @Operation(summary = "List seller applications with status filters and search")
     public ResponseEntity<ApiResponse<Page<SellerResponse>>> getSellers(
-            @RequestParam(required = false) SellerStatus status,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         PageRequest pageRequest = PageRequest.of(page, Math.min(size, 100), Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<SellerResponse> result = adminSellerService.getSellers(status, search, pageRequest);
+        SellerStatus parsedStatus = null;
+        if (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) {
+            try {
+                parsedStatus = SellerStatus.valueOf(status.trim().toUpperCase());
+            } catch (IllegalArgumentException ignored) {}
+        }
+        Page<SellerResponse> result = adminSellerService.getSellers(parsedStatus, search, pageRequest);
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
@@ -180,11 +186,17 @@ public class AdminSellerController {
     @GetMapping("/rewards")
     @Operation(summary = "List reward claims for physical fulfillment")
     public ResponseEntity<ApiResponse<Page<SellerRewardResponse>>> getRewardClaims(
-            @RequestParam(required = false) SellerRewardStatus status,
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         PageRequest pageRequest = PageRequest.of(page, Math.min(size, 100), Sort.by(Sort.Direction.DESC, "unlockedAt"));
-        Page<SellerRewardResponse> result = adminSellerService.getRewardClaims(status, pageRequest);
+        SellerRewardStatus parsedStatus = null;
+        if (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) {
+            try {
+                parsedStatus = SellerRewardStatus.valueOf(status.trim().toUpperCase());
+            } catch (IllegalArgumentException ignored) {}
+        }
+        Page<SellerRewardResponse> result = adminSellerService.getRewardClaims(parsedStatus, pageRequest);
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 

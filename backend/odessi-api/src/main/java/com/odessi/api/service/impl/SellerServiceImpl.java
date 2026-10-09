@@ -125,7 +125,7 @@ public class SellerServiceImpl implements SellerService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public SellerDashboardResponse getSellerDashboard(User user) {
         if (user == null || user.getId() == null) {
             throw new BadRequestException("Authentication required");
@@ -139,7 +139,12 @@ public class SellerServiceImpl implements SellerService {
                 "Access restricted: Seller account is currently in " + seller.getStatus() + " status.");
         }
 
-        int verifiedSales = seller.getVerifiedSalesCount();
+        int verifiedSales = attributionRepository.countVerifiedQualifyingSales(seller.getId());
+        if (seller.getVerifiedSalesCount() != verifiedSales) {
+            seller.setVerifiedSalesCount(verifiedSales);
+            seller = sellerRepository.save(seller);
+            milestoneService.evaluateMilestonesForSeller(seller);
+        }
         int pendingOrders = attributionRepository.countPendingAttributedOrders(seller.getId());
 
         List<SellerMilestoneConfigResponse> milestones = milestoneService.getActiveMilestones();

@@ -1,5 +1,6 @@
 package com.odessi.api.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -24,6 +25,7 @@ public record SellerApplyRequest(
     @NotBlank(message = "Reason for joining is required")
     String applicationReason,
 
+    @JsonAlias({"agreeToTerms", "termsAccepted"})
     @NotNull(message = "Must accept terms")
     Boolean termsAccepted
 ) {}

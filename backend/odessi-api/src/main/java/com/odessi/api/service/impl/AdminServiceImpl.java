@@ -1076,7 +1076,9 @@ public class AdminServiceImpl implements AdminService {
         order.setStatus(newStatus);
         Order updated = orderRepository.save(order);
 
-        if (newStatus == OrderStatus.CANCELLED && sellerAttributionService != null) {
+        if (newStatus == OrderStatus.DELIVERED && sellerAttributionService != null) {
+            sellerAttributionService.qualifyOrder(orderId);
+        } else if (newStatus == OrderStatus.CANCELLED && sellerAttributionService != null) {
             sellerAttributionService.disqualifyOrder(orderId, "DISQUALIFIED_CANCELLED");
         }
 

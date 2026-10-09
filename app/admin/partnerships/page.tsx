@@ -122,6 +122,7 @@ export default function AdminPartnershipsPage() {
   const [editingMilestone, setEditingMilestone] = useState<SellerMilestoneConfigResponse | null>(null);
   const [isCreatingMilestone, setIsCreatingMilestone] = useState(false);
   const [milestoneForm, setMilestoneForm] = useState<SellerMilestoneConfigRequest>({
+    tierLevel: 1,
     milestoneName: "",
     qualifyingSalesThreshold: 10,
     rewardTitle: "",
@@ -1284,8 +1285,10 @@ export default function AdminPartnershipsPage() {
             </div>
             <button
               onClick={() => {
+                const nextTier = milestones.length > 0 ? Math.max(...milestones.map((m) => m.tierLevel)) + 1 : 1;
                 setEditingMilestone(null);
                 setMilestoneForm({
+                  tierLevel: nextTier,
                   milestoneName: "",
                   qualifyingSalesThreshold: 10,
                   rewardTitle: "",
@@ -1378,6 +1381,7 @@ export default function AdminPartnershipsPage() {
                           onClick={() => {
                             setEditingMilestone(m);
                             setMilestoneForm({
+                              tierLevel: m.tierLevel,
                               milestoneName: m.milestoneName,
                               qualifyingSalesThreshold: m.qualifyingSalesThreshold,
                               rewardTitle: m.rewardTitle,
@@ -1431,23 +1435,44 @@ export default function AdminPartnershipsPage() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
-                      Qualifying Sales Required *
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      required
-                      value={milestoneForm.qualifyingSalesThreshold}
-                      onChange={(e) =>
-                        setMilestoneForm({
-                          ...milestoneForm,
-                          qualifyingSalesThreshold: parseInt(e.target.value, 10) || 1,
-                        })
-                      }
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono"
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
+                        Tier Level # *
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        required
+                        value={milestoneForm.tierLevel || 1}
+                        onChange={(e) =>
+                          setMilestoneForm({
+                            ...milestoneForm,
+                            tierLevel: parseInt(e.target.value, 10) || 1,
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
+                        Qualifying Sales Required *
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        required
+                        value={milestoneForm.qualifyingSalesThreshold}
+                        onChange={(e) =>
+                          setMilestoneForm({
+                            ...milestoneForm,
+                            qualifyingSalesThreshold: parseInt(e.target.value, 10) || 1,
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono"
+                      />
+                    </div>
                   </div>
 
                   <div>

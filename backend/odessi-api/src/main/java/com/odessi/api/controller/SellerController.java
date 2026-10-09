@@ -17,6 +17,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.odessi.api.dto.response.SellerMilestoneConfigResponse;
+import com.odessi.api.service.SellerMilestoneService;
+
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -25,10 +29,12 @@ import java.util.Map;
 public class SellerController {
 
     private final SellerService sellerService;
+    private final SellerMilestoneService milestoneService;
     private final AuthService authService;
 
-    public SellerController(SellerService sellerService, AuthService authService) {
+    public SellerController(SellerService sellerService, SellerMilestoneService milestoneService, AuthService authService) {
         this.sellerService = sellerService;
+        this.milestoneService = milestoneService;
         this.authService = authService;
     }
 
@@ -75,5 +81,12 @@ public class SellerController {
     public ResponseEntity<ApiResponse<Map<String, Boolean>>> validateCode(@RequestParam String code) {
         boolean valid = sellerService.validateSellerCode(code);
         return ResponseEntity.ok(ApiResponse.ok(Map.of("valid", valid)));
+    }
+
+    @GetMapping("/milestones")
+    @Operation(summary = "Get active seller milestone reward levels and requirements")
+    public ResponseEntity<ApiResponse<List<SellerMilestoneConfigResponse>>> getMilestones() {
+        List<SellerMilestoneConfigResponse> response = milestoneService.getActiveMilestones();
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

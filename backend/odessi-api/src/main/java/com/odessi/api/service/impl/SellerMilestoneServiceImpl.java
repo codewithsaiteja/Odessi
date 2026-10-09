@@ -79,15 +79,18 @@ public class SellerMilestoneServiceImpl implements SellerMilestoneService {
         if (request.qualifyingSalesThreshold() <= 0) {
             throw new BadRequestException("Sales threshold must be greater than zero");
         }
-        if (milestoneRepository.existsByTierLevel(request.tierLevel())) {
-            throw new BadRequestException("A milestone tier level " + request.tierLevel() + " already exists");
+        int tierLevel = request.tierLevel() != null ? request.tierLevel() : (
+            milestoneRepository.findAll().stream().mapToInt(SellerMilestoneConfig::getTierLevel).max().orElse(0) + 1
+        );
+        if (milestoneRepository.existsByTierLevel(tierLevel)) {
+            throw new BadRequestException("A milestone tier level " + tierLevel + " already exists");
         }
         if (milestoneRepository.existsByQualifyingSalesThreshold(request.qualifyingSalesThreshold())) {
             throw new BadRequestException("A milestone with sales threshold " + request.qualifyingSalesThreshold() + " already exists");
         }
 
         SellerMilestoneConfig config = new SellerMilestoneConfig(
-            request.tierLevel(),
+            tierLevel,
             request.milestoneName().trim(),
             request.qualifyingSalesThreshold(),
             request.rewardTitle().trim(),
@@ -119,16 +122,17 @@ public class SellerMilestoneServiceImpl implements SellerMilestoneService {
             throw new BadRequestException("Sales threshold must be greater than zero");
         }
 
+        int targetTier = request.tierLevel() != null ? request.tierLevel() : config.getTierLevel();
         // Check if tier level or threshold collisions exist
-        if (config.getTierLevel() != request.tierLevel() && milestoneRepository.existsByTierLevel(request.tierLevel())) {
-            throw new BadRequestException("A milestone tier level " + request.tierLevel() + " already exists");
+        if (config.getTierLevel() != targetTier && milestoneRepository.existsByTierLevel(targetTier)) {
+            throw new BadRequestException("A milestone tier level " + targetTier + " already exists");
         }
         if (config.getQualifyingSalesThreshold() != request.qualifyingSalesThreshold() &&
             milestoneRepository.existsByQualifyingSalesThreshold(request.qualifyingSalesThreshold())) {
             throw new BadRequestException("A milestone with sales threshold " + request.qualifyingSalesThreshold() + " already exists");
         }
 
-        config.setTierLevel(request.tierLevel());
+        config.setTierLevel(targetTier);
         config.setMilestoneName(request.milestoneName().trim());
         config.setQualifyingSalesThreshold(request.qualifyingSalesThreshold());
         config.setRewardTitle(request.rewardTitle().trim());
