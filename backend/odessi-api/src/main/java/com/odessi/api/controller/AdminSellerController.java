@@ -9,6 +9,7 @@ import com.odessi.api.entity.SellerStatus;
 import com.odessi.api.entity.User;
 import com.odessi.api.service.AdminSellerService;
 import com.odessi.api.service.AuthService;
+import com.odessi.api.service.MediaStorageService;
 import com.odessi.api.service.SellerMilestoneService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,9 +21,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/admin/sellers")
@@ -33,14 +38,17 @@ public class AdminSellerController {
     private final AdminSellerService adminSellerService;
     private final SellerMilestoneService milestoneService;
     private final AuthService authService;
+    private final MediaStorageService mediaStorageService;
 
     public AdminSellerController(
             AdminSellerService adminSellerService,
             SellerMilestoneService milestoneService,
-            AuthService authService) {
+            AuthService authService,
+            MediaStorageService mediaStorageService) {
         this.adminSellerService = adminSellerService;
         this.milestoneService = milestoneService;
         this.authService = authService;
+        this.mediaStorageService = mediaStorageService;
     }
 
     // ── Seller Management ───────────────────────────────────────────────────
@@ -107,6 +115,64 @@ public class AdminSellerController {
         User admin = authService.getCurrentUser();
         SellerMilestoneConfigResponse response = milestoneService.updateMilestone(admin, id, request);
         return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    // ── Gift Media Management ───────────────────────────────────────────────
+
+    @PostMapping(value = "/media/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload a real gift image asset into the dedicated sellers media folder")
+    public ResponseEntity<ApiResponse<Map<String, String>>> uploadGiftMedia(@RequestParam("file") MultipartFile file) {
+        String url = mediaStorageService.storeSellerGiftImage(file);
+        String filename = url.substring(url.lastIndexOf('/') + 1);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(Map.of(
+            "url", url,
+            "filename", filename
+        )));
+    }
+
+    @GetMapping("/media")
+    @Operation(summary = "List all available seller gift media assets and their milestone usage")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getGiftMedia() {
+        List<SellerMilestoneConfigResponse> milestones = milestoneService.getAllMilestones();
+        List<Map<String, Object>> mediaList = new ArrayList<>();
+
+        // Base pre-seeded real gift assets
+        String[] defaultGifts = new String[] {
+            "/sellers/gifts/milestone-10.webp",
+            "/sellers/gifts/milestone-25.webp",
+            "/sellers/gifts/milestone-50.webp",
+            "/sellers/gifts/milestone-100.webp"
+        };
+
+        Set<String> seenUrls = new HashSet<>();
+        for (String def : defaultGifts) {
+            seenUrls.add(def);
+            List<String> usedIn = milestones.stream()
+                .filter(m -> def.equals(m.imageUrl()))
+                .map(m -> "Level " + m.tierLevel() + " (" + m.milestoneName() + ")")
+                .toList();
+            mediaList.add(Map.of(
+                "url", def,
+                "filename", def.substring(def.lastIndexOf('/') + 1),
+                "usedInMilestones", usedIn,
+                "isDefault", true
+            ));
+        }
+
+        // Add any custom milestone image URLs
+        for (SellerMilestoneConfigResponse m : milestones) {
+            if (m.imageUrl() != null && !seenUrls.contains(m.imageUrl())) {
+                seenUrls.add(m.imageUrl());
+                mediaList.add(Map.of(
+                    "url", m.imageUrl(),
+                    "filename", m.imageUrl().substring(m.imageUrl().lastIndexOf('/') + 1),
+                    "usedInMilestones", List.of("Level " + m.tierLevel() + " (" + m.milestoneName() + ")"),
+                    "isDefault", false
+                ));
+            }
+        }
+
+        return ResponseEntity.ok(ApiResponse.ok(mediaList));
     }
 
     // ── Reward Fulfillment ──────────────────────────────────────────────────

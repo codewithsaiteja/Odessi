@@ -28,20 +28,21 @@ import {
   ShieldAlert,
   ArrowRight,
   Package,
+  RefreshCw,
 } from "lucide-react";
 
 const MILESTONE_IMAGES: Record<number, string> = {
-  1: "/sellers/seller-level-1-rising.jpg",
-  2: "/sellers/seller-level-2-trusted.jpg",
-  3: "/sellers/seller-level-3-elite.jpg",
-  4: "/sellers/seller-level-4-ambassador.jpg",
+  1: "/sellers/gifts/milestone-10.webp",
+  2: "/sellers/gifts/milestone-25.webp",
+  3: "/sellers/gifts/milestone-50.webp",
+  4: "/sellers/gifts/milestone-100.webp",
 };
 
 function getMilestoneImage(tierLevel: number, serverUrl?: string): string {
-  if (serverUrl && !serverUrl.includes("/images/rewards/")) {
+  if (serverUrl && serverUrl.trim().length > 0 && !serverUrl.includes("/images/rewards/")) {
     return serverUrl;
   }
-  return MILESTONE_IMAGES[tierLevel] || "/sellers/seller-level-1-rising.jpg";
+  return MILESTONE_IMAGES[tierLevel] || "/sellers/gifts/milestone-10.webp";
 }
 
 export default function AccountSeller() {
@@ -49,6 +50,8 @@ export default function AccountSeller() {
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [sellerStatus, setSellerStatus] = useState<SellerResponse | null>(null);
   const [dashboard, setDashboard] = useState<SellerDashboardResponse | null>(null);
 
@@ -103,6 +106,24 @@ export default function AccountSeller() {
       setLoading(false);
     }
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const statusRes = await sellerApi.getStatus();
+      setSellerStatus(statusRes);
+      if (statusRes && statusRes.status === "APPROVED") {
+        const dashRes = await sellerApi.getDashboard();
+        setDashboard(dashRes);
+        setLastUpdated(new Date());
+      }
+      toast.success("Dashboard refreshed with live sales and gift statuses.");
+    } catch (err: any) {
+      toast.error("Failed to refresh seller dashboard");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     loadSellerData();
@@ -219,15 +240,84 @@ export default function AccountSeller() {
   // ──────────────────────────────────────────────────────────────────────────
   if (sellerStatus && sellerStatus.status === "APPROVED" && dashboard) {
     const verifiedSales = dashboard.verifiedSales;
+    const pendingOrders = dashboard.pendingOrders;
     const nextMilestone = dashboard.nextMilestone;
     const currentMilestone = dashboard.currentMilestone;
     const targetThreshold = nextMilestone ? nextMilestone.qualifyingSalesThreshold : (currentMilestone ? currentMilestone.qualifyingSalesThreshold : 10);
     const progressPercent = dashboard.progressPercent;
     const remainingSales = dashboard.remainingSalesToNextMilestone;
     const sellerCode = dashboard.seller.sellerCode;
+    const unlockedCount = dashboard.rewards.filter((r) => r.status === "UNLOCKED").length;
+    const claimedCount = dashboard.rewards.filter((r) => r.status === "CLAIMED" || r.status === "APPROVED" || r.status === "PROCESSING").length;
+    const deliveredCount = dashboard.rewards.filter((r) => r.status === "DELIVERED" || r.status === "SHIPPED").length;
 
     return (
       <div className="space-y-8">
+        {/* Phase 4 Live Status & Sync Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-600">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-semibold text-stone-900">Live Seller Tracking Active</span>
+            <span className="text-stone-400">&bull;</span>
+            <span className="text-stone-500 font-mono text-[11px]">
+              Last synced: {lastUpdated.toLocaleTimeString()}
+            </span>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-stone-100 border border-stone-300 rounded-lg text-stone-800 font-medium transition disabled:opacity-50 shadow-2xs cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-stone-600 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Syncing..." : "Sync Live Sales"}
+          </button>
+        </div>
+
+        {/* Phase 4 Live Summary Metrics KPI Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white border border-stone-200 rounded-xl p-4 shadow-2xs">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-500 block font-semibold">
+              Verified Sales
+            </span>
+            <span className="text-2xl font-bold text-stone-900 font-sans mt-1 block">
+              {verifiedSales}
+            </span>
+            <span className="text-[11px] text-stone-500">Delivered &amp; qualified orders</span>
+          </div>
+
+          <div className="bg-white border border-stone-200 rounded-xl p-4 shadow-2xs">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-500 block font-semibold">
+              Awaiting Verification
+            </span>
+            <span className="text-2xl font-bold text-amber-700 font-sans mt-1 block">
+              {pendingOrders}
+            </span>
+            <span className="text-[11px] text-stone-500">In-flight customer orders</span>
+          </div>
+
+          <div className="bg-white border border-stone-200 rounded-xl p-4 shadow-2xs">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-500 block font-semibold">
+              Unlocked Rewards
+            </span>
+            <span className="text-2xl font-bold text-emerald-700 font-sans mt-1 block">
+              {unlockedCount}
+            </span>
+            <span className="text-[11px] text-stone-500">Ready to claim today</span>
+          </div>
+
+          <div className="bg-white border border-stone-200 rounded-xl p-4 shadow-2xs">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-500 block font-semibold">
+              Fulfillment Pipeline
+            </span>
+            <span className="text-2xl font-bold text-indigo-700 font-sans mt-1 block">
+              {claimedCount + deliveredCount}
+            </span>
+            <span className="text-[11px] text-stone-500">
+              {deliveredCount} delivered, {claimedCount} in transit
+            </span>
+          </div>
+        </div>
+
         {/* Top Header Card — Primary visual from Screenshot 1 & 3 */}
         <div className="bg-[#0D0F15] border border-[#232836] rounded-2xl p-6 sm:p-8 shadow-2xl text-white relative overflow-hidden">
           {/* Subtle background glow */}
@@ -397,20 +487,20 @@ export default function AccountSeller() {
                   className="p-5 rounded-xl border border-stone-200 bg-stone-50/60 flex flex-col justify-between space-y-4"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-stone-300 bg-stone-100">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 border border-stone-300 bg-stone-100">
                       <Image
-                        src={getMilestoneImage(reward.tierLevel)}
+                        src={getMilestoneImage(reward.tierLevel, reward.imageUrl)}
                         alt={reward.rewardTitleSnapshot}
                         fill
                         className="object-cover"
-                        sizes="64px"
+                        sizes="(max-width: 640px) 64px, 80px"
                       />
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-700">
-                          {reward.milestoneNameSnapshot}
+                          {reward.milestoneNameSnapshot} (Level {reward.tierLevel})
                         </span>
                         <span
                           className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0 ${
@@ -418,7 +508,7 @@ export default function AccountSeller() {
                               ? "bg-amber-100 text-amber-800 border-amber-300"
                               : reward.status === "CLAIMED"
                               ? "bg-blue-100 text-blue-800 border-blue-300"
-                              : reward.status === "APPROVED"
+                              : reward.status === "APPROVED" || reward.status === "PROCESSING"
                               ? "bg-purple-100 text-purple-800 border-purple-300"
                               : reward.status === "SHIPPED"
                               ? "bg-indigo-100 text-indigo-800 border-indigo-300"
@@ -429,8 +519,8 @@ export default function AccountSeller() {
                             ? "Ready to Claim"
                             : reward.status === "CLAIMED"
                             ? "Claimed"
-                            : reward.status === "APPROVED"
-                            ? "Approved"
+                            : reward.status === "APPROVED" || reward.status === "PROCESSING"
+                            ? "Processing"
                             : reward.status === "SHIPPED"
                             ? "Dispatched"
                             : "Delivered"}
@@ -445,14 +535,44 @@ export default function AccountSeller() {
                     </div>
                   </div>
 
+                  {/* Dates / Lifecycle Stepper */}
+                  <div className="pt-2 border-t border-stone-200/80 flex items-center justify-between text-[11px] text-stone-500 font-mono">
+                    <span>Unlocked: {new Date(reward.unlockedAt).toLocaleDateString()}</span>
+                    {reward.claimedAt && (
+                      <span>Claimed: {new Date(reward.claimedAt).toLocaleDateString()}</span>
+                    )}
+                  </div>
+
+                  {/* Processing Status Notice */}
+                  {(reward.status === "PROCESSING" || reward.status === "APPROVED") && (
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-xs text-purple-900 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
+                      <span>Reward claim verified! Your gift package is being prepared for dispatch.</span>
+                    </div>
+                  )}
+
                   {/* Shipment Tracking details if dispatched */}
                   {reward.status === "SHIPPED" && (
-                    <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-xs space-y-1">
-                      <div className="flex items-center gap-1.5 font-semibold text-indigo-900">
-                        <Truck className="w-3.5 h-3.5" /> Dispatched via {reward.shippingCarrier || "Courier"}
+                    <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-semibold text-indigo-900">
+                          <Truck className="w-3.5 h-3.5" /> Dispatched via {reward.shippingCarrier || "Dedicated Courier"}
+                        </div>
+                        {reward.dispatchedAt && (
+                          <span className="text-[10px] text-indigo-700 font-mono">
+                            {new Date(reward.dispatchedAt).toLocaleDateString()}
+                          </span>
+                        )}
                       </div>
                       <div className="font-mono text-[11px] text-indigo-800">
-                        Tracking: <span className="font-bold">{reward.trackingNumber || "N/A"}</span>
+                        Tracking:{" "}
+                        {reward.trackingNumber ? (
+                          <span className="font-bold">{reward.trackingNumber}</span>
+                        ) : (
+                          <span className="italic text-indigo-600 font-sans">
+                            Tracking details have not been added yet.
+                          </span>
+                        )}
                       </div>
                       {reward.trackingUrl && (
                         <a
@@ -461,23 +581,29 @@ export default function AccountSeller() {
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-[11px] text-indigo-700 hover:underline font-semibold mt-1"
                         >
-                          Track Package <ExternalLink className="w-3 h-3" />
+                          Track Package Live <ExternalLink className="w-3 h-3" />
                         </a>
                       )}
                     </div>
                   )}
 
                   {reward.status === "DELIVERED" && (
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 text-xs text-emerald-800 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>Reward successfully delivered. Enjoy your exclusive merchandise!</span>
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs space-y-1.5 text-emerald-900">
+                      <div className="flex items-center gap-2 font-semibold">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Reward successfully delivered!</span>
+                      </div>
+                      <div className="text-[11px] text-emerald-700 font-mono flex items-center justify-between">
+                        <span>Delivered: {reward.deliveredAt ? new Date(reward.deliveredAt).toLocaleDateString() : "Confirmed"}</span>
+                        {reward.trackingNumber && <span>Tracking: {reward.trackingNumber}</span>}
+                      </div>
                     </div>
                   )}
 
                   {reward.status === "UNLOCKED" && (
                     <button
                       onClick={() => handleOpenClaimModal(reward)}
-                      className="w-full py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition shadow-xs"
+                      className="w-full py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
                     >
                       <Gift className="w-3.5 h-3.5 text-amber-300" /> Claim Physical Reward
                     </button>
@@ -505,11 +631,16 @@ export default function AccountSeller() {
               const isCurrent =
                 nextMilestone?.id === milestone.id ||
                 (!nextMilestone && isAchieved && currentMilestone?.id === milestone.id);
+              const milestoneRemaining = Math.max(0, milestone.qualifyingSalesThreshold - verifiedSales);
+              const milestonePercent = Math.min(100, Math.round((verifiedSales / milestone.qualifyingSalesThreshold) * 100));
+              const associatedReward = dashboard.rewards.find(
+                (r) => r.milestoneConfigId === milestone.id || r.tierLevel === milestone.tierLevel
+              );
 
               return (
                 <div
                   key={milestone.id}
-                  className={`p-4 sm:p-5 rounded-xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                  className={`p-4 sm:p-5 rounded-xl border transition-all flex flex-col justify-between gap-4 ${
                     isAchieved
                       ? "bg-amber-50/50 border-amber-200"
                       : isCurrent
@@ -517,59 +648,118 @@ export default function AccountSeller() {
                       : "bg-stone-50 border-stone-200 text-stone-700 opacity-90"
                   }`}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 border border-stone-300 bg-stone-950">
-                      <Image
-                        src={getMilestoneImage(milestone.tierLevel, milestone.imageUrl)}
-                        alt={milestone.milestoneName}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 640px) 64px, 80px"
-                      />
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 border border-stone-300 bg-stone-950">
+                        <Image
+                          src={getMilestoneImage(milestone.tierLevel, milestone.imageUrl)}
+                          alt={milestone.milestoneName}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 64px, 80px"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-[10px] font-mono uppercase font-bold tracking-wider ${
+                              isCurrent ? "text-[#B89A5A]" : isAchieved ? "text-amber-800" : "text-stone-400"
+                            }`}
+                          >
+                            Level {milestone.tierLevel}
+                          </span>
+                          <span
+                            className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                              isCurrent
+                                ? "bg-amber-400/20 text-amber-300 border border-amber-400/30"
+                                : isAchieved
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-stone-200 text-stone-700"
+                            }`}
+                          >
+                            {milestone.qualifyingSalesThreshold} sales
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-sm sm:text-base mt-0.5">
+                          {milestone.milestoneName} &mdash; <span className="font-normal">{milestone.rewardTitle}</span>
+                        </h4>
+                        <p className={`text-xs mt-0.5 ${isCurrent ? "text-slate-300" : "text-stone-600"}`}>
+                          {milestone.rewardDescription}
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      <div className="flex items-center gap-2">
+                    <div className="shrink-0 self-end sm:self-auto flex items-center gap-3">
+                      {associatedReward ? (
                         <span
-                          className={`text-[10px] font-mono uppercase font-bold tracking-wider ${
-                            isCurrent ? "text-[#B89A5A]" : isAchieved ? "text-amber-800" : "text-stone-400"
+                          className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border ${
+                            associatedReward.status === "DELIVERED"
+                              ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                              : associatedReward.status === "SHIPPED"
+                              ? "bg-indigo-100 text-indigo-800 border-indigo-300"
+                              : associatedReward.status === "UNLOCKED"
+                              ? "bg-amber-100 text-amber-800 border-amber-300"
+                              : "bg-purple-100 text-purple-800 border-purple-300"
                           }`}
                         >
-                          Level {milestone.tierLevel}
+                          {associatedReward.status === "UNLOCKED"
+                            ? "Ready to Claim"
+                            : associatedReward.status === "CLAIMED"
+                            ? "Claimed"
+                            : associatedReward.status === "APPROVED" || associatedReward.status === "PROCESSING"
+                            ? "Processing"
+                            : associatedReward.status === "SHIPPED"
+                            ? "Dispatched"
+                            : "Delivered"}
                         </span>
-                        <span
-                          className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                            isCurrent
-                              ? "bg-amber-400/20 text-amber-300 border border-amber-400/30"
-                              : isAchieved
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-stone-200 text-stone-700"
-                          }`}
+                      ) : isAchieved ? (
+                        <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                          <Check className="w-4 h-4" /> Unlocked
+                        </span>
+                      ) : isCurrent ? (
+                        <span className="text-xs font-bold text-[#E5C378] flex items-center gap-1">
+                          In Progress &bull; {milestoneRemaining} left
+                        </span>
+                      ) : (
+                        <span className="text-xs text-stone-400 font-medium">
+                          Locked &bull; {milestoneRemaining} left
+                        </span>
+                      )}
+
+                      {associatedReward && associatedReward.status === "UNLOCKED" && (
+                        <button
+                          onClick={() => handleOpenClaimModal(associatedReward)}
+                          className="px-3 py-1.5 bg-[#B89A5A] hover:bg-[#A3864A] text-slate-950 font-bold rounded-lg text-xs transition cursor-pointer"
                         >
-                          {milestone.qualifyingSalesThreshold} sales
-                        </span>
-                      </div>
-                      <h4 className="font-bold text-sm sm:text-base mt-0.5">
-                        {milestone.milestoneName}
-                      </h4>
-                      <p className={`text-xs mt-0.5 ${isCurrent ? "text-slate-300" : "text-stone-600"}`}>
-                        {milestone.rewardDescription}
-                      </p>
+                          Claim Gift
+                        </button>
+                      )}
                     </div>
                   </div>
 
-                  <div className="shrink-0 self-end sm:self-auto">
-                    {isAchieved ? (
-                      <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
-                        <Check className="w-4 h-4" /> Unlocked
+                  {/* Individual Milestone Progress Bar */}
+                  <div className="mt-2 pt-2 border-t border-stone-200/40 dark:border-stone-800/60">
+                    <div className="flex justify-between text-[11px] mb-1">
+                      <span className={isCurrent ? "text-slate-400" : "text-stone-500"}>
+                        Progress: {verifiedSales} / {milestone.qualifyingSalesThreshold} sales
                       </span>
-                    ) : isCurrent ? (
-                      <span className="text-xs font-bold text-[#E5C378] flex items-center gap-1">
-                        In Progress &bull; {remainingSales} left
+                      <span className={isCurrent ? "text-[#E5C378] font-bold" : "text-stone-700 font-semibold"}>
+                        {isAchieved ? "100% Complete" : `${milestoneRemaining} sales remaining`}
                       </span>
-                    ) : (
-                      <span className="text-xs text-stone-400 font-medium">Locked</span>
-                    )}
+                    </div>
+                    <div className={`w-full rounded-full h-1.5 overflow-hidden ${isCurrent ? "bg-stone-800" : "bg-stone-200"}`}>
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isAchieved
+                            ? "bg-emerald-500"
+                            : isCurrent
+                            ? "bg-gradient-to-r from-[#B89A5A] to-[#F3D58C]"
+                            : "bg-stone-400"
+                        }`}
+                        style={{ width: `${milestonePercent}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
               );
@@ -1031,29 +1221,29 @@ function MilestoneTiersPreview() {
       level: 1,
       title: "Rising Seller",
       sales: "10 successful sales",
-      reward: "ODISSI appreciation certificate + exclusive sticker pack.",
-      image: "/sellers/seller-level-1-rising.jpg",
+      reward: "Exclusive ODESSI Matte Bracelet Set & Certificate in velvet pouch.",
+      image: "/sellers/gifts/milestone-10.webp",
     },
     {
       level: 2,
       title: "Trusted Seller",
       sales: "25 successful sales",
-      reward: "One exclusive ODESSI T shirt as a gift.",
-      image: "/sellers/seller-level-2-trusted.jpg",
+      reward: "Exclusive ODESSI T-Shirt Gift Set in luxury presentation box.",
+      image: "/sellers/gifts/milestone-25.webp",
     },
     {
       level: 3,
       title: "Elite Seller",
       sales: "50 successful sales",
-      reward: "One exclusive ODESSI hoodie + a trusted seller badge.",
-      image: "/sellers/seller-level-3-elite.jpg",
+      reward: "Luxury ODESSI French Terry Hoodie & Gift Box with VIP correspondence.",
+      image: "/sellers/gifts/milestone-50.webp",
     },
     {
       level: 4,
-      title: "ODISSI Brand Ambassador",
+      title: "ODDSI Brand Ambassador",
       sales: "100 successful sales",
-      reward: "Exclusive premium gift box, ambassador recognition and early access to new drops.",
-      image: "/sellers/seller-level-4-ambassador.jpg",
+      reward: "ODDSI Brand Ambassador Luxury Hamper (Chest, hoodie, tee, thermos, cap & gold recognition).",
+      image: "/sellers/gifts/milestone-100.webp",
     },
   ];
 

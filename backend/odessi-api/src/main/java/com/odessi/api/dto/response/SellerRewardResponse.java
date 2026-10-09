@@ -12,6 +12,7 @@ public record SellerRewardResponse(
     String milestoneNameSnapshot,
     String rewardTitleSnapshot,
     String rewardDescriptionSnapshot,
+    String imageUrl,
     int qualifyingSalesAtUnlock,
     SellerRewardStatus status,
     Instant unlockedAt,
@@ -33,6 +34,10 @@ public record SellerRewardResponse(
 ) {
     public static SellerRewardResponse fromEntity(SellerReward r) {
         if (r == null) return null;
+        String resolvedImage = r.getImageUrlSnapshot();
+        if (resolvedImage == null && r.getMilestoneConfig() != null) {
+            resolvedImage = r.getMilestoneConfig().getImageUrl();
+        }
         return new SellerRewardResponse(
             r.getId(),
             r.getSeller() != null ? r.getSeller().getId() : null,
@@ -41,6 +46,7 @@ public record SellerRewardResponse(
             r.getMilestoneNameSnapshot(),
             r.getRewardTitleSnapshot(),
             r.getRewardDescriptionSnapshot(),
+            resolvedImage,
             r.getQualifyingSalesAtUnlock(),
             r.getStatus(),
             r.getUnlockedAt(),
@@ -59,6 +65,42 @@ public record SellerRewardResponse(
             r.getDispatchedAt(),
             r.getDeliveredAt(),
             r.getAdminNotes()
+        );
+    }
+
+    public static SellerRewardResponse fromEntityForSeller(SellerReward r) {
+        if (r == null) return null;
+        String resolvedImage = r.getImageUrlSnapshot();
+        if (resolvedImage == null && r.getMilestoneConfig() != null) {
+            resolvedImage = r.getMilestoneConfig().getImageUrl();
+        }
+        return new SellerRewardResponse(
+            r.getId(),
+            r.getSeller() != null ? r.getSeller().getId() : null,
+            r.getMilestoneConfig() != null ? r.getMilestoneConfig().getId() : null,
+            r.getTierLevel(),
+            r.getMilestoneNameSnapshot(),
+            r.getRewardTitleSnapshot(),
+            r.getRewardDescriptionSnapshot(),
+            resolvedImage,
+            r.getQualifyingSalesAtUnlock(),
+            r.getStatus(),
+            r.getUnlockedAt(),
+            r.getClaimedAt(),
+            r.getShippingFullName(),
+            r.getShippingPhone(),
+            r.getShippingAddressLine1(),
+            r.getShippingAddressLine2(),
+            r.getShippingCity(),
+            r.getShippingState(),
+            r.getShippingPostalCode(),
+            r.getTshirtSize(),
+            r.getShippingCarrier(),
+            r.getTrackingNumber(),
+            r.getTrackingUrl(),
+            r.getDispatchedAt(),
+            r.getDeliveredAt(),
+            null // adminNotes strictly hidden from customer seller view
         );
     }
 }

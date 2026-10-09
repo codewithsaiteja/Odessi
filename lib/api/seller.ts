@@ -2,11 +2,19 @@
  * ODESSI.TFI — Trusted Sellers Program API Client
  */
 
-import { apiGet, apiPost, apiPatch, apiPut, buildQueryString, ApiError } from "./client";
+import { apiGet, apiPost, apiPatch, apiPut, apiPostFormData, buildQueryString, ApiError } from "./client";
 import { PageResponse } from "./growth";
 
 export type SellerStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
-export type SellerRewardStatus = "UNLOCKED" | "CLAIMED" | "APPROVED" | "SHIPPED" | "DELIVERED";
+export type SellerRewardStatus =
+  | "UNLOCKED"
+  | "CLAIMED"
+  | "APPROVED"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED"
+  | "REJECTED";
 
 export interface SellerResponse {
   id: number;
@@ -46,6 +54,7 @@ export interface SellerRewardResponse {
   milestoneNameSnapshot: string;
   rewardTitleSnapshot: string;
   rewardDescriptionSnapshot: string;
+  imageUrl?: string;
   qualifyingSalesAtUnlock: number;
   status: SellerRewardStatus;
   unlockedAt: string;
@@ -161,6 +170,13 @@ export interface SellerPerformanceStatsResponse {
   rewardsAwaitingApproval: number;
   rewardsAwaitingShipment: number;
   rewardsDelivered: number;
+}
+
+export interface SellerGiftMediaItem {
+  url: string;
+  filename: string;
+  usedInMilestones: string[];
+  isDefault: boolean;
 }
 
 // ── Customer Seller API ──────────────────────────────────────────────────────
@@ -296,5 +312,15 @@ export const sellerApi = {
   }): Promise<PageResponse<SellerAuditLogResponse>> {
     const query = buildQueryString(params || {});
     return apiGet<PageResponse<SellerAuditLogResponse>>(`/api/admin/sellers/audit-logs${query}`);
+  },
+
+  async uploadGiftMedia(file: File): Promise<{ url: string; filename: string }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiPostFormData<{ url: string; filename: string }>("/api/admin/sellers/media/upload", formData);
+  },
+
+  async getGiftMediaList(): Promise<SellerGiftMediaItem[]> {
+    return apiGet<SellerGiftMediaItem[]>("/api/admin/sellers/media");
   },
 };

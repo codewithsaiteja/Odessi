@@ -169,12 +169,20 @@ public class AdminSellerServiceImpl implements AdminSellerService {
             reward.setAdminNotes(request.adminNotes().trim());
         }
 
+        if (request.shippingCarrier() != null && !request.shippingCarrier().isBlank()) {
+            reward.setShippingCarrier(request.shippingCarrier().trim());
+        }
+        if (request.trackingNumber() != null && !request.trackingNumber().isBlank()) {
+            reward.setTrackingNumber(request.trackingNumber().trim());
+        }
+        if (request.trackingUrl() != null && !request.trackingUrl().isBlank()) {
+            reward.setTrackingUrl(request.trackingUrl().trim());
+        }
+
         if (newStatus == SellerRewardStatus.SHIPPED) {
-            if (request.shippingCarrier() != null) reward.setShippingCarrier(request.shippingCarrier().trim());
-            if (request.trackingNumber() != null) reward.setTrackingNumber(request.trackingNumber().trim());
-            if (request.trackingUrl() != null) reward.setTrackingUrl(request.trackingUrl().trim());
             if (reward.getDispatchedAt() == null) reward.setDispatchedAt(Instant.now());
         } else if (newStatus == SellerRewardStatus.DELIVERED) {
+            if (reward.getDispatchedAt() == null) reward.setDispatchedAt(Instant.now());
             if (reward.getDeliveredAt() == null) reward.setDeliveredAt(Instant.now());
         }
 

@@ -44,6 +44,7 @@ public class LocalStorageServiceImpl implements MediaStorageService {
     private final Path categoryUploadDirectory;
     private final Path contentUploadDirectory;
     private final Path collectionUploadDirectory;
+    private final Path sellerGiftsUploadDirectory;
 
     public LocalStorageServiceImpl() {
         this.uploadDirectory = Paths.get("uploads", "products").toAbsolutePath().normalize();
@@ -51,14 +52,16 @@ public class LocalStorageServiceImpl implements MediaStorageService {
         this.categoryUploadDirectory = Paths.get("uploads", "categories").toAbsolutePath().normalize();
         this.contentUploadDirectory = Paths.get("uploads", "content").toAbsolutePath().normalize();
         this.collectionUploadDirectory = Paths.get("uploads", "collections").toAbsolutePath().normalize();
+        this.sellerGiftsUploadDirectory = Paths.get("uploads", "sellers", "gifts").toAbsolutePath().normalize();
         try {
             Files.createDirectories(this.uploadDirectory);
             Files.createDirectories(this.socialUploadDirectory);
             Files.createDirectories(this.categoryUploadDirectory);
             Files.createDirectories(this.contentUploadDirectory);
             Files.createDirectories(this.collectionUploadDirectory);
+            Files.createDirectories(this.sellerGiftsUploadDirectory);
         } catch (IOException e) {
-            log.error("Could not create upload directories: {}, {}, {}, {} or {}", this.uploadDirectory, this.socialUploadDirectory, this.categoryUploadDirectory, this.contentUploadDirectory, this.collectionUploadDirectory, e);
+            log.error("Could not create upload directories: {}, {}, {}, {}, {} or {}", this.uploadDirectory, this.socialUploadDirectory, this.categoryUploadDirectory, this.contentUploadDirectory, this.collectionUploadDirectory, this.sellerGiftsUploadDirectory, e);
         }
     }
 
@@ -201,13 +204,30 @@ public class LocalStorageServiceImpl implements MediaStorageService {
             dir = this.contentUploadDirectory;
         } else if ("collections".equals(safeCategory)) {
             dir = this.collectionUploadDirectory;
+        } else if ("sellers".equals(safeCategory) || "gifts".equals(safeCategory)) {
+            dir = this.sellerGiftsUploadDirectory;
         } else {
             dir = this.socialUploadDirectory;
         }
         Path filePath = dir.resolve(safeFilename).normalize();
 
         if (!filePath.startsWith(dir) || !Files.exists(filePath) || !Files.isRegularFile(filePath)) {
-            return Optional.empty();
+            // Check fallback in public/sellers/gifts if in development
+            if ("sellers".equals(safeCategory) || "gifts".equals(safeCategory)) {
+                Path publicFallback = Paths.get("..", "public", "sellers", "gifts", safeFilename).toAbsolutePath().normalize();
+                if (Files.exists(publicFallback) && Files.isRegularFile(publicFallback)) {
+                    filePath = publicFallback;
+                } else {
+                    Path localFallback = Paths.get("public", "sellers", "gifts", safeFilename).toAbsolutePath().normalize();
+                    if (Files.exists(localFallback) && Files.isRegularFile(localFallback)) {
+                        filePath = localFallback;
+                    } else {
+                        return Optional.empty();
+                    }
+                }
+            } else {
+                return Optional.empty();
+            }
         }
 
         try {
@@ -420,6 +440,46 @@ public class LocalStorageServiceImpl implements MediaStorageService {
                     log.warn("Could not delete collection image file {}", filePath, e);
                 }
             }
+        }
+    }
+
+    @Override
+    public String storeSellerGiftImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("INVALID_FILE", "Upload file cannot be empty");
+        }
+
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new BadRequestException("FILE_TOO_LARGE", "Image size cannot exceed 5MB");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
+            throw new BadRequestException("INVALID_FILE_TYPE", "Only JPG, PNG, and WEBP images are allowed");
+        }
+
+        String originalName = file.getOriginalFilename();
+        String extension = ".webp";
+        if (originalName != null && originalName.contains(".")) {
+            extension = originalName.substring(originalName.lastIndexOf(".")).toLowerCase();
+            if (!List.of(".jpg", ".jpeg", ".png", ".webp").contains(extension)) {
+                extension = ".webp";
+            }
+        }
+
+        String fileName = "gift-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8) + extension;
+        Path targetPath = this.sellerGiftsUploadDirectory.resolve(fileName).normalize();
+        if (!targetPath.startsWith(this.sellerGiftsUploadDirectory)) {
+            throw new BadRequestException("INVALID_PATH", "Path traversal attempt detected");
+        }
+
+        try {
+            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            log.info("Stored seller gift image to {}", targetPath);
+            return "/api/media/sellers/" + fileName;
+        } catch (IOException e) {
+            log.error("Failed to store uploaded seller gift image {}", fileName, e);
+            throw new BadRequestException("STORAGE_ERROR", "Failed to store seller gift image on server");
         }
     }
 

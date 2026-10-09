@@ -36,6 +36,9 @@ public class SellerReward {
     @Column(name = "reward_description_snapshot", nullable = false, columnDefinition = "TEXT")
     private String rewardDescriptionSnapshot;
 
+    @Column(name = "image_url_snapshot", length = 255)
+    private String imageUrlSnapshot;
+
     @Column(name = "qualifying_sales_at_unlock", nullable = false)
     private int qualifyingSalesAtUnlock;
 
@@ -110,6 +113,7 @@ public class SellerReward {
         this.milestoneNameSnapshot = config.getMilestoneName();
         this.rewardTitleSnapshot = config.getRewardTitle();
         this.rewardDescriptionSnapshot = config.getRewardDescription();
+        this.imageUrlSnapshot = config.getImageUrl();
         this.qualifyingSalesAtUnlock = qualifyingSalesAtUnlock;
         this.status = SellerRewardStatus.UNLOCKED;
         this.unlockedAt = Instant.now();
@@ -140,6 +144,9 @@ public class SellerReward {
 
     public String getRewardDescriptionSnapshot() { return rewardDescriptionSnapshot; }
     public void setRewardDescriptionSnapshot(String rewardDescriptionSnapshot) { this.rewardDescriptionSnapshot = rewardDescriptionSnapshot; }
+
+    public String getImageUrlSnapshot() { return imageUrlSnapshot; }
+    public void setImageUrlSnapshot(String imageUrlSnapshot) { this.imageUrlSnapshot = imageUrlSnapshot; }
 
     public int getQualifyingSalesAtUnlock() { return qualifyingSalesAtUnlock; }
     public void setQualifyingSalesAtUnlock(int qualifyingSalesAtUnlock) { this.qualifyingSalesAtUnlock = qualifyingSalesAtUnlock; }

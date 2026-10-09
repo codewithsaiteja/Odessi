@@ -15,6 +15,7 @@ import {
   SellerAttributionResponse,
   SellerAuditLogResponse,
   SellerPerformanceStatsResponse,
+  SellerGiftMediaItem,
 } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -43,6 +44,11 @@ import {
   Download,
   AlertCircle,
   Eye,
+  Image as ImageIcon,
+  Upload,
+  Copy,
+  Clock,
+  Package,
 } from "lucide-react";
 
 export type AdminSection =
@@ -52,6 +58,7 @@ export type AdminSection =
   | "performance"
   | "milestones"
   | "rewards"
+  | "media"
   | "audit"
   | "wholesale";
 
@@ -125,6 +132,13 @@ export default function AdminPartnershipsPage() {
   const [savingMilestone, setSavingMilestone] = useState(false);
 
   // ──────────────────────────────────────────────────────────────────────────
+  // 5b. GIFT MEDIA GALLERY STATE
+  // ──────────────────────────────────────────────────────────────────────────
+  const [giftMedia, setGiftMedia] = useState<SellerGiftMediaItem[]>([]);
+  const [loadingGiftMedia, setLoadingGiftMedia] = useState(false);
+  const [uploadingGiftMedia, setUploadingGiftMedia] = useState(false);
+
+  // ──────────────────────────────────────────────────────────────────────────
   // 6. GLOBAL AUDIT HISTORY STATE
   // ──────────────────────────────────────────────────────────────────────────
   const [globalAuditLogs, setGlobalAuditLogs] = useState<SellerAuditLogResponse[]>([]);
@@ -143,6 +157,34 @@ export default function AdminPartnershipsPage() {
   const [updatingWholesaleStatus, setUpdatingWholesaleStatus] = useState(false);
 
   // ── Data Fetchers ──────────────────────────────────────────────────────────
+
+  const fetchGiftMedia = useCallback(async () => {
+    setLoadingGiftMedia(true);
+    try {
+      const res = await sellerApi.getGiftMediaList();
+      setGiftMedia(res || []);
+    } catch {
+      setGiftMedia([]);
+    } finally {
+      setLoadingGiftMedia(false);
+    }
+  }, []);
+
+  const handleUploadGiftFile = async (file: File): Promise<string | null> => {
+    if (!file) return null;
+    setUploadingGiftMedia(true);
+    try {
+      const res = await sellerApi.uploadGiftMedia(file);
+      toast.success(`Gift image "${res.filename}" uploaded successfully!`);
+      await fetchGiftMedia();
+      return res.url;
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to upload gift image");
+      return null;
+    } finally {
+      setUploadingGiftMedia(false);
+    }
+  };
 
   const fetchSellers = useCallback(async () => {
     setLoadingSellers(true);
@@ -252,8 +294,12 @@ export default function AdminPartnershipsPage() {
     else if (activeTab === "rewards") fetchRewardClaims();
     else if (activeTab === "attributions") fetchAttributions();
     else if (activeTab === "performance") fetchPerformanceStats();
-    else if (activeTab === "milestones") fetchMilestones();
-    else if (activeTab === "audit") fetchGlobalAuditLogs();
+    else if (activeTab === "milestones") {
+      fetchMilestones();
+      fetchGiftMedia();
+    } else if (activeTab === "media") {
+      fetchGiftMedia();
+    } else if (activeTab === "audit") fetchGlobalAuditLogs();
     else if (activeTab === "wholesale") fetchWholesale();
   }, [
     activeTab,
@@ -262,6 +308,7 @@ export default function AdminPartnershipsPage() {
     fetchAttributions,
     fetchPerformanceStats,
     fetchMilestones,
+    fetchGiftMedia,
     fetchGlobalAuditLogs,
     fetchWholesale,
   ]);
@@ -559,6 +606,18 @@ export default function AdminPartnershipsPage() {
           </button>
 
           <button
+            onClick={() => setActiveTab("media")}
+            className={`px-3.5 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition flex items-center gap-1.5 ${
+              activeTab === "media"
+                ? "bg-slate-900 text-white shadow-xs"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
+          >
+            <ImageIcon className="w-3.5 h-3.5 text-sky-500" />
+            <span>7. Gift Media Gallery</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab("audit")}
             className={`px-3.5 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition flex items-center gap-1.5 ${
               activeTab === "audit"
@@ -567,7 +626,7 @@ export default function AdminPartnershipsPage() {
             }`}
           >
             <History className="w-3.5 h-3.5 text-slate-500" />
-            <span>7. Audit History</span>
+            <span>8. Audit History</span>
           </button>
 
           <button
@@ -579,7 +638,7 @@ export default function AdminPartnershipsPage() {
             }`}
           >
             <Building2 className="w-3.5 h-3.5 text-blue-500" />
-            <span>8. Wholesale Inquiries</span>
+            <span>9. Wholesale Inquiries</span>
           </button>
         </div>
       </div>
@@ -1272,8 +1331,36 @@ export default function AdminPartnershipsPage() {
                         <div className="font-semibold text-slate-900">{m.rewardTitle}</div>
                         <div className="text-[11px] text-slate-500">{m.rewardDescription}</div>
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-[10px] text-slate-500">
-                        {m.imageUrl || "Default"}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-11 h-11 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0 shadow-2xs">
+                            <img
+                              src={
+                                m.imageUrl ||
+                                (m.tierLevel === 1
+                                  ? "/sellers/gifts/milestone-10.webp"
+                                  : m.tierLevel === 2
+                                  ? "/sellers/gifts/milestone-25.webp"
+                                  : m.tierLevel === 3
+                                  ? "/sellers/gifts/milestone-50.webp"
+                                  : "/sellers/gifts/milestone-100.webp")
+                              }
+                              alt={m.rewardTitle}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = "/sellers/gifts/milestone-10.webp";
+                              }}
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-mono text-[11px] text-slate-700 font-medium truncate max-w-[140px]" title={m.imageUrl || ""}>
+                              {m.imageUrl ? m.imageUrl.split("/").pop() : "default.webp"}
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {m.imageUrl?.startsWith("/api/media") ? "Uploaded Media" : "Dedicated Asset"}
+                            </span>
+                          </div>
+                        </div>
                       </td>
                       <td className="py-3.5 px-4">
                         <span
@@ -1316,7 +1403,7 @@ export default function AdminPartnershipsPage() {
           {/* Edit / Create Milestone Modal */}
           {isCreatingMilestone && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-              <div className="bg-white w-full max-w-lg rounded-2xl p-6 border border-slate-200 shadow-2xl space-y-4">
+              <div className="bg-white w-full max-w-lg rounded-2xl p-6 border border-slate-200 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-start border-b border-slate-200 pb-3">
                   <h3 className="font-bold text-slate-900 text-base">
                     {editingMilestone ? `Edit Milestone #${editingMilestone.tierLevel}` : "Create Milestone Tier"}
@@ -1391,17 +1478,94 @@ export default function AdminPartnershipsPage() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
-                      Image URL (Public asset path)
+                  {/* Gift Image Management & Live Preview */}
+                  <div className="space-y-2 pt-2 border-t border-slate-200">
+                    <label className="block text-[11px] font-semibold text-slate-700 uppercase">
+                      Gift Product Photography
                     </label>
-                    <input
-                      type="text"
-                      value={milestoneForm.imageUrl || ""}
-                      onChange={(e) => setMilestoneForm({ ...milestoneForm, imageUrl: e.target.value })}
-                      placeholder="/sellers/seller-level-2-trusted.jpg"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono"
-                    />
+
+                    {/* Live Preview Box */}
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden border border-slate-300 bg-white shrink-0 shadow-2xs">
+                        <img
+                          src={milestoneForm.imageUrl || "/sellers/gifts/milestone-10.webp"}
+                          alt="Gift Preview"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "/sellers/gifts/milestone-10.webp";
+                          }}
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[10px] uppercase font-bold text-amber-600 block">
+                          Current Milestone Asset
+                        </span>
+                        <div className="text-xs font-semibold text-slate-900 truncate">
+                          {milestoneForm.imageUrl ? milestoneForm.imageUrl.split("/").pop() : "Default Gift Image"}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono truncate">
+                          {milestoneForm.imageUrl || "/sellers/gifts/milestone-10.webp"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Preset Selector */}
+                    <div>
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase block mb-1.5">
+                        Select Default Gift Photography:
+                      </span>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[
+                          { label: "Level 1: Bracelet", url: "/sellers/gifts/milestone-10.webp" },
+                          { label: "Level 2: T-Shirt Set", url: "/sellers/gifts/milestone-25.webp" },
+                          { label: "Level 3: Hoodie Box", url: "/sellers/gifts/milestone-50.webp" },
+                          { label: "Level 4: Luxury Hamper", url: "/sellers/gifts/milestone-100.webp" },
+                        ].map((preset) => (
+                          <button
+                            key={preset.url}
+                            type="button"
+                            onClick={() => setMilestoneForm({ ...milestoneForm, imageUrl: preset.url })}
+                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium border text-left truncate transition ${
+                              milestoneForm.imageUrl === preset.url
+                                ? "bg-amber-500 text-slate-950 font-bold border-amber-600 shadow-2xs"
+                                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Upload or Custom URL */}
+                    <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <label className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold cursor-pointer transition shrink-0">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{uploadingGiftMedia ? "Uploading..." : "Upload New Image"}</span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          disabled={uploadingGiftMedia}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const url = await handleUploadGiftFile(file);
+                              if (url) {
+                                setMilestoneForm((prev) => ({ ...prev, imageUrl: url }));
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                      <input
+                        type="text"
+                        value={milestoneForm.imageUrl || ""}
+                        onChange={(e) => setMilestoneForm({ ...milestoneForm, imageUrl: e.target.value })}
+                        placeholder="Or enter custom URL (/sellers/gifts/...)"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono text-xs"
+                      />
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -1456,7 +1620,8 @@ export default function AdminPartnershipsPage() {
                 <option value="">All Fulfillment Statuses</option>
                 <option value="UNLOCKED">Unlocked (Unclaimed)</option>
                 <option value="CLAIMED">Claimed (Awaiting Approval)</option>
-                <option value="APPROVED">Approved (Awaiting Dispatch)</option>
+                <option value="APPROVED">Approved (Ready for Packaging)</option>
+                <option value="PROCESSING">Processing (In Packaging)</option>
                 <option value="SHIPPED">Shipped (In Transit)</option>
                 <option value="DELIVERED">Delivered</option>
               </select>
@@ -1481,7 +1646,7 @@ export default function AdminPartnershipsPage() {
                   <tr>
                     <th className="py-3.5 px-4">Reward ID</th>
                     <th className="py-3.5 px-4">Milestone Tier</th>
-                    <th className="py-3.5 px-4">Reward Gift</th>
+                    <th className="py-3.5 px-4">Gift Photo &amp; Reward</th>
                     <th className="py-3.5 px-4">Shipping Destination</th>
                     <th className="py-3.5 px-4">Size</th>
                     <th className="py-3.5 px-4">Status</th>
@@ -1489,58 +1654,97 @@ export default function AdminPartnershipsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {rewardClaims.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-medium text-slate-900">#{r.id}</td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-semibold text-slate-900">{r.milestoneNameSnapshot}</span>
-                        <div className="text-[10px] text-slate-400 font-mono">Level {r.tierLevel} ({r.qualifyingSalesAtUnlock} sales)</div>
-                      </td>
-                      <td className="py-3.5 px-4 font-medium text-slate-800">{r.rewardTitleSnapshot}</td>
-                      <td className="py-3.5 px-4">
-                        {r.shippingFullName ? (
-                          <div>
-                            <span className="font-semibold text-slate-900">{r.shippingFullName}</span>
-                            <div className="text-[10px] text-slate-400 font-mono">{r.shippingCity} - {r.shippingPostalCode}</div>
+                  {rewardClaims.map((r) => {
+                    const fallbackImg =
+                      r.tierLevel === 1
+                        ? "/sellers/gifts/milestone-10.webp"
+                        : r.tierLevel === 2
+                        ? "/sellers/gifts/milestone-25.webp"
+                        : r.tierLevel === 3
+                        ? "/sellers/gifts/milestone-50.webp"
+                        : "/sellers/gifts/milestone-100.webp";
+                    const rewardImg = r.imageUrl || fallbackImg;
+
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-medium text-slate-900">#{r.id}</td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-semibold text-slate-900">{r.milestoneNameSnapshot}</span>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            Level {r.tierLevel} ({r.qualifyingSalesAtUnlock} sales)
                           </div>
-                        ) : (
-                          <span className="text-slate-400 italic">Address not submitted</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-700">{r.tshirtSize || "N/A"}</td>
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                            r.status === "UNLOCKED"
-                              ? "bg-amber-50 text-amber-800 border-amber-200"
-                              : r.status === "CLAIMED"
-                              ? "bg-blue-50 text-blue-800 border-blue-200"
-                              : r.status === "APPROVED"
-                              ? "bg-purple-50 text-purple-800 border-purple-200"
-                              : r.status === "SHIPPED"
-                              ? "bg-indigo-50 text-indigo-800 border-indigo-200"
-                              : "bg-emerald-50 text-emerald-800 border-emerald-200"
-                          }`}
-                        >
-                          {r.status}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => {
-                            setSelectedReward(r);
-                            setShippingCarrier(r.shippingCarrier || "Delhivery");
-                            setTrackingNumber(r.trackingNumber || "");
-                            setTrackingUrl(r.trackingUrl || "");
-                            setRewardAdminNotes(r.adminNotes || "");
-                          }}
-                          className="px-2.5 py-1 bg-slate-900 text-white rounded text-[11px] font-medium hover:bg-slate-800 transition"
-                        >
-                          Fulfillment
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0 shadow-2xs">
+                              <img
+                                src={rewardImg}
+                                alt={r.rewardTitleSnapshot}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = fallbackImg;
+                                }}
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-slate-900 truncate max-w-xs">{r.rewardTitleSnapshot}</div>
+                              {r.shippingCarrier && r.trackingNumber && (
+                                <div className="text-[10px] text-indigo-700 font-mono mt-0.5">
+                                  {r.shippingCarrier}: {r.trackingNumber}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {r.shippingFullName ? (
+                            <div>
+                              <span className="font-semibold text-slate-900">{r.shippingFullName}</span>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {r.shippingCity} - {r.shippingPostalCode}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic">Address not submitted</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-slate-700">{r.tshirtSize || "N/A"}</td>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                              r.status === "UNLOCKED"
+                                ? "bg-slate-100 text-slate-700 border-slate-300"
+                                : r.status === "CLAIMED"
+                                ? "bg-blue-50 text-blue-800 border-blue-200"
+                                : r.status === "APPROVED"
+                                ? "bg-purple-50 text-purple-800 border-purple-200"
+                                : r.status === "PROCESSING"
+                                ? "bg-amber-100 text-amber-900 border-amber-300 font-semibold"
+                                : r.status === "SHIPPED"
+                                ? "bg-indigo-50 text-indigo-800 border-indigo-200"
+                                : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            }`}
+                          >
+                            {r.status}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            onClick={() => {
+                              setSelectedReward(r);
+                              setShippingCarrier(r.shippingCarrier || "Delhivery");
+                              setTrackingNumber(r.trackingNumber || "");
+                              setTrackingUrl(r.trackingUrl || "");
+                              setRewardAdminNotes(r.adminNotes || "");
+                            }}
+                            className="px-2.5 py-1 bg-slate-900 text-white rounded text-[11px] font-medium hover:bg-slate-800 transition"
+                          >
+                            Fulfillment
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -1549,18 +1753,36 @@ export default function AdminPartnershipsPage() {
           {/* Reward Fulfillment Management Modal */}
           {selectedReward && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-              <div className="bg-white w-full max-w-xl rounded-2xl p-6 border border-slate-200 shadow-2xl space-y-5">
+              <div className="bg-white w-full max-w-xl rounded-2xl p-6 border border-slate-200 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto">
                 <div className="flex justify-between items-start border-b border-slate-200 pb-4">
-                  <div>
-                    <span className="text-[10px] font-mono uppercase font-bold text-amber-600 block">
-                      Physical Reward Fulfillment #{selectedReward.id}
-                    </span>
-                    <h3 className="font-bold text-slate-900 text-lg">
-                      {selectedReward.rewardTitleSnapshot}
-                    </h3>
-                    <p className="text-xs text-slate-500 font-mono">
-                      Milestone: {selectedReward.milestoneNameSnapshot} (Level {selectedReward.tierLevel})
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shrink-0 shadow-xs">
+                      <img
+                        src={
+                          selectedReward.imageUrl ||
+                          (selectedReward.tierLevel === 1
+                            ? "/sellers/gifts/milestone-10.webp"
+                            : selectedReward.tierLevel === 2
+                            ? "/sellers/gifts/milestone-25.webp"
+                            : selectedReward.tierLevel === 3
+                            ? "/sellers/gifts/milestone-50.webp"
+                            : "/sellers/gifts/milestone-100.webp")
+                        }
+                        alt={selectedReward.rewardTitleSnapshot}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-mono uppercase font-bold text-amber-600 block">
+                        Physical Reward Fulfillment #{selectedReward.id}
+                      </span>
+                      <h3 className="font-bold text-slate-900 text-base">
+                        {selectedReward.rewardTitleSnapshot}
+                      </h3>
+                      <p className="text-xs text-slate-500 font-mono">
+                        Milestone: {selectedReward.milestoneNameSnapshot} (Level {selectedReward.tierLevel} &bull; {selectedReward.qualifyingSalesAtUnlock} sales)
+                      </p>
+                    </div>
                   </div>
                   <button
                     onClick={() => setSelectedReward(null)}
@@ -1607,17 +1829,54 @@ export default function AdminPartnershipsPage() {
                     {selectedReward.status === "CLAIMED" && (
                       <button
                         disabled={updatingReward}
-                        onClick={() => handleUpdateRewardStatus(selectedReward.id, "APPROVED")}
-                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold"
+                        onClick={() =>
+                          handleUpdateRewardStatus(
+                            selectedReward.id,
+                            "APPROVED",
+                            shippingCarrier,
+                            trackingNumber,
+                            trackingUrl,
+                            rewardAdminNotes
+                          )
+                        }
+                        className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold"
                       >
-                        Approve for Packing &amp; Dispatch
+                        Approve Claim
+                      </button>
+                    )}
+
+                    {(selectedReward.status === "CLAIMED" || selectedReward.status === "APPROVED") && (
+                      <button
+                        disabled={updatingReward}
+                        onClick={() =>
+                          handleUpdateRewardStatus(
+                            selectedReward.id,
+                            "PROCESSING",
+                            shippingCarrier,
+                            trackingNumber,
+                            trackingUrl,
+                            rewardAdminNotes
+                          )
+                        }
+                        className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5"
+                      >
+                        <Package className="w-3.5 h-3.5" /> Move to Processing &amp; Packaging
                       </button>
                     )}
 
                     {selectedReward.status === "SHIPPED" && (
                       <button
                         disabled={updatingReward}
-                        onClick={() => handleUpdateRewardStatus(selectedReward.id, "DELIVERED")}
+                        onClick={() =>
+                          handleUpdateRewardStatus(
+                            selectedReward.id,
+                            "DELIVERED",
+                            shippingCarrier,
+                            trackingNumber,
+                            trackingUrl,
+                            rewardAdminNotes
+                          )
+                        }
                         className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" /> Mark as Delivered
@@ -1628,6 +1887,7 @@ export default function AdminPartnershipsPage() {
                   {/* Shipment Tracking Input */}
                   {(selectedReward.status === "CLAIMED" ||
                     selectedReward.status === "APPROVED" ||
+                    selectedReward.status === "PROCESSING" ||
                     selectedReward.status === "SHIPPED") && (
                     <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                       <span className="text-slate-700 block text-[11px] font-bold">
@@ -1675,22 +1935,61 @@ export default function AdminPartnershipsPage() {
                         />
                       </div>
 
-                      <button
-                        disabled={updatingReward || !trackingNumber.trim()}
-                        onClick={() =>
-                          handleUpdateRewardStatus(
-                            selectedReward.id,
-                            "SHIPPED",
-                            shippingCarrier,
-                            trackingNumber,
-                            trackingUrl,
-                            rewardAdminNotes
-                          )
-                        }
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
-                      >
-                        <Truck className="w-3.5 h-3.5" /> Save Tracking &amp; Mark Dispatched
-                      </button>
+                      {/* Internal Admin Notes */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[10px] uppercase font-semibold text-slate-500 flex items-center gap-1">
+                            <ShieldAlert className="w-3 h-3 text-amber-600" />
+                            Internal Fulfillment Notes
+                          </label>
+                          <span className="text-[10px] text-slate-400">Hidden from seller</span>
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={rewardAdminNotes}
+                          onChange={(e) => setRewardAdminNotes(e.target.value)}
+                          placeholder="Record warehouse batch number, packaging checklist, dispatch notes..."
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <button
+                          disabled={updatingReward}
+                          onClick={() =>
+                            handleUpdateRewardStatus(
+                              selectedReward.id,
+                              selectedReward.status === "UNLOCKED"
+                                ? "APPROVED"
+                                : (selectedReward.status as SellerRewardStatus),
+                              shippingCarrier,
+                              trackingNumber,
+                              trackingUrl,
+                              rewardAdminNotes
+                            )
+                          }
+                          className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg text-xs font-semibold transition"
+                        >
+                          Save Notes &amp; Tracking Only
+                        </button>
+
+                        <button
+                          disabled={updatingReward || !trackingNumber.trim()}
+                          onClick={() =>
+                            handleUpdateRewardStatus(
+                              selectedReward.id,
+                              "SHIPPED",
+                              shippingCarrier,
+                              trackingNumber,
+                              trackingUrl,
+                              rewardAdminNotes
+                            )
+                          }
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
+                        >
+                          <Truck className="w-3.5 h-3.5" /> Save &amp; Mark Dispatched
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1701,7 +2000,215 @@ export default function AdminPartnershipsPage() {
       )}
 
       {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* SECTION 7: AUDIT HISTORY */}
+      {/* SECTION 7: GIFT MEDIA GALLERY */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {activeTab === "media" && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+            <div>
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-sky-500" />
+                <h3 className="text-base font-bold text-slate-900">Dedicated Seller Gift Photography Gallery</h3>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Manage high-resolution physical gift photography for seller milestone rewards. Assets reside in{" "}
+                <span className="font-mono text-slate-700 bg-slate-100 px-1 py-0.5 rounded">public/sellers/gifts/</span> and persistent media storage.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchGiftMedia}
+                className="px-3.5 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1.5 transition"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Refresh Assets
+              </button>
+
+              <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs transition">
+                <Upload className="w-3.5 h-3.5" />
+                <span>{uploadingGiftMedia ? "Uploading..." : "Upload New Gift Image"}</span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  disabled={uploadingGiftMedia}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      await handleUploadGiftFile(file);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Standard 4 Tier Presets Overview */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Crown className="w-3.5 h-3.5 text-amber-500" /> Milestone Tier Default Photography
+              </span>
+              <span className="text-[11px] text-slate-500">Live assets wired to reward levels</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                {
+                  tier: 1,
+                  threshold: 10,
+                  name: "Signature Matte Bracelet Set",
+                  url: "/sellers/gifts/milestone-10.webp",
+                  desc: "Matte black & gold beads with branded luxury pouch",
+                },
+                {
+                  tier: 2,
+                  threshold: 25,
+                  name: "Luxury ODESSI T-Shirt Gift Set",
+                  url: "/sellers/gifts/milestone-25.webp",
+                  desc: "Premium heavyweight organic cotton tee in matte presentation box",
+                },
+                {
+                  tier: 3,
+                  threshold: 50,
+                  name: "Premium Hoodie & VIP Gift Box",
+                  url: "/sellers/gifts/milestone-50.webp",
+                  desc: "500 GSM embroidered French terry hoodie with gold accents",
+                },
+                {
+                  tier: 4,
+                  threshold: 100,
+                  name: "Ambassador Luxury Gift Set",
+                  url: "/sellers/gifts/milestone-100.webp",
+                  desc: "All-black matte & gold presentation hamper with engraved seal",
+                },
+              ].map((preset) => (
+                <div
+                  key={preset.url}
+                  className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs hover:border-slate-300 transition group"
+                >
+                  <div className="relative aspect-4/3 bg-slate-100 overflow-hidden">
+                    <img
+                      src={preset.url}
+                      alt={preset.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-xs text-amber-400 px-2 py-0.5 rounded text-[10px] font-mono font-bold">
+                      Level {preset.tier} &bull; {preset.threshold} Sales
+                    </div>
+                  </div>
+                  <div className="p-3.5 space-y-2">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 line-clamp-1">{preset.name}</h4>
+                      <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{preset.desc}</p>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                      <span className="font-mono text-[10px] text-slate-400 truncate max-w-[120px]">{preset.url}</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(preset.url);
+                          toast.success(`Copied asset path: ${preset.url}`);
+                        }}
+                        className="p-1 text-slate-500 hover:text-slate-900 rounded hover:bg-slate-100 transition"
+                        title="Copy image URL"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Dynamic Storage Uploads Gallery */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5 text-sky-500" /> Uploaded &amp; Stored Gift Media
+              </span>
+              <span className="text-[11px] text-slate-500">
+                {giftMedia.length} {giftMedia.length === 1 ? "file" : "files"} in storage
+              </span>
+            </div>
+
+            {loadingGiftMedia ? (
+              <div className="bg-white p-12 text-center text-slate-400 text-xs font-mono rounded-2xl border border-slate-200">
+                Scanning seller gift media directory...
+              </div>
+            ) : giftMedia.length === 0 ? (
+              <div className="bg-white p-10 text-center rounded-2xl border border-dashed border-slate-200 space-y-2">
+                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+                  <ImageIcon className="w-5 h-5" />
+                </div>
+                <p className="text-xs font-medium text-slate-700">No additional custom gift images uploaded yet</p>
+                <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                  The 4 standard milestone assets above are active. Upload custom photography for special editions, promotional gifts, or revised packaging.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {giftMedia.map((item) => (
+                  <div
+                    key={item.filename}
+                    className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs group hover:border-slate-300 transition"
+                  >
+                    <div className="relative aspect-square bg-slate-100 overflow-hidden">
+                      <img
+                        src={item.url}
+                        alt={item.filename}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/sellers/gifts/milestone-10.webp";
+                        }}
+                      />
+                      {item.isDefault && (
+                        <div className="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-xs text-amber-400 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold">
+                          Default Preset
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3 space-y-2">
+                      <div className="font-mono text-xs font-medium text-slate-900 truncate" title={item.filename}>
+                        {item.filename}
+                      </div>
+                      {item.usedInMilestones && item.usedInMilestones.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {item.usedInMilestones.map((milestoneName) => (
+                            <span
+                              key={milestoneName}
+                              className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-50 text-amber-800 border border-amber-200"
+                            >
+                              {milestoneName}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                        <span className="font-mono text-[10px] text-slate-400 truncate max-w-[120px]" title={item.url}>
+                          {item.url}
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(item.url);
+                            toast.success(`Copied image URL: ${item.url}`);
+                          }}
+                          className="px-2 py-1 text-[10px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-800 rounded flex items-center gap-1 transition"
+                        >
+                          <Copy className="w-3 h-3" /> Copy URL
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* SECTION 8: AUDIT HISTORY */}
       {/* ─────────────────────────────────────────────────────────────────── */}
       {activeTab === "audit" && (
         <div className="space-y-4">
@@ -1768,7 +2275,7 @@ export default function AdminPartnershipsPage() {
       )}
 
       {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* SECTION 8: WHOLESALE INQUIRIES (PRESERVED) */}
+      {/* SECTION 9: WHOLESALE INQUIRIES (PRESERVED) */}
       {/* ─────────────────────────────────────────────────────────────────── */}
       {activeTab === "wholesale" && (
         <div className="space-y-4">

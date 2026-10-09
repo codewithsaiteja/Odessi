@@ -176,7 +176,7 @@ public class SellerServiceImpl implements SellerService {
 
         List<SellerRewardResponse> rewards = rewardRepository.findAllBySellerIdOrderByTierLevelAsc(seller.getId())
                 .stream()
-                .map(SellerRewardResponse::fromEntity)
+                .map(SellerRewardResponse::fromEntityForSeller)
                 .toList();
 
         String shareableLink = "https://www.odessitfi.me/?seller=" + seller.getSellerCode();
@@ -244,7 +244,7 @@ public class SellerServiceImpl implements SellerService {
         ));
 
         log.info("Seller {} claimed reward id={} ({})", seller.getSellerCode(), saved.getId(), saved.getRewardTitleSnapshot());
-        return SellerRewardResponse.fromEntity(saved);
+        return SellerRewardResponse.fromEntityForSeller(saved);
     }
 
     @Override

@@ -38,6 +38,12 @@ public interface MediaStorageService {
     String storeCollectionImage(MultipartFile file);
 
     /**
+     * Stores a seller gift image file in the dedicated sellers/gifts directory.
+     * Path format: /api/media/sellers/{filename}
+     */
+    String storeSellerGiftImage(MultipartFile file);
+
+    /**
      * Deletes a product image or video file from storage if present.
      */
     void deleteProductImage(String imageUrl);

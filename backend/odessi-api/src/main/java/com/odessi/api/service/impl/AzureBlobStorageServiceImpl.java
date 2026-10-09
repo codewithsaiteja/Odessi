@@ -126,6 +126,15 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
         return uploadBlob(blobName, file, file.getContentType());
     }
 
+    // ─── Seller Gift Image ──────────────────────────────────────────────────────
+
+    @Override
+    public String storeSellerGiftImage(MultipartFile file) {
+        validateImage(file);
+        String blobName = "sellers/" + safeFileName(file.getOriginalFilename(), resolveImageExtension(file));
+        return uploadBlob(blobName, file, file.getContentType());
+    }
+
     @Override
     public Optional<MediaStream> loadMedia(String category, String filename) {
         if (category == null || filename == null) {
@@ -133,7 +142,7 @@ public class AzureBlobStorageServiceImpl implements MediaStorageService {
         }
 
         String safeCategory = category.trim().toLowerCase();
-        if (!"products".equals(safeCategory) && !"social".equals(safeCategory) && !"categories".equals(safeCategory) && !"content".equals(safeCategory) && !"collections".equals(safeCategory)) {
+        if (!"products".equals(safeCategory) && !"social".equals(safeCategory) && !"categories".equals(safeCategory) && !"content".equals(safeCategory) && !"collections".equals(safeCategory) && !"sellers".equals(safeCategory) && !"gifts".equals(safeCategory)) {
             return Optional.empty();
         }
 

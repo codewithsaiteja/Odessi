@@ -37,10 +37,10 @@ public class SellerMilestoneServiceImpl implements SellerMilestoneService {
     private void ensureDefaultMilestones() {
         if (milestoneRepository.count() == 0) {
             milestoneRepository.saveAll(List.of(
-                new SellerMilestoneConfig(1, "Rising Seller", 10, "Appreciation Certificate & Sticker Pack", "ODESSI appreciation certificate + exclusive sticker pack.", "PHYSICAL_GIFT", "/sellers/seller-level-1-rising.jpg", true),
-                new SellerMilestoneConfig(2, "Trusted Seller", 25, "Exclusive ODESSI T-Shirt", "One exclusive ODESSI T shirt as a gift.", "PHYSICAL_GIFT", "/sellers/seller-level-2-trusted.jpg", true),
-                new SellerMilestoneConfig(3, "Elite Seller", 50, "Exclusive ODESSI Hoodie & Badge", "One exclusive ODESSI hoodie + a trusted seller badge.", "PHYSICAL_GIFT", "/sellers/seller-level-3-elite.jpg", true),
-                new SellerMilestoneConfig(4, "ODDSI Brand Ambassador", 100, "Premium Gift Box & Ambassador Recognition", "Exclusive premium gift box, ambassador recognition and early access to new drops.", "PHYSICAL_GIFT", "/sellers/seller-level-4-ambassador.jpg", true)
+                new SellerMilestoneConfig(1, "Rising Seller", 10, "Exclusive ODESSI Matte Bracelet Set", "Custom matte-black ODESSI branded silicone band and velvet pouch with certificate.", "PHYSICAL_GIFT", "/sellers/gifts/milestone-10.webp", true),
+                new SellerMilestoneConfig(2, "Trusted Seller", 25, "Exclusive ODESSI T-Shirt Gift Set", "Luxury matte box with custom tissue wrap containing an exclusive ODESSI tee.", "PHYSICAL_GIFT", "/sellers/gifts/milestone-25.webp", true),
+                new SellerMilestoneConfig(3, "Elite Seller", 50, "Luxury ODESSI Hoodie & Gift Box", "Premium heavyweight ODESSI French terry hoodie in luxury presentation packaging with VIP correspondence.", "PHYSICAL_GIFT", "/sellers/gifts/milestone-50.webp", true),
+                new SellerMilestoneConfig(4, "ODDSI Brand Ambassador", 100, "ODDSI Brand Ambassador Luxury Hamper", "The complete luxury ambassador unboxing chest with hoodie, tee, stainless thermos, cap, socks, keychain, and gold membership recognition.", "PHYSICAL_GIFT", "/sellers/gifts/milestone-100.webp", true)
             ));
         }
     }
