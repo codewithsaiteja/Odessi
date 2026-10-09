@@ -1,8 +1,7 @@
 package com.odessi.api.dto.request;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record SellerApplyRequest(
@@ -25,7 +24,18 @@ public record SellerApplyRequest(
     @NotBlank(message = "Reason for joining is required")
     String applicationReason,
 
-    @JsonAlias({"agreeToTerms", "termsAccepted"})
-    @NotNull(message = "Must accept terms")
-    Boolean termsAccepted
-) {}
+    @JsonProperty("termsAccepted")
+    Boolean termsAccepted,
+
+    @JsonProperty("agreeToTerms")
+    Boolean agreeToTerms
+) {
+    public SellerApplyRequest(String fullName, String email, String phone, String socialChannel, String applicationReason, Boolean termsAccepted) {
+        this(fullName, email, phone, socialChannel, applicationReason, termsAccepted, termsAccepted);
+    }
+
+    public boolean isTermsAccepted() {
+        return Boolean.TRUE.equals(termsAccepted) || Boolean.TRUE.equals(agreeToTerms);
+    }
+}
+

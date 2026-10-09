@@ -52,6 +52,10 @@ public class SellerServiceImpl implements SellerService {
             throw new BadRequestException("Authentication required to apply as seller");
         }
 
+        if (!request.isTermsAccepted()) {
+            throw new BadRequestException("Must accept terms and conditions to apply as a seller");
+        }
+
         Optional<Seller> existingOpt = sellerRepository.findByUserId(user.getId());
         if (existingOpt.isPresent()) {
             Seller existing = existingOpt.get();
@@ -73,7 +77,7 @@ public class SellerServiceImpl implements SellerService {
             existing.setApplicationReason(request.applicationReason().trim());
             existing.setStatus(SellerStatus.PENDING);
             existing.setRejectionReason(null);
-            existing.setTermsAccepted(Boolean.TRUE.equals(request.termsAccepted()));
+            existing.setTermsAccepted(request.isTermsAccepted());
 
             Seller updated = sellerRepository.save(existing);
             auditLogRepository.save(new SellerAuditLog(
@@ -97,7 +101,7 @@ public class SellerServiceImpl implements SellerService {
             request.socialChannel().trim(),
             request.applicationReason().trim()
         );
-        seller.setTermsAccepted(Boolean.TRUE.equals(request.termsAccepted()));
+        seller.setTermsAccepted(request.isTermsAccepted());
         seller.setStatus(SellerStatus.PENDING);
 
         Seller saved = sellerRepository.save(seller);
@@ -226,15 +230,26 @@ public class SellerServiceImpl implements SellerService {
                 "Reward is already in " + reward.getStatus() + " status and cannot be claimed again.");
         }
 
+        String reqFullName = request.getEffectiveFullName();
+        String reqPhone = request.getEffectivePhone();
+        String reqAddr1 = request.getEffectiveAddressLine1();
+        String reqCity = request.getEffectiveCity();
+        String reqState = request.getEffectiveState();
+        String reqPostal = request.getEffectivePostalCode();
+
+        if (reqFullName.isBlank() || reqPhone.isBlank() || reqAddr1.isBlank() || reqCity.isBlank() || reqPostal.isBlank()) {
+            throw new BadRequestException("All required shipping fields (recipient name, phone, address, city, postal code) must be provided");
+        }
+
         reward.setStatus(SellerRewardStatus.CLAIMED);
         reward.setClaimedAt(Instant.now());
-        reward.setShippingFullName(request.fullName().trim());
-        reward.setShippingPhone(request.phone().trim());
-        reward.setShippingAddressLine1(request.addressLine1().trim());
-        reward.setShippingAddressLine2(request.addressLine2() != null ? request.addressLine2().trim() : null);
-        reward.setShippingCity(request.city().trim());
-        reward.setShippingState(request.state().trim());
-        reward.setShippingPostalCode(request.postalCode().trim());
+        reward.setShippingFullName(reqFullName);
+        reward.setShippingPhone(reqPhone);
+        reward.setShippingAddressLine1(reqAddr1);
+        reward.setShippingAddressLine2(request.getEffectiveAddressLine2());
+        reward.setShippingCity(reqCity);
+        reward.setShippingState(reqState);
+        reward.setShippingPostalCode(reqPostal);
         if (request.tshirtSize() != null && !request.tshirtSize().isBlank()) {
             reward.setTshirtSize(request.tshirtSize().trim().toUpperCase());
         }

@@ -52,7 +52,14 @@ public class AdminSellerServiceImpl implements AdminSellerService {
     @Override
     @Transactional(readOnly = true)
     public Page<SellerResponse> getSellers(SellerStatus status, String search, Pageable pageable) {
-        return sellerRepository.findSellersWithFilter(status, search, pageable)
+        String cleanSearch = (search != null && !search.trim().isEmpty()) ? search.trim().toLowerCase() : null;
+        if (cleanSearch == null) {
+            if (status == null) {
+                return sellerRepository.findAll(pageable).map(SellerResponse::fromEntity);
+            }
+            return sellerRepository.findAllByStatus(status, pageable).map(SellerResponse::fromEntity);
+        }
+        return sellerRepository.findSellersWithFilter(status, "%" + cleanSearch + "%", pageable)
                 .map(SellerResponse::fromEntity);
     }
 
@@ -203,7 +210,14 @@ public class AdminSellerServiceImpl implements AdminSellerService {
     @Override
     @Transactional(readOnly = true)
     public Page<SellerAttributionResponse> getAttributions(Long sellerId, String status, Pageable pageable) {
-        return attributionRepository.findAttributionsWithFilter(sellerId, status, pageable)
+        String cleanStatus = (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) ? status.trim() : null;
+        if (sellerId == null && cleanStatus == null) {
+            return attributionRepository.findAll(pageable).map(SellerAttributionResponse::fromEntity);
+        }
+        if (sellerId != null && cleanStatus == null) {
+            return attributionRepository.findAllBySellerId(sellerId, pageable).map(SellerAttributionResponse::fromEntity);
+        }
+        return attributionRepository.findAttributionsWithFilter(sellerId, cleanStatus, pageable)
                 .map(SellerAttributionResponse::fromEntity);
     }
 

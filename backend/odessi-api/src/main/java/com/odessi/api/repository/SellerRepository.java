@@ -26,9 +26,9 @@ public interface SellerRepository extends JpaRepository<Seller, Long> {
 
     @Query("SELECT s FROM Seller s WHERE " +
            "(:status IS NULL OR s.status = :status) AND " +
-           "(:search IS NULL OR LOWER(s.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           " LOWER(s.sellerCode) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           " LOWER(s.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "(LOWER(s.fullName) LIKE :search OR " +
+           " LOWER(s.sellerCode) LIKE :search OR " +
+           " LOWER(s.email) LIKE :search)")
     Page<Seller> findSellersWithFilter(@Param("status") SellerStatus status,
                                        @Param("search") String search,
                                        Pageable pageable);

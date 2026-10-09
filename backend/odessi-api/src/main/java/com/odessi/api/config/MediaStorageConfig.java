@@ -40,8 +40,8 @@ public class MediaStorageConfig {
     @Primary
     public MediaStorageService mediaStorageService() {
         AppProperties.AzureStorage azureConfig = appProperties.getAzureStorage();
-        boolean isDevOrTest = Arrays.stream(environment.getActiveProfiles())
-                .anyMatch(p -> p.equalsIgnoreCase("dev") || p.equalsIgnoreCase("test"));
+        boolean isProduction = Arrays.stream(environment.getActiveProfiles())
+                .anyMatch(p -> p.equalsIgnoreCase("prod") || p.equalsIgnoreCase("staging") || p.equalsIgnoreCase("production"));
 
         if (azureConfig.isConfigured()) {
             log.info("[MediaStorage] Azure Blob Storage active — container: {}",
@@ -52,8 +52,8 @@ public class MediaStorageConfig {
             );
         }
 
-        if (isDevOrTest) {
-            // Development / test: local filesystem fallback is acceptable
+        if (!isProduction) {
+            // Development / local / test: local filesystem fallback is acceptable
             log.warn("[MediaStorage] Azure Blob Storage is NOT configured. " +
                      "Falling back to LocalStorageServiceImpl for local development. " +
                      "This MUST NOT happen in production.");
